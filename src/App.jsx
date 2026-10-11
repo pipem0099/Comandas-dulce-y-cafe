@@ -148,12 +148,43 @@ function estadoVisualMesa(cuenta, ordersDeLaCuenta) {
   if (!cuenta) return { tag: "Libre", bg: "#EDE7D8", color: "#8A8272" };
   const enCocina = ordersDeLaCuenta.some((o) => o.estado === "pendiente" || o.estado === "preparando");
   if (enCocina) return { tag: "En cocina", bg: "#C1442D", color: "#F7F4EC" };
-  const listoSinServir = ordersDeLaCuenta.some((o) => o.estado === "listo");
+  const listoSinServir = ordersDeLaCuenta.some((o) => o.estado !== "cancelado" && porServir(o) > 0);
   if (listoSinServir) return { tag: "Listo para servir", bg: "#2F6690", color: "#F7F4EC" };
   return { tag: "Cuenta abierta", bg: "#5B7553", color: "#F7F4EC" };
 }
 
 /* ---------------- helpers ---------------- */
+
+// Progreso por producto: cada línea de un pedido guarda cuántas unidades ya
+// salieron de cocina (`listos`) y cuántas ya se llevaron a la mesa
+// (`servidos`). Los pedidos viejos no tienen esos campos, así que se deducen
+// del estado general del pedido.
+function itemListos(o, it) {
+  if (typeof it.listos === "number") return Math.min(it.listos, it.qty);
+  return o.estado === "listo" || o.estado === "servido" ? it.qty : 0;
+}
+function itemServidos(o, it) {
+  if (typeof it.servidos === "number") return Math.min(it.servidos, it.qty);
+  return o.estado === "servido" ? it.qty : 0;
+}
+// Aplica nuevos items a un pedido y recalcula el estado general
+// (pendiente → preparando → listo → servido) según el progreso por producto.
+function conProgreso(o, items) {
+  const fijos = items.map((it) => {
+    const l = itemListos({ ...o, items }, it);
+    const sv = Math.min(itemServidos({ ...o, items }, it), l);
+    return { ...it, listos: l, servidos: sv };
+  });
+  const todosServidos = fijos.every((it) => it.servidos >= it.qty);
+  const todosListos = fijos.every((it) => it.listos >= it.qty);
+  const algunoListo = fijos.some((it) => it.listos > 0);
+  const estado = todosServidos ? "servido" : todosListos ? "listo" : (algunoListo || o.estado === "preparando") ? "preparando" : "pendiente";
+  return { ...o, items: fijos, estado, listoTs: todosListos ? (o.listoTs || Date.now()) : null };
+}
+// Unidades que ya salieron de cocina pero todavía no se han llevado a la mesa.
+function porServir(o) {
+  return o.items.reduce((a, it) => a + Math.max(0, itemListos(o, it) - itemServidos(o, it)), 0);
+}
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -804,7 +835,15 @@ function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas, persi
   const [avisoListo, setAvisoListo] = useState(null);
   useEffect(() => {
     const misCuentaIds = new Set(cuentas.filter((c) => c.mesero === meseroActual && c.estado === "abierta").map((c) => c.id));
-    const listosAhora = orders.filter((o) => o.estado === "listo" && misCuentaIds.has(o.cuentaId));
+    const listosAhora = [];
+    orders.forEach((o) => {
+      if (o.estado === "cancelado" || !misCuentaIds.has(o.cuentaId)) return;
+      o.items.forEach((it, idx) => {
+        const n = itemListos(o, it) - itemServidos(o, it);
+        // una "marca" por cada unidad lista sin servir, para detectar cuando sale una nueva
+        for (let k = 1; k <= n; k++) listosAhora.push({ ...o, id: `${o.id}#${idx}#${itemServidos(o, it) + k}` });
+      });
+    });
     const idsActuales = new Set(listosAhora.map((o) => o.id));
     if (idsListosVistosRef.current === null) {
       idsListosVistosRef.current = idsActuales; // primera carga: no suena por lo que ya estaba listo antes
@@ -881,9 +920,21 @@ function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas, persi
     if (editingOrderId === orderId) resetDraft();
   };
 
-  const marcarServido = async (orderId) => {
+  // Sirve UNA unidad de un producto (solo si cocina ya la marcó lista).
+  const servirItem = async (orderId, idx) => {
     const order = orders.find((o) => o.id === orderId);
-    if (order) await saveOrder({ ...order, estado: "servido" });
+    if (!order) return;
+    const it = order.items[idx];
+    if (!it || itemServidos(order, it) >= itemListos(order, it)) return;
+    const items = order.items.map((x, i) => (i === idx ? { ...x, listos: itemListos(order, x), servidos: itemServidos(order, x) + 1 } : x));
+    await saveOrder(conProgreso(order, items));
+  };
+  // Sirve de una vez todo lo que ya está listo en ese pedido.
+  const servirTodoListo = async (orderId) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    const items = order.items.map((x) => ({ ...x, listos: itemListos(order, x), servidos: itemListos(order, x) }));
+    await saveOrder(conProgreso(order, items));
   };
 
   const enviandoRef = useRef(false);
@@ -910,7 +961,15 @@ function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas, persi
 
       if (editingOrderId) {
         const original = orders.find((o) => o.id === editingOrderId);
-        if (original) await saveOrder({ ...original, items, nota: note.trim(), editado: true });
+        if (original) {
+          const conservados = items.map((it) => {
+            const prev = original.items.find((x) => x.id === it.id);
+            if (!prev) return it;
+            const l = Math.min(itemListos(original, prev), it.qty);
+            return { ...it, listos: l, servidos: Math.min(itemServidos(original, prev), l) };
+          });
+          await saveOrder(conProgreso({ ...original, nota: note.trim(), editado: true }, conservados));
+        }
       } else {
         let cuenta = cuentaAbiertaDe(mesaNum);
         if (!cuenta) {
@@ -1047,9 +1106,29 @@ function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas, persi
                       )}
                     </div>
                   )}
-                  {o.estado === "listo" && (
-                    <div style={styles.miniTicketActions}>
-                      <button style={styles.marcarServidoBtn} onClick={() => marcarServido(o.id)}><Check size={12} /> Marcar servido</button>
+                  {o.estado !== "servido" && (
+                    <div style={styles.itemsEstadoCol}>
+                      {o.items.map((it, idx) => {
+                        const l = itemListos(o, it), sv = itemServidos(o, it);
+                        const disponibles = l - sv;
+                        return (
+                          <div key={idx} style={styles.itemEstadoRow}>
+                            <span style={styles.itemEstadoName}>
+                              {it.qty}× {it.name}
+                              <span style={{ ...styles.itemEstadoTag, color: sv >= it.qty ? "#5B7553" : l > sv ? "#2F6690" : "#8A8272" }}>
+                                {sv >= it.qty ? "servido" : l > sv ? `${disponibles} listo${disponibles > 1 ? "s" : ""} para servir` : l >= 1 ? "" : "en cocina"}
+                                {it.qty > 1 && ` · ${sv}/${it.qty} servidos`}
+                              </span>
+                            </span>
+                            {disponibles > 0 && (
+                              <button style={styles.marcarServidoBtn} onClick={() => servirItem(o.id, idx)}><Check size={12} /> Servir{it.qty > 1 ? " 1" : ""}</button>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {porServir(o) > 1 && (
+                        <button style={{ ...styles.marcarServidoBtn, alignSelf: "flex-start" }} onClick={() => servirTodoListo(o.id)}><Check size={12} /> Servir todo lo listo ({porServir(o)})</button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1528,17 +1607,39 @@ function CocinaView({ orders, saveOrder, mesas }) {
     const o = orders.find((x) => x.id === id);
     if (!o) return;
     if (o.estado === "pendiente") { await saveOrder({ ...o, estado: "preparando" }); return; }
-    await saveOrder({ ...o, estado: "listo", listoTs: Date.now() });
+    // "Marcar todo listo": lo que falte por salir se marca como listo de una vez
+    const items = o.items.map((it) => ({ ...it, listos: it.qty, servidos: itemServidos(o, it) }));
+    await saveOrder(conProgreso(o, items));
   };
   const retroceder = async (id) => {
     const o = orders.find((x) => x.id === id);
     if (!o) return;
-    await saveOrder({ ...o, estado: "pendiente" });
+    const items = o.items.map((it) => ({ ...it, listos: itemServidos(o, it), servidos: itemServidos(o, it) }));
+    await saveOrder({ ...conProgreso(o, items), estado: "pendiente", listoTs: null });
   };
   const deshacerListo = async (id) => {
     const o = orders.find((x) => x.id === id);
     if (!o) return;
-    await saveOrder({ ...o, estado: "preparando" });
+    // vuelve a "preparando": lo que aún no se ha servido deja de contar como listo
+    const items = o.items.map((it) => ({ ...it, listos: itemServidos(o, it), servidos: itemServidos(o, it) }));
+    await saveOrder({ ...conProgreso({ ...o, estado: "preparando" }, items), estado: "preparando", listoTs: null });
+  };
+  // Marca UNA unidad de un producto como lista (sale de cocina hacia el mesero).
+  const itemListo = async (id, idx) => {
+    const o = orders.find((x) => x.id === id);
+    if (!o) return;
+    const it = o.items[idx];
+    if (!it || itemListos(o, it) >= it.qty) return;
+    const items = o.items.map((x, i) => (i === idx ? { ...x, listos: itemListos(o, x) + 1, servidos: itemServidos(o, x) } : x));
+    await saveOrder(conProgreso(o, items));
+  };
+  const itemDeshacer = async (id, idx) => {
+    const o = orders.find((x) => x.id === id);
+    if (!o) return;
+    const it = o.items[idx];
+    if (!it || itemListos(o, it) <= itemServidos(o, it)) return; // lo ya servido no se puede devolver
+    const items = o.items.map((x, i) => (i === idx ? { ...x, listos: itemListos(o, x) - 1, servidos: itemServidos(o, x) } : x));
+    await saveOrder({ ...conProgreso({ ...o, estado: "preparando" }, items), estado: "preparando", listoTs: null });
   };
 
   return (
@@ -1574,12 +1675,30 @@ function CocinaView({ orders, saveOrder, mesas }) {
               </div>
               <div style={styles.ticketExactTime}>Pedido a las {timeLabel(o.ts)}</div>
               <div style={styles.ticketDivider} />
-              {o.items.map((it, idx) => (
-                <div key={idx}>
-                  <div style={styles.ticketLine}><span style={styles.ticketQty}>{it.qty}×</span><span style={styles.ticketItemName}>{it.name}</span></div>
-                  {it.nota && <div style={styles.ticketItemNote}>↳ {it.nota}</div>}
-                </div>
-              ))}
+              {o.items.map((it, idx) => {
+                const l = itemListos(o, it);
+                const completo = l >= it.qty;
+                return (
+                  <div key={idx} style={{ opacity: completo ? 0.55 : 1 }}>
+                    <div style={styles.ticketLine}>
+                      <span style={styles.ticketQty}>{it.qty}×</span>
+                      <span style={{ ...styles.ticketItemName, textDecoration: completo ? "line-through" : "none" }}>{it.name}</span>
+                      {o.estado === "preparando" && (
+                        <span style={styles.itemKdsActions}>
+                          {it.qty > 1 && <span style={styles.itemKdsCount}>{l}/{it.qty}</span>}
+                          {l > itemServidos(o, it) && (
+                            <button style={styles.itemKdsUndo} onClick={() => itemDeshacer(o.id, idx)} title="Deshacer">−</button>
+                          )}
+                          {!completo && (
+                            <button style={styles.itemKdsBtn} onClick={() => itemListo(o.id, idx)}><Check size={12} /> Listo</button>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    {it.nota && <div style={styles.ticketItemNote}>↳ {it.nota}</div>}
+                  </div>
+                );
+              })}
               {o.nota && <div style={styles.ticketNote}>"{o.nota}"</div>}
               <div style={styles.ticketDivider} />
               <div style={{ display: "flex", gap: 6 }}>
@@ -1587,7 +1706,7 @@ function CocinaView({ orders, saveOrder, mesas }) {
                   <button style={styles.ticketBackBtn} onClick={() => retroceder(o.id)} title="Volver a pendiente">◀</button>
                 )}
                 <button style={{ ...styles.ticketBtn, flex: 1, background: o.estado === "pendiente" ? "#B98A2E" : "#5B7553" }} onClick={() => advance(o.id)}>
-                  {o.estado === "pendiente" ? <><Flame size={14} /> Empezar preparación</> : <><Check size={14} /> Marcar listo</>}
+                  {o.estado === "pendiente" ? <><Flame size={14} /> Empezar preparación</> : <><Check size={14} /> Marcar todo listo</>}
                 </button>
               </div>
             </div>
@@ -1680,8 +1799,14 @@ function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, turnos, tu
 function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, config, persistConfig, usuarioActual, menu, mesas, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto }) {
   const [base, setBase] = useState("");
   const [contado, setContado] = useState("");
+  const [contadoTarjeta, setContadoTarjeta] = useState("");
+  const [contadoTransf, setContadoTransf] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [confirmandoCierre, setConfirmandoCierre] = useState(false);
+  // Cierre "a ciegas": los montos esperados solo se muestran DESPUÉS de que el
+  // cajero escribió lo que contó. Si cancela y vuelve a empezar, queda anotado.
+  const [calculado, setCalculado] = useState(false);
+  const [intentos, setIntentos] = useState(0);
 
   const mesasAbiertas = cuentas.filter((c) => c.estado === "abierta");
   const esAdmin = tieneRol(usuarioActual, "admin");
@@ -1706,16 +1831,31 @@ function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, config, p
   const { efectivo: esperado, tarjeta: tarjetaEsperada, transferencia: transferenciaEsperada } = totalesPorMetodo();
   const contadoNum = parseFloat(contado) || 0;
   const diferencia = contadoNum - esperado;
+  const tarjetaNum = parseFloat(contadoTarjeta) || 0;
+  const transfNum = parseFloat(contadoTransf) || 0;
+  const difTarjeta = tarjetaNum - tarjetaEsperada;
+  const difTransf = transfNum - transferenciaEsperada;
+  const todoCuadra = diferencia === 0 && difTarjeta === 0 && difTransf === 0;
+  const camposCompletos = contado !== "" && contadoTarjeta !== "" && contadoTransf !== "";
+  const textoDif = (d) => (d === 0 ? "Cuadra exacto ✓" : d > 0 ? `Sobran ${money(d)}` : `Faltan ${money(Math.abs(d))}`);
+  const colorDif = (d) => (d === 0 ? "#E4EEE1" : d > 0 ? "#FBEFD9" : "#FBE2DC");
+  const reiniciarCierre = () => {
+    setContado(""); setContadoTarjeta(""); setContadoTransf(""); setObservaciones("");
+    setCalculado(false); setConfirmandoCierre(false);
+  };
 
   const cerrarTurno = async () => {
     await saveTurno({
       ...turnoAbierto, estado: "cerrado", cierreTs: Date.now(),
       esperado, contado: contadoNum, diferencia,
       tarjetaEsperada, transferenciaEsperada,
+      tarjetaContada: tarjetaNum, transferenciaContada: transfNum,
+      difTarjeta, difTransferencia: difTransf,
+      intentosCierre: intentos + 1,
       observaciones: observaciones.trim() || null,
       cerradoPor: usuarioActual.nombre,
     });
-    setContado(""); setObservaciones(""); setConfirmandoCierre(false);
+    reiniciarCierre(); setIntentos(0);
   };
 
   const cerrados = turnos.filter((t) => t.estado === "cerrado").sort((a, b) => b.cierreTs - a.cierreTs);
@@ -1733,21 +1873,7 @@ function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, config, p
         <div style={styles.turnoBox}>
           <div style={styles.pageEyebrow}>TURNO ABIERTO</div>
           <div style={styles.closeConfirmText}>Abierto {dateTimeLabel(turnoAbierto.aperturaTs)} · base {money(turnoAbierto.baseEfectivo)}</div>
-          <div style={styles.cajaTotalValue2}>{money(esperado)}<span style={styles.turnoEsperadoLabel}>efectivo esperado en caja ahora</span></div>
-
-          <div style={styles.metodoResumenRow}>
-            <div style={styles.metodoResumenItem}>
-              <CreditCard size={14} color="#2F6690" />
-              <span style={styles.metodoResumenLabel}>Tarjeta</span>
-              <span style={styles.metodoResumenValue}>{money(tarjetaEsperada)}</span>
-            </div>
-            <div style={styles.metodoResumenItem}>
-              <Smartphone size={14} color="#8A611A" />
-              <span style={styles.metodoResumenLabel}>Transferencia</span>
-              <span style={styles.metodoResumenValue}>{money(transferenciaEsperada)}</span>
-            </div>
-          </div>
-          <div style={styles.closeConfirmText}>Compara estos dos contra el cierre de lote del datáfono y tu banco — no hay nada físico que contar, pero sí vale la pena revisar que cuadren.</div>
+          <div style={styles.closeConfirmText}>El total esperado en caja, tarjeta y transferencia se muestra al cerrar el turno, después de que registres lo que contaste.</div>
 
           {!confirmandoCierre ? (
             <>
@@ -1765,32 +1891,56 @@ function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, config, p
                   <b>Ojo:</b> {mesasAbiertas.length} {mesasAbiertas.length === 1 ? "mesa sigue" : "mesas siguen"} sin cobrar ({mesasAbiertas.map((c) => mesaNombre(mesas, c.mesa)).join(", ")}). Si cierras ahora, ese dinero no quedará contado en este turno.
                 </div>
               )}
-              <div style={styles.closeConfirmText}>Cuenta el efectivo físico en caja y escríbelo aquí:</div>
-              <CampoMonto placeholder="Efectivo contado" value={contado} onChange={setContado} />
-              {contado !== "" && (
-                <div style={{ ...styles.diferenciaBox, background: diferencia === 0 ? "#E4EEE1" : diferencia > 0 ? "#FBEFD9" : "#FBE2DC" }}>
-                  {diferencia === 0 ? "Cuadra exacto ✓" : diferencia > 0 ? `Sobran ${money(diferencia)}` : `Faltan ${money(Math.abs(diferencia))}`}
+              <div style={styles.closeConfirmText}>Registra lo que contaste. El sistema no te muestra lo esperado hasta que calcules.</div>
+              <div style={styles.closeConfirmText}><b>Efectivo físico en caja</b></div>
+              <CampoMonto placeholder="Efectivo contado" value={contado} onChange={(v) => !calculado && setContado(v)} />
+              <div style={styles.closeConfirmText}><b>Tarjeta</b> — total del cierre de lote del datáfono</div>
+              <CampoMonto placeholder="Total tarjeta (datáfono)" value={contadoTarjeta} onChange={(v) => !calculado && setContadoTarjeta(v)} />
+              <div style={styles.closeConfirmText}><b>Transferencia</b> — total recibido según tu banco</div>
+              <CampoMonto placeholder="Total transferencias (banco)" value={contadoTransf} onChange={(v) => !calculado && setContadoTransf(v)} />
+
+              {!calculado ? (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button style={styles.cancelEditBtn} onClick={() => { if (camposCompletos || contado !== "" || contadoTarjeta !== "" || contadoTransf !== "") setIntentos((n) => n + 1); reiniciarCierre(); }}>Cancelar</button>
+                  <button
+                    style={{ ...styles.sendBtn, flex: 1, opacity: camposCompletos ? 1 : 0.4 }}
+                    disabled={!camposCompletos}
+                    onClick={() => setCalculado(true)}
+                  >
+                    Calcular resultado
+                  </button>
                 </div>
-              )}
-              <div style={styles.closeConfirmText}>Tarjeta esperada: <b>{money(tarjetaEsperada)}</b> · Transferencia esperada: <b>{money(transferenciaEsperada)}</b></div>
-              {contado !== "" && diferencia !== 0 ? (
-                <>
-                  <div style={styles.closeConfirmText}><b>El efectivo no cuadró — cuéntanos por qué (obligatorio):</b></div>
-                  <input autoFocus style={styles.editInput} placeholder="Ej: se dio mal un vuelto, faltó registrar un pago…" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
-                </>
               ) : (
-                <input style={styles.editInput} placeholder="Observaciones si algo de tarjeta/transferencia no cuadra (opcional)" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+                <>
+                  <div style={{ ...styles.diferenciaBox, background: colorDif(diferencia), textAlign: "left" }}>
+                    <b>Efectivo:</b> {textoDif(diferencia)}<br />
+                    <span style={{ fontWeight: 500, fontSize: 12 }}>Esperado en caja: {money(esperado)} · contaste {money(contadoNum)}</span>
+                  </div>
+                  <div style={{ ...styles.diferenciaBox, background: colorDif(difTarjeta), textAlign: "left" }}>
+                    <b>Tarjeta:</b> {textoDif(difTarjeta)}<br />
+                    <span style={{ fontWeight: 500, fontSize: 12 }}>Esperado: {money(tarjetaEsperada)} · registraste {money(tarjetaNum)}</span>
+                  </div>
+                  <div style={{ ...styles.diferenciaBox, background: colorDif(difTransf), textAlign: "left" }}>
+                    <b>Transferencia:</b> {textoDif(difTransf)}<br />
+                    <span style={{ fontWeight: 500, fontSize: 12 }}>Esperado: {money(transferenciaEsperada)} · registraste {money(transfNum)}</span>
+                  </div>
+                  {!todoCuadra ? (
+                    <>
+                      <div style={styles.closeConfirmText}><b>Algo no cuadró — cuéntanos por qué (obligatorio):</b></div>
+                      <input autoFocus style={styles.editInput} placeholder="Ej: se dio mal un vuelto, faltó registrar un pago…" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+                    </>
+                  ) : (
+                    <input style={styles.editInput} placeholder="Observaciones (opcional)" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+                  )}
+                  <button
+                    style={{ ...styles.sendBtn, opacity: todoCuadra || observaciones.trim() ? 1 : 0.4 }}
+                    disabled={!todoCuadra && !observaciones.trim()}
+                    onClick={cerrarTurno}
+                  >
+                    <Lock size={15} /> Confirmar cierre
+                  </button>
+                </>
               )}
-              <div style={{ display: "flex", gap: 8 }}>
-                <button style={styles.cancelEditBtn} onClick={() => setConfirmandoCierre(false)}>Cancelar</button>
-                <button
-                  style={{ ...styles.sendBtn, flex: 1, opacity: contado !== "" && (diferencia === 0 || observaciones.trim()) ? 1 : 0.4 }}
-                  disabled={contado === "" || (diferencia !== 0 && !observaciones.trim())}
-                  onClick={cerrarTurno}
-                >
-                  <Lock size={15} /> Confirmar cierre
-                </button>
-              </div>
             </div>
           )}
         </div>
@@ -1808,7 +1958,10 @@ function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, config, p
                 </span>
               </div>
               {(t.tarjetaEsperada > 0 || t.transferenciaEsperada > 0) && (
-                <div style={styles.turnoSubRow}>Tarjeta {money(t.tarjetaEsperada || 0)} · Transferencia {money(t.transferenciaEsperada || 0)}</div>
+                <div style={styles.turnoSubRow}>
+                  Tarjeta {money(t.tarjetaEsperada || 0)}{typeof t.difTarjeta === "number" && t.difTarjeta !== 0 ? ` (${t.difTarjeta > 0 ? "+" : ""}${money(t.difTarjeta)})` : ""} · Transferencia {money(t.transferenciaEsperada || 0)}{typeof t.difTransferencia === "number" && t.difTransferencia !== 0 ? ` (${t.difTransferencia > 0 ? "+" : ""}${money(t.difTransferencia)})` : ""}
+                  {t.intentosCierre > 1 ? ` · cierre iniciado ${t.intentosCierre} veces` : ""}
+                </div>
               )}
               {t.observaciones && <div style={styles.turnoObsRow}>"{t.observaciones}"</div>}
             </div>
@@ -2313,7 +2466,7 @@ function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turnoAbiert
         const sinCerrar = cuentaOrders(orders, cuenta.id).filter((o) => o.estado === "pendiente" || o.estado === "preparando" || o.estado === "listo");
         if (sinCerrar.length > 0) {
           const patch = {};
-          sinCerrar.forEach((o) => { patch[o.id] = { ...o, estado: "servido" }; });
+          sinCerrar.forEach((o) => { patch[o.id] = conProgreso(o, o.items.map((it) => ({ ...it, listos: it.qty, servidos: it.qty }))); });
           await saveOrdersMap(patch);
         }
       }
@@ -3104,6 +3257,14 @@ const styles = {
   miniTicketTime: { marginLeft: "auto", color: "#B3A891", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5 },
   editedTag: { fontSize: 9.5, fontWeight: 700, color: "#8A611A", background: "#FBEFD9", padding: "1px 6px", borderRadius: 8, textTransform: "uppercase" },
   miniTicketActions: { display: "flex", alignItems: "center", gap: 4, flexShrink: 0 },
+  itemsEstadoCol: { display: "flex", flexDirection: "column", gap: 6, padding: "8px 10px", background: "#F2EEE2", borderRadius: 8, marginTop: 4 },
+  itemEstadoRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  itemEstadoName: { fontSize: 12.5, color: "#3B372E", display: "flex", flexDirection: "column", gap: 1 },
+  itemEstadoTag: { fontSize: 10.5, fontWeight: 700 },
+  itemKdsActions: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" },
+  itemKdsCount: { fontSize: 12, fontWeight: 700, color: "#B8C2CC" },
+  itemKdsBtn: { display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", background: "#5B7553", color: "#F7F4EC", border: "none", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer" },
+  itemKdsUndo: { width: 26, height: 26, background: "transparent", color: "#B8C2CC", border: "1px solid #5C6670", borderRadius: 7, fontSize: 14, cursor: "pointer" },
   marcarServidoBtn: { display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", background: "#2F6690", color: "#F7F4EC", border: "none", borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: "pointer" },
   confirmText: { fontSize: 11.5, color: "#5C5648", marginRight: 2 },
   confirmYes: { padding: "5px 10px", background: "#5B7553", color: "#F7F4EC", border: "none", borderRadius: 6, fontSize: 11.5, fontWeight: 700, cursor: "pointer" },
