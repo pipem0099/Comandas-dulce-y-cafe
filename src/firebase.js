@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue, get, query, orderByChild, startAt, set, update, remove } from "firebase/database";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { getDatabase, ref, onValue, get, query, orderByChild, startAt, set, update, remove, increment } from "firebase/database";
 
 /*
  * ─────────────────────────────────────────────────────────────────────────
@@ -31,6 +32,36 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────
+ *  ACCESO AL NEGOCIO (protege la base de datos)
+ * ─────────────────────────────────────────────────────────────────────────
+ * Cada dispositivo se "vincula" UNA vez con la clave del negocio y queda
+ * vinculado (no la vuelve a pedir). Las reglas de la base de datos
+ * (database.rules.json) solo dejan leer y escribir a esa cuenta, así que
+ * quien tenga el link de la app pero no la clave no puede ver ni tocar nada.
+ * El correo es fijo: en Firebase se crea un usuario con ESTE correo y la
+ * clave que tú elijas.
+ */
+export const CORREO_NEGOCIO = "negocio@comandas.app";
+
+/** Avisa cuando este dispositivo queda vinculado (usuario) o no (null). */
+export function observarSesion(callback) {
+  return onAuthStateChanged(auth, (user) => callback(user || null));
+}
+export async function vincularDispositivo(clave) {
+  try {
+    await signInWithEmailAndPassword(auth, CORREO_NEGOCIO, clave);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, code: e.code || "error" };
+  }
+}
+export async function desvincularDispositivo() {
+  try { await signOut(auth); } catch (e) { console.error("Error al desvincular:", e); }
+}
 
 /**
  * Se suscribe en vivo a una "carpeta" de datos (menu, orders, cuentas, etc).
@@ -239,5 +270,33 @@ export async function getRecord(path) {
   } catch (e) {
     console.error(`Error leyendo "${path}":`, e);
     return null;
+  }
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────
+ *  INVENTARIO
+ * ─────────────────────────────────────────────────────────────────────────
+ * El stock se ajusta con `increment`: si dos meseros envían pedidos al mismo
+ * tiempo, los dos descuentos se suman bien (no se pisan entre sí).
+ */
+export async function ajustarStock(id, delta) {
+  try {
+    await update(ref(db), { [`inventario/${id}/stock`]: increment(delta) });
+    return true;
+  } catch (e) {
+    console.error(`Error ajustando stock de "${id}":`, e);
+    return false;
+  }
+}
+
+/** Cambia solo algunos campos de un registro (sin pisar el resto, ej. el stock). */
+export async function updateRecord(path, id, partial) {
+  try {
+    await update(ref(db, `${path}/${id}`), sanitizeForFirebase(partial));
+    return true;
+  } catch (e) {
+    console.error(`Error actualizando "${path}/${id}":`, e);
+    return false;
   }
 }
