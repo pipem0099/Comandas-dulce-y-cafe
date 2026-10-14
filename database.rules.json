@@ -4,7 +4,7 @@
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "(auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true) || (auth != null && auth.uid === $uid && !root.child('perfiles').exists() && auth.token.email === 'TU_CORREO_DE_DUENO@ejemplo.com' && newData.child('activo').val() === true && newData.child('roles').child('admin').val() === true)"
+        ".write": "(auth != null && auth.uid === $uid && !root.child('perfiles').exists() && newData.child('activo').val() === true && newData.child('roles').child('admin').val() === true && newData.child('propietario').val() === true) || ((auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('propietario').val() === true) && (data.child('propietario').val() !== true || newData.exists()) && (newData.child('propietario').val() !== true || (newData.child('activo').val() === true && newData.child('roles').child('admin').val() === true))) || ((auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true) && data.child('propietario').val() !== true && newData.child('propietario').val() !== true)"
       }
     },
     "menu": {

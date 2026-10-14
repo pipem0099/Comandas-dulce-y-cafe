@@ -83,6 +83,15 @@ Si algo no aparece en vivo, lo más probable es que falte pegar el
 `firebaseConfig` real en `src/firebase.js` — revisa la consola del navegador
 (F12) por errores de Firebase.
 
+## Primer ingreso y propietario
+
+1. En Firebase → Authentication, activa **Correo electrónico/contraseña** (y deja activado el registro de usuarios: la app crea las cuentas del equipo).
+2. Sube la app y publica las reglas de `database.rules.json` en Realtime Database → Reglas.
+3. Abre la app **enseguida** y toca **"Es la primera vez que se instala este negocio"**. Crea tu cuenta: la primera que entra queda como **Propietaria** (y administradora).
+4. Desde Caja → Turno → Equipo creas las cuentas de todo el equipo y les asignas roles.
+
+El rol de propietario no se puede quitar ni desactivar, pero sí **transferir** a otra persona (botón "transferir propiedad"). Si instalas el sistema para un cliente: crea tú la primera cuenta y luego transfiérele la propiedad.
+
 ## Estructura del proyecto
 
 ```
