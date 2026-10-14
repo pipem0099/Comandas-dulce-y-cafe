@@ -57,6 +57,18 @@ export async function iniciarSesion(correo, clave) {
     return { ok: false, code: e.code || "error" };
   }
 }
+/**
+ * Crea una cuenta nueva Y deja la sesión iniciada con ella. Se usa solo en el primer ingreso:
+ * quien configura el negocio crea su cuenta y queda como propietario.
+ */
+export async function crearCuentaPropietaria(correo, clave) {
+  try {
+    await createUserWithEmailAndPassword(auth, correo.trim(), clave);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, code: e.code || "error" };
+  }
+}
 export async function cerrarSesion() {
   try { await signOut(auth); } catch (e) { console.error("Error al cerrar sesión:", e); }
 }

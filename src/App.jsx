@@ -95,7 +95,7 @@ export default function App() {
   }, [sesion]);
   const accesoOk = !!(sesion && perfil && perfil.activo === true);
   const usuarioActual = useMemo(
-    () => (accesoOk ? { uid: sesion.uid, nombre: perfil.nombre, correo: perfil.correo || sesion.email, roles: rolesDe(perfil) } : null),
+    () => (accesoOk ? { uid: sesion.uid, nombre: perfil.nombre, correo: perfil.correo || sesion.email, roles: rolesDe(perfil), propietario: perfil.propietario === true } : null),
     [accesoOk, sesion, perfil]
   );
   // Al entrar, cada quien cae directo en su sección: un mesero no tiene por qué terminar en Caja,

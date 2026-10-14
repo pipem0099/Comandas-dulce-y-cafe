@@ -21,7 +21,11 @@ export function tieneRol(usuario, rol) {
 }
 export function rolesLabel(usuario) {
   const roles = rolesDe(usuario);
-  return roles.length > 0 ? roles.map(rolLabel).join(" + ") : "Sin rol";
+  // El propietario es siempre administrador: se muestra como "Propietario" en vez de "Admin".
+  const etiquetas = (usuario && usuario.propietario === true ? ["Propietario"] : []).concat(
+    roles.filter((r) => !(usuario && usuario.propietario === true && r === "admin")).map(rolLabel)
+  );
+  return etiquetas.length > 0 ? etiquetas.join(" + ") : "Sin rol";
 }
 
 /* ---------------- mesas (nombres personalizables) ---------------- */
