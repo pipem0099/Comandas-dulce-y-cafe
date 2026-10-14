@@ -86,16 +86,42 @@ Si algo no aparece en vivo, lo más probable es que falte pegar el
 ## Estructura del proyecto
 
 ```
-├── index.html          punto de entrada HTML
-├── netlify.toml         configuración de build para Netlify
-├── database.rules.json  reglas de seguridad sugeridas para Firebase
+├── index.html            punto de entrada HTML
+├── netlify.toml          configuración de build para Netlify
+├── database.rules.json   reglas de seguridad de Firebase (se pegan en la consola)
 ├── package.json          dependencias (React, Firebase, recharts, xlsx, lucide-react)
 ├── vite.config.js        configuración del bundler
 └── src/
     ├── main.jsx          monta la app de React
-    ├── App.jsx           toda la app (Mesero, Cocina, Caja)
-    └── firebase.js        conexión a la base de datos en vivo — AQUÍ pegas tu config
+    ├── App.jsx           la app principal: sesión, datos en vivo y navegación
+    ├── firebase.js       conexión a la base de datos y cuentas — AQUÍ pegas tu config
+    ├── constantes.js     menú y mesas de ejemplo, colores de estados, valores fijos
+    ├── utilidades.js     cálculos y formatos: totales, fechas, roles, nombres de mesa
+    ├── logica.js         reglas del negocio: opciones, estaciones, inventario, para llevar
+    ├── theme.js          modo claro/oscuro y marca (color, tipografía, logo)
+    ├── estilos.js        todos los estilos visuales
+    ├── avisos.js         sonido de campana y notificaciones
+    ├── exportar.js       respaldo y exportación a Excel
+    ├── extras.jsx        pantallas de opciones, ajustes, inventario y pedidos externos
+    ├── componentes/      piezas que se repiten
+    │   ├── BarraSuperior.jsx   barra de arriba, botón de tema
+    │   └── Comunes.jsx         campo de monto, logo, avisos
+    └── pantallas/        una pantalla por archivo
+        ├── Acceso.jsx          inicio de sesión y pantallas sin acceso
+        ├── Mesero.jsx          tomar pedidos, mesas, para llevar y domicilio
+        ├── Mesas.jsx           plano del salón y editor de mesas
+        ├── Menu.jsx            editor del menú
+        ├── Cocina.jsx          pantalla de cocina por estaciones
+        ├── Caja.jsx            caja: pestañas y cuentas abiertas
+        ├── CuentaMesa.jsx      cobro de una cuenta (pagos, propina, descuentos)
+        ├── Turno.jsx           apertura y cierre de turno, respaldos
+        ├── Usuarios.jsx        cuentas del equipo y roles
+        ├── Historial.jsx       historial de ventas
+        └── Reportes.jsx        reportes y gráficas
 ```
 
-No necesitas tocar nada más que `src/firebase.js`. El resto del código está
-listo tal cual para producción.
+**¿Dónde cambio...?** Los colores y tamaños, en `estilos.js`. Un precio o regla del
+negocio, en `logica.js` o `utilidades.js`. Una pantalla concreta, en su archivo de
+`pantallas/`. El menú de ejemplo inicial, en `constantes.js`.
+
+La conexión a Firebase se configura solo en `src/firebase.js`.
