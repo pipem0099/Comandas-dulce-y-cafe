@@ -1,0 +1,585 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Plus, Minus, Send, Check, Settings2, Pencil, Ban, AlertTriangle,
+  Lock, Users, ArrowRightLeft, Volume2, MessageSquarePlus, ShoppingBag, Bike, SlidersHorizontal,
+  Phone, MapPin,
+} from "lucide-react";
+import { vibrar } from "../theme.js";
+import { claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
+import { ModalOpciones, AjustesPanel, NuevoPedidoExterno } from "../extras.jsx";
+import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
+import { AvisoActivarNotificaciones } from "../componentes/Comunes.jsx";
+import { STATE_META } from "../constantes.js";
+import { styles } from "../estilos.js";
+import { MenuEditor } from "../pantallas/Menu.jsx";
+import { MesasEditor, PlanoSalon } from "../pantallas/Mesas.jsx";
+import { NOMBRES_EXTERNOS, conProgreso, cuentaOrders, cuentaSubtotal, dayKey, estadoVisualMesa, itemListos, itemServidos, mesaMatch, mesaNombre, orderTotal, porServir, tieneRol, timeLabel } from "../utilidades.js";
+
+/* ---------------- MESERO ---------------- */
+
+export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas, persistMesas, saveOrder, saveOrdersMap, saveCuenta, persistMenu, persistConfig, insumos, ajustarInventario }) {
+  // Editar el menú, precios y mesas queda reservado al administrador — un
+  // mesero normal no debería poder cambiar precios ni borrar productos.
+  const meseroActual = usuarioActual.nombre;
+  const esAdminMesero = tieneRol(usuarioActual, "admin");
+
+  // Aviso sonoro para el mesero: cuando cocina marca "listo" un pedido de
+  // alguna de SUS mesas todavía abiertas, suena y aparece un mensaje — así
+  // no tiene que estar entrando a cada mesa a chequear si ya puede servir.
+  const idsListosVistosRef = useRef(null);
+  const [avisoListo, setAvisoListo] = useState(null);
+  useEffect(() => {
+    const misCuentaIds = new Set(cuentas.filter((c) => c.mesero === meseroActual && c.estado === "abierta").map((c) => c.id));
+    const listosAhora = [];
+    orders.forEach((o) => {
+      if (o.estado === "cancelado" || !misCuentaIds.has(o.cuentaId)) return;
+      o.items.forEach((it, idx) => {
+        const n = itemListos(o, it) - itemServidos(o, it);
+        // una "marca" por cada unidad lista sin servir, para detectar cuando sale una nueva
+        for (let k = 1; k <= n; k++) listosAhora.push({ ...o, id: `${o.id}#${idx}#${itemServidos(o, it) + k}` });
+      });
+    });
+    const idsActuales = new Set(listosAhora.map((o) => o.id));
+    if (idsListosVistosRef.current === null) {
+      idsListosVistosRef.current = idsActuales; // primera carga: no suena por lo que ya estaba listo antes
+      return;
+    }
+    const nuevos = listosAhora.filter((o) => !idsListosVistosRef.current.has(o.id));
+    idsListosVistosRef.current = idsActuales;
+    if (nuevos.length > 0) {
+      playBeep();
+      const nombreMesa = mesaNombre(mesas, nuevos[0].mesa);
+      const mensaje = nuevos.length === 1 ? `${nombreMesa}: pedido listo para servir` : `${nuevos.length} pedidos listos para servir`;
+      setAvisoListo(mensaje);
+      mostrarNotificacionSistema("Comandas", mensaje);
+      setTimeout(() => setAvisoListo(null), 4500);
+    }
+  }, [orders, cuentas, meseroActual, mesas]);
+
+  const [selectedMesa, setSelectedMesa] = useState(null);
+  const [draft, setDraft] = useState({}); // { itemId: { qty, nota } }
+  const [verPedidos, setVerPedidos] = useState(false); // lista de pedidos de la mesa: compacta por defecto
+  const [note, setNote] = useState("");
+  const [showMenuEditor, setShowMenuEditor] = useState(false);
+  const [showMesasEditor, setShowMesasEditor] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState(null);
+  const [confirmCancelId, setConfirmCancelId] = useState(null);
+  const [justSent, setJustSent] = useState(false);
+  const [activeCat, setActiveCat] = useState(null);
+  const [search, setSearch] = useState("");
+  const [notingItemId, setNotingItemId] = useState(null);
+  const [mesaAction, setMesaAction] = useState(null); // 'trasladar' | 'unir'
+  const [vistaMesas, setVistaMesas] = useState("grid"); // 'grid' | 'plano'
+  const [modalItem, setModalItem] = useState(null);       // producto con opciones que se está personalizando
+  const [showAjustes, setShowAjustes] = useState(false);
+  const [nuevoExterno, setNuevoExterno] = useState(null); // 'llevar' | 'domicilio'
+
+  const cuentaAbiertaDe = (mesaId) => cuentas.find((c) => mesaMatch(c.mesa, mesaId) && c.estado === "abierta");
+
+  const totalItems = Object.values(draft).reduce((a, b) => a + b.qty, 0);
+
+  const resetDraft = () => { setDraft({}); setNote(""); setEditingOrderId(null); setNotingItemId(null); };
+  const enterMesa = (n) => { resetDraft(); setActiveCat(null); setSearch(""); setConfirmCancelId(null); setMesaAction(null); setSelectedMesa(n); };
+  const exitMesa = () => { resetDraft(); setActiveCat(null); setSearch(""); setMesaAction(null); setSelectedMesa(null); };
+
+  const agregarConOpciones = (item, mods, qty, nota) => {
+    const key = claveLinea(item.id, mods);
+    setDraft((prev) => {
+      const cur = prev[key];
+      return { ...prev, [key]: { baseId: item.id, mods, qty: (cur ? cur.qty : 0) + qty, nota: nota || (cur ? cur.nota : "") } };
+    });
+    setModalItem(null);
+  };
+  const addQty = (id, d) => {
+    if (d > 0) vibrar(8);
+    setDraft((prev) => {
+      const cur = prev[id] || { qty: 0, nota: "" };
+      const nextQty = Math.max(0, cur.qty + d);
+      const next = { ...prev };
+      if (nextQty === 0) delete next[id];
+      else next[id] = { ...cur, qty: nextQty };
+      return next;
+    });
+  };
+  const setItemNota = (id, text) => {
+    setDraft((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], nota: text } } : prev));
+  };
+
+  const startEdit = (order) => {
+    const d = {};
+    order.items.forEach((it) => (d[it.id] = { qty: it.qty, nota: it.nota || "", baseId: it.baseId, mods: it.mods || [] }));
+    setDraft(d);
+    setNote(order.nota || "");
+    setEditingOrderId(order.id);
+  };
+
+  const repetirUltimoPedido = (cuenta) => {
+    const propios = cuentaOrders(orders, cuenta.id).sort((a, b) => b.ts - a.ts);
+    if (propios.length === 0) return;
+    const d = {};
+    propios[0].items.forEach((it) => (d[it.id] = { qty: it.qty, nota: it.nota || "", baseId: it.baseId, mods: it.mods || [] }));
+    setDraft(d); setNote(""); setEditingOrderId(null);
+  };
+
+  const cancelarPedido = async (orderId) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (order) {
+      // lo que ese pedido había descontado del inventario vuelve a su lugar
+      if (order.consumo && Object.keys(order.consumo).length > 0) await ajustarInventario(order.consumo);
+      await saveOrder({ ...order, estado: "cancelado", consumo: {} });
+    }
+    setConfirmCancelId(null);
+    if (editingOrderId === orderId) resetDraft();
+  };
+
+  // Sirve UNA unidad de un producto (solo si cocina ya la marcó lista).
+  const servirItem = async (orderId, idx) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    const it = order.items[idx];
+    if (!it || itemServidos(order, it) >= itemListos(order, it)) return;
+    vibrar(15);
+    const items = order.items.map((x, i) => (i === idx ? { ...x, listos: itemListos(order, x), servidos: itemServidos(order, x) + 1 } : x));
+    await saveOrder(conProgreso(order, items));
+  };
+  // Sirve de una vez todo lo que ya está listo en ese pedido.
+  const servirTodoListo = async (orderId) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    const items = order.items.map((x) => ({ ...x, listos: itemListos(order, x), servidos: itemListos(order, x) }));
+    await saveOrder(conProgreso(order, items));
+  };
+
+  const enviandoRef = useRef(false);
+  const [enviando, setEnviando] = useState(false);
+  const enviarPedido = async (mesaNum) => {
+    if (totalItems === 0) return;
+    if (enviandoRef.current) return; // ya se está enviando — ignora el segundo toque para no duplicar el pedido
+    enviandoRef.current = true;
+    setEnviando(true);
+    try {
+      // Si alguien borró un producto del menú desde otro dispositivo justo mientras
+      // este mesero lo tenía en el carrito, lo ignoramos en vez de romper el envío.
+      const items = Object.entries(draft)
+        .map(([key, e]) => {
+          const baseId = e.baseId || key;
+          const m = menu.find((x) => x.id === baseId);
+          if (!m) return null;
+          const mods = e.mods || [];
+          // Se guarda el costo y el precio de ESTE momento junto al pedido (el precio ya incluye
+          // lo que suman las opciones) — así una venta vieja no cambia si luego editas el menú.
+          return { id: key, baseId, name: m.name, price: precioUnitario(m, mods), cost: m.cost || 0, qty: e.qty, nota: (e.nota || "").trim(), mods, estacion: estacionDe(m, config) };
+        })
+        .filter(Boolean);
+      if (items.length === 0) { resetDraft(); return; }
+
+      if (editingOrderId) {
+        const original = orders.find((o) => o.id === editingOrderId);
+        if (original) {
+          const conservados = items.map((it) => {
+            const prev = original.items.find((x) => x.id === it.id);
+            if (!prev) return it;
+            const l = Math.min(itemListos(original, prev), it.qty);
+            return { ...it, listos: l, servidos: Math.min(itemServidos(original, prev), l) };
+          });
+          const consumoNuevo = consumoDeItems(conservados, menu);
+          const dif = difConsumo(consumoNuevo, original.consumo || {});
+          if (Object.keys(dif).length > 0) await ajustarInventario(negar(dif));
+          await saveOrder(conProgreso({ ...original, nota: note.trim(), editado: true, consumo: consumoNuevo }, conservados));
+        }
+      } else {
+        let cuenta = cuentaAbiertaDe(mesaNum);
+        // un pedido para llevar / domicilio ya cobrado no se puede seguir llenando
+        if (!cuenta && String(mesaNum).startsWith("ext-")) { exitMesa(); return; }
+        if (!cuenta) {
+          cuenta = { id: uid(), mesa: mesaNum, ts: Date.now(), estado: "abierta", mesero: meseroActual };
+          await saveCuenta(cuenta);
+        }
+        const consumo = consumoDeItems(items, menu);
+        const order = { id: uid(), mesa: mesaNum, cuentaId: cuenta.id, items, nota: note.trim(), estado: "pendiente", ts: Date.now(), tipo: cuenta.tipo || "mesa", consumo };
+        if (Object.keys(consumo).length > 0) await ajustarInventario(negar(consumo));
+        await saveOrder(order);
+        vibrar(30);
+        setJustSent(true);
+        setTimeout(() => setJustSent(false), 2200);
+      }
+      resetDraft();
+    } finally {
+      enviandoRef.current = false;
+      setEnviando(false);
+    }
+  };
+
+  const crearExterno = async ({ tipo, cliente, costoEnvio }) => {
+    const mesaId = `ext-${uid()}`;
+    const hoy = dayKey(Date.now());
+    const n = cuentas.filter((c) => c.tipo === tipo && dayKey(c.ts) === hoy).length + 1;
+    const cuenta = { id: uid(), mesa: mesaId, tipo, cliente: { ...cliente, nombre: cliente.nombre || `#${n}` }, costoEnvio, ts: Date.now(), estado: "abierta", mesero: meseroActual };
+    NOMBRES_EXTERNOS[mesaId] = etiquetaExterna(cuenta);
+    await saveCuenta(cuenta);
+    setNuevoExterno(null);
+    enterMesa(mesaId);
+  };
+
+  const mesasLibres = (excluir) => mesas.filter((m) => !mesaMatch(m.id, excluir) && !cuentaAbiertaDe(m.id));
+  const mesasOcupadas = (excluir) => mesas.filter((m) => !mesaMatch(m.id, excluir) && cuentaAbiertaDe(m.id));
+
+  const trasladarA = async (cuenta, nuevaMesa) => {
+    const afectadas = cuentaOrders(orders, cuenta.id);
+    const patch = {};
+    afectadas.forEach((o) => { patch[o.id] = { ...o, mesa: nuevaMesa }; });
+    if (Object.keys(patch).length > 0) await saveOrdersMap(patch);
+    await saveCuenta({ ...cuenta, mesa: nuevaMesa });
+    setMesaAction(null);
+    setSelectedMesa(nuevaMesa);
+  };
+
+  const unirCon = async (cuentaOrigen, cuentaDestino) => {
+    const afectadas = cuentaOrders(orders, cuentaOrigen.id);
+    const patch = {};
+    afectadas.forEach((o) => { patch[o.id] = { ...o, cuentaId: cuentaDestino.id, mesa: cuentaDestino.mesa }; });
+    if (Object.keys(patch).length > 0) await saveOrdersMap(patch);
+    await saveCuenta({ ...cuentaOrigen, estado: "fusionada", fusionadaEnId: cuentaDestino.id });
+    setMesaAction(null);
+    setSelectedMesa(cuentaDestino.mesa);
+  };
+
+  if (showMenuEditor && esAdminMesero) {
+    return <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={meseroActual} insumos={insumos} onClose={() => setShowMenuEditor(false)} />;
+  }
+
+  if (showAjustes && esAdminMesero) {
+    return <div style={styles.screen}><AjustesPanel config={config} persistConfig={persistConfig} menu={menu} onClose={() => setShowAjustes(false)} /></div>;
+  }
+
+  if (showMesasEditor && esAdminMesero) {
+    return <MesasEditor mesas={mesas} persistMesas={persistMesas} cuentas={cuentas} orders={orders} config={config} persistConfig={persistConfig} actor={meseroActual} onClose={() => setShowMesasEditor(false)} />;
+  }
+
+  if (selectedMesa) {
+    const categories = [...new Set(menu.map((m) => m.cat))];
+    const cuenta = cuentaAbiertaDe(selectedMesa);
+    const pending = cuenta ? cuentaOrders(orders, cuenta.id).filter((o) => o.estado !== "cancelado") : [];
+
+    return (
+      <div style={styles.screen}>
+        {avisoListo && <div style={styles.avisoListoBanner}><Volume2 size={14} /> {avisoListo}</div>}
+        {modalItem && <ModalOpciones item={modalItem} onClose={() => setModalItem(null)} onAdd={(mods, qty, nota) => agregarConOpciones(modalItem, mods, qty, nota)} />}
+        <div className="ancho" style={styles.subHeader}>
+          <button style={styles.backBtn} onClick={exitMesa}>← Mesas</button>
+          <div style={styles.mesaTitleWrap}>
+            <span style={styles.mesaEyebrow}>{TIPO_META[(cuenta && cuenta.tipo) || "mesa"].corto}</span>
+            <span style={styles.mesaTitle}>{cuenta && esExterna(cuenta) && cuenta.cliente && cuenta.cliente.nombre ? cuenta.cliente.nombre : mesaNombre(mesas, selectedMesa)}</span>
+            {cuenta && <span style={styles.cuentaOpenSub}>Cuenta abierta · {timeLabel(cuenta.ts)}</span>}
+          </div>
+          {cuenta && !esExterna(cuenta) ? (
+            <button style={styles.mesaActionBtn} onClick={() => setMesaAction(mesaAction ? null : "menu")} title="Trasladar o unir esta mesa">
+              <ArrowRightLeft size={15} />
+            </button>
+          ) : (
+            <div style={{ width: 34 }} />
+          )}
+        </div>
+
+        {cuenta && esExterna(cuenta) && (
+          <div className="ancho" style={styles.extInfo}>
+            {cuenta.cliente && cuenta.cliente.telefono && <span style={styles.extInfoItem}><Phone size={12} /> {cuenta.cliente.telefono}</span>}
+            {cuenta.cliente && cuenta.cliente.direccion && <span style={styles.extInfoItem}><MapPin size={12} /> {cuenta.cliente.direccion}{cuenta.cliente.referencia ? ` · ${cuenta.cliente.referencia}` : ""}</span>}
+            {cuenta.costoEnvio > 0 && <span style={styles.extInfoItem}><Bike size={12} /> Domicilio {money(cuenta.costoEnvio)}</span>}
+            {!(cuenta.cliente && (cuenta.cliente.telefono || cuenta.cliente.direccion)) && !(cuenta.costoEnvio > 0) && <span style={styles.extInfoItem}>Se cobra en Caja al entregar</span>}
+          </div>
+        )}
+
+        {mesaAction === "menu" && (
+          <div style={styles.mesaActionPanel}>
+            <button style={styles.modoChoiceBtn} onClick={() => setMesaAction("trasladar")}>
+              <ArrowRightLeft size={15} /> Trasladar esta mesa a otra
+            </button>
+            <button style={styles.modoChoiceBtn} onClick={() => setMesaAction("unir")}>
+              <Users size={15} /> Unir con otra mesa
+            </button>
+          </div>
+        )}
+        {mesaAction === "trasladar" && (
+          <div style={styles.mesaActionPanel}>
+            <div style={styles.closeConfirmText}>Elige la mesa libre destino:</div>
+            <div style={styles.mesaPickerRow}>
+              {mesasLibres(selectedMesa).length === 0 && <span style={styles.cajaEmptyText}>No hay mesas libres.</span>}
+              {mesasLibres(selectedMesa).map((m) => (
+                <button key={m.id} style={styles.mesaPickerBtn} onClick={() => trasladarA(cuenta, m.id)}>{m.nombre}</button>
+              ))}
+            </div>
+            <button style={styles.cancelEditBtn} onClick={() => setMesaAction("menu")}>Volver</button>
+          </div>
+        )}
+        {mesaAction === "unir" && (
+          <div style={styles.mesaActionPanel}>
+            <div style={styles.closeConfirmText}>Se unirá esta cuenta a la mesa que elijas (quedará todo en una sola cuenta):</div>
+            <div style={styles.mesaPickerRow}>
+              {mesasOcupadas(selectedMesa).length === 0 && <span style={styles.cajaEmptyText}>No hay otras mesas ocupadas.</span>}
+              {mesasOcupadas(selectedMesa).map((m) => (
+                <button key={m.id} style={styles.mesaPickerBtn} onClick={() => unirCon(cuenta, cuentaAbiertaDe(m.id))}>{m.nombre}</button>
+              ))}
+            </div>
+            <button style={styles.cancelEditBtn} onClick={() => setMesaAction("menu")}>Volver</button>
+          </div>
+        )}
+
+        {pending.length > 0 && (() => {
+          const activos = pending.filter((o) => o.estado !== "servido");
+          const enCocinaU = activos.reduce((a, o) => a + o.items.reduce((x, it) => x + (it.qty - itemListos(o, it)), 0), 0);
+          const listosU = activos.reduce((a, o) => a + porServir(o), 0);
+          const totalCuenta = cuentaSubtotal(orders, cuenta.id);
+          return (
+            <div className="ancho" style={styles.pedidosWrap}>
+              <button style={styles.pedidosResumen} onClick={() => setVerPedidos((v) => !v)}>
+                <span style={styles.pedidosResumenTxt}>
+                  {enCocinaU > 0 && <span style={{ color: "var(--c-c1442d-t)", fontWeight: 700 }}>● {enCocinaU} en cocina</span>}
+                  {listosU > 0 && <span style={{ color: "var(--c-2f6690-t)", fontWeight: 700 }}>● {listosU} para servir</span>}
+                  {enCocinaU === 0 && listosU === 0 && <span style={{ color: "var(--c-5b7553-t)", fontWeight: 700 }}>✓ Todo servido</span>}
+                </span>
+                <span style={styles.pedidosResumenTotal}>{money(totalCuenta)} {verPedidos ? "▴" : "▾"}</span>
+              </button>
+              {verPedidos && (
+                <div style={styles.pedidosLista}>
+                  {pending.map((o) => {
+                    const puedeModificar = o.estado === "pendiente" || o.estado === "preparando";
+                    if (o.estado === "servido") {
+                      return (
+                        <div key={o.id} style={styles.pedidoServidoRow}>
+                          <span style={{ color: "var(--c-5b7553-t)" }}>✓</span> {o.items.reduce((a, i) => a + i.qty, 0)} ítems servidos · {money(orderTotal(o))}
+                          <span style={styles.miniTicketTime}>{timeLabel(o.ts)}</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={o.id} className="anim-in" style={styles.pedidoCard}>
+                        <div style={styles.pedidoCardHead}>
+                          <span style={styles.pedidoCardInfo}>
+                            <span style={{ ...styles.stateDot, background: STATE_META[o.estado].color }} />
+                            {timeLabel(o.ts)} · {money(orderTotal(o))}
+                            {o.editado && <span style={styles.editedTag}>editado</span>}
+                          </span>
+                          {puedeModificar && (
+                            <div style={styles.miniTicketActions}>
+                              {confirmCancelId === o.id ? (
+                                <>
+                                  <span style={styles.confirmText}>¿Cancelar?</span>
+                                  <button style={styles.confirmYes} onClick={() => cancelarPedido(o.id)}>Sí</button>
+                                  <button style={styles.confirmNo} onClick={() => setConfirmCancelId(null)}>No</button>
+                                </>
+                              ) : (
+                                <>
+                                  <button style={styles.iconBtn} onClick={() => startEdit(o)} title="Modificar"><Pencil size={13} /></button>
+                                  <button style={{ ...styles.iconBtn, color: "var(--c-c1442d-t)" }} onClick={() => setConfirmCancelId(o.id)} title="Cancelar"><Ban size={13} /></button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {o.items.map((it, idx) => {
+                          const l = itemListos(o, it), sv = itemServidos(o, it);
+                          const disponibles = l - sv;
+                          return (
+                            <div key={idx} style={styles.itemEstadoRow}>
+                              <span style={styles.itemEstadoName}>
+                                {it.qty}× {itemNombre(it)}
+                                <span style={{ ...styles.itemEstadoTag, color: sv >= it.qty ? "var(--c-5b7553-t)" : disponibles > 0 ? "var(--c-2f6690-t)" : "var(--c-8a8272-t)" }}>
+                                  {sv >= it.qty ? "servido" : disponibles > 0 ? `${disponibles} listo${disponibles > 1 ? "s" : ""} para servir` : "en cocina"}
+                                  {it.qty > 1 && ` · ${sv}/${it.qty} servidos`}
+                                </span>
+                              </span>
+                              {disponibles > 0 && (
+                                <button style={styles.marcarServidoBtn} onClick={() => servirItem(o.id, idx)}><Check size={12} /> Servir{it.qty > 1 ? " 1" : ""}</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {porServir(o) > 1 && (
+                          <button style={{ ...styles.marcarServidoBtn, alignSelf: "flex-start" }} onClick={() => servirTodoListo(o.id)}><Check size={12} /> Servir todo lo listo ({porServir(o)})</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {editingOrderId && (
+          <div style={styles.editingBanner}><AlertTriangle size={14} /> Modificando pedido ya enviado — los cambios se reflejan en cocina.</div>
+        )}
+        {justSent && (
+          <div style={styles.sentBanner}><Check size={14} /> Pedido enviado a cocina</div>
+        )}
+        {!editingOrderId && totalItems === 0 && cuenta && cuentaOrders(orders, cuenta.id).length > 0 && (
+          <button style={styles.repeatBtn} onClick={() => repetirUltimoPedido(cuenta)}>↻ Repetir último pedido de esta cuenta</button>
+        )}
+
+        <div style={styles.catPillsWrap}>
+          <input style={styles.searchInput} placeholder="🔍 Buscar producto…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          {!search.trim() && (
+            <div style={styles.catPills}>
+              {categories.map((cat) => {
+                const qtyInCat = menu.filter((m) => m.cat === cat).reduce((s, m) => s + (draft[m.id]?.qty || 0), 0);
+                const isActive = (activeCat || categories[0]) === cat;
+                return (
+                  <button key={cat} style={{ ...styles.catPill, ...(isActive ? styles.catPillActive : {}) }} onClick={() => setActiveCat(cat)}>
+                    {cat}
+                    {qtyInCat > 0 && <span style={styles.catPillBadge}>{qtyInCat}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="ancho" style={styles.menuScroll}>
+          {(search.trim()
+            ? menu.filter((m) => m.name.toLowerCase().includes(search.trim().toLowerCase()))
+            : menu.filter((m) => m.cat === (activeCat || categories[0]))
+          ).map((item) => {
+            const conOpc = tieneOpciones(item);
+            const d = draft[item.id];
+            const lineas = conOpc ? Object.entries(draft).filter(([k, v]) => (v.baseId || k) === item.id) : [];
+            const qtyTot = conOpc ? lineas.reduce((a, [, v]) => a + v.qty, 0) : (d?.qty || 0);
+            const agotadoManual = !!item.agotado;
+            const sinStock = !agotadoManual && faltaStock(item, insumos);
+            const agotado = agotadoManual || (sinStock && !!config.inventarioBloquear);
+            return (
+              <div key={item.id} style={{ ...styles.menuRow, opacity: agotado ? 0.5 : 1 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={styles.menuItemName}>{item.name} {agotadoManual && <span style={styles.agotadoTag}>AGOTADO</span>}{sinStock && <span style={styles.agotadoTag}>SIN STOCK</span>}</div>
+                  {search.trim() && <div style={styles.menuItemCat}>{item.cat}</div>}
+                  <div style={styles.menuItemPrice}>{conOpc ? "desde " : ""}{money(item.price)}</div>
+                  {!conOpc && d && d.qty > 0 && (
+                    notingItemId === item.id ? (
+                      <input
+                        autoFocus style={styles.itemNoteInput} placeholder="Nota para este producto…"
+                        value={d.nota} onChange={(e) => setItemNota(item.id, e.target.value)}
+                        onBlur={() => setNotingItemId(null)}
+                      />
+                    ) : (
+                      <button style={styles.itemNoteBtn} onClick={() => setNotingItemId(item.id)}>
+                        <MessageSquarePlus size={11} /> {d.nota ? d.nota : "agregar nota"}
+                      </button>
+                    )
+                  )}
+                  {lineas.map(([k, v]) => (
+                    <div key={k} style={styles.lineaOpc} className="anim-in">
+                      <span style={styles.lineaOpcTxt}>{v.qty}× {v.mods && v.mods.length ? modsTexto(v.mods) : "Normal"}{v.nota ? ` · ${v.nota}` : ""}</span>
+                      <button style={styles.lineaOpcBtn} onClick={() => addQty(k, -1)}><Minus size={11} /></button>
+                      <button style={styles.lineaOpcBtn} onClick={() => addQty(k, 1)}><Plus size={11} /></button>
+                    </div>
+                  ))}
+                </div>
+                {conOpc ? (
+                  <div style={styles.stepper}>
+                    {qtyTot > 0 && <span style={styles.stepVal}>{qtyTot}</span>}
+                    <button style={{ ...styles.stepBtn, ...styles.stepBtnPlus, width: qtyTot > 0 ? 28 : 64 }} disabled={agotado} onClick={() => setModalItem(item)}>
+                      {qtyTot > 0 ? <Plus size={14} /> : <span style={{ fontSize: 12, fontWeight: 700 }}>Elegir</span>}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={styles.stepper}>
+                    <button style={styles.stepBtn} disabled={agotado} onClick={() => addQty(item.id, -1)}><Minus size={14} /></button>
+                    <span style={styles.stepVal}>{d?.qty || 0}</span>
+                    <button style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} disabled={agotado} onClick={() => addQty(item.id, 1)}><Plus size={14} /></button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {search.trim() && menu.filter((m) => m.name.toLowerCase().includes(search.trim().toLowerCase())).length === 0 && (
+            <div style={styles.noResults}>Sin resultados para "{search}"</div>
+          )}
+        </div>
+
+        <div className="ancho" style={styles.orderBar}>
+          <input placeholder="Nota general para cocina (opcional)" value={note} onChange={(e) => setNote(e.target.value)} style={styles.noteInput} />
+          <div style={{ display: "flex", gap: 8 }}>
+            {editingOrderId && <button style={styles.cancelEditBtn} onClick={resetDraft}>Descartar</button>}
+            <button style={{ ...styles.sendBtn, flex: 1, opacity: totalItems === 0 || enviando ? 0.4 : 1 }} disabled={totalItems === 0 || enviando} onClick={() => enviarPedido(selectedMesa)}>
+              {editingOrderId ? <Check size={16} /> : <Send size={16} />}
+              {enviando ? "Enviando…" : editingOrderId ? `Guardar cambios (${totalItems})` : `Enviar pedido ${totalItems > 0 ? `(${totalItems})` : ""}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.screen}>
+      {avisoListo && <div style={styles.avisoListoBanner}><Volume2 size={14} /> {avisoListo}</div>}
+      <AvisoActivarNotificaciones />
+      <div className="ancho" style={styles.mesaGridHeader}>
+        <div>
+          <div style={styles.pageEyebrow}>SALÓN</div>
+          <div style={styles.pageTitle}>Mesas</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {esAdminMesero ? (
+            <>
+              <button style={styles.editMenuBtn} onClick={() => setShowMesasEditor(true)}><Settings2 size={15} /> Mesas</button>
+              <button style={styles.editMenuBtn} onClick={() => setShowMenuEditor(true)}><Settings2 size={15} /> Menú</button>
+              <button style={styles.editMenuBtn} onClick={() => setShowAjustes(true)}><SlidersHorizontal size={15} /> Ajustes</button>
+            </>
+          ) : (
+            <span style={styles.lockedNote}><Lock size={11} /> Menú y mesas los administra el admin</span>
+          )}
+        </div>
+      </div>
+      <div className="ancho" style={styles.vistaMesasSwitch}>
+        <button style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "grid" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("grid")}>Cuadrícula</button>
+        <button style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "plano" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("plano")}>Plano</button>
+      </div>
+      <div style={styles.mesasScroll}>
+      {vistaMesas === "plano" ? (
+        <div style={{ padding: "0 16px 16px" }}>
+          <PlanoSalon mesas={mesas} cuentas={cuentas} orders={orders} editable={false} onTapMesa={enterMesa} />
+        </div>
+      ) : (
+        <div className="ancho" style={styles.mesaGrid}>
+          {mesas.length === 0 && (
+            <div style={styles.cajaEmptyText}>No hay mesas creadas todavía. Toca "Mesas" para agregar la primera.</div>
+          )}
+          {mesas.map((m) => {
+            const cuenta = cuentaAbiertaDe(m.id);
+            const visual = estadoVisualMesa(cuenta, cuenta ? cuentaOrders(orders, cuenta.id) : []);
+            return (
+              <button key={m.id} className="anim-in" style={styles.mesaCard} onClick={() => enterMesa(m.id)}>
+                <span style={styles.mesaCardNum}>{m.nombre}</span>
+                <span style={{ ...styles.mesaCardTag, background: visual.bg, color: visual.color }}>{visual.tag}</span>
+                {cuenta && <span style={styles.mesaCardSince}>desde {timeLabel(cuenta.ts)}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <div className="ancho" style={styles.externosWrap}>
+        <div style={styles.catLabel}>PARA LLEVAR Y DOMICILIOS</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={styles.externoBtn} onClick={() => setNuevoExterno("llevar")}><ShoppingBag size={16} /> Para llevar</button>
+          <button style={styles.externoBtn} onClick={() => setNuevoExterno("domicilio")}><Bike size={16} /> Domicilio</button>
+        </div>
+        {cuentas.filter((c) => esExterna(c) && c.estado === "abierta").sort((a, b) => a.ts - b.ts).map((c) => {
+          const visual = estadoVisualMesa(c, cuentaOrders(orders, c.id));
+          return (
+            <button key={c.id} style={styles.externoCard} className="anim-in" onClick={() => enterMesa(c.mesa)}>
+              <span style={styles.externoIcon}>{c.tipo === "domicilio" ? <Bike size={18} /> : <ShoppingBag size={18} />}</span>
+              <span style={styles.externoInfo}>
+                <span style={styles.externoNombre}>{mesaNombre(mesas, c.mesa)}</span>
+                <span style={styles.externoSub}>{c.cliente && c.cliente.direccion ? c.cliente.direccion : `desde ${timeLabel(c.ts)}`}</span>
+              </span>
+              <span style={{ ...styles.mesaCardTag, background: visual.bg, color: visual.color }}>{visual.tag}</span>
+            </button>
+          );
+        })}
+      </div>
+      </div>
+      {nuevoExterno && <NuevoPedidoExterno tipo={nuevoExterno} onCancel={() => setNuevoExterno(null)} onCrear={crearExterno} />}
+    </div>
+  );
+}
