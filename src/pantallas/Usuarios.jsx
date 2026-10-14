@@ -3,7 +3,7 @@ import {
   Plus, UserCircle2,
 } from "lucide-react";
 
-import { subscribeCollection, saveRecord, updateRecord, enviarCorreoCambioClave, crearCuentaEmpleado } from "../firebase.js";
+import { subscribeCollection, saveRecord, updateRecord, updateShared, enviarCorreoCambioClave, crearCuentaEmpleado } from "../firebase.js";
 import { ROLES_ORDEN } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { msgAuth } from "../pantallas/Acceso.jsx";
@@ -20,6 +20,8 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
   const [exito, setExito] = useState("");
   const [creando, setCreando] = useState(false);
   const [aviso, setAviso] = useState({}); // mensajes por usuario (ej. "correo enviado")
+  const [confirmTransfer, setConfirmTransfer] = useState(null); // uid de quien recibiría la propiedad
+  const yoPropietario = usuarioActual.propietario === true;
 
   useEffect(() => subscribeCollection("perfiles", (v) => setPerfiles(v)), []);
 
@@ -51,6 +53,7 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
 
   const toggleRolUsuario = async (u, r) => {
     setError("");
+    if (u.propietario && r === "admin") { setError("El propietario siempre es administrador."); return; }
     const actuales = rolesDe(u);
     const tiene = actuales.includes(r);
     if (tiene && actuales.length === 1) { setError("El usuario debe tener al menos un rol."); return; }
@@ -62,10 +65,26 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
 
   const cambiarActivo = async (u, activo) => {
     setError("");
+    if (u.propietario) { setError("Al propietario no se le puede desactivar. Primero transfiere la propiedad."); return; }
     if (u.uid === usuarioActual.uid) { setError("No puedes desactivar tu propia cuenta."); return; }
     if (!activo && u.activo && rolesDe(u).includes("admin") && adminsActivos.length <= 1) { setError("Debe quedar al menos un administrador."); return; }
     await updateRecord("perfiles", u.uid, { activo });
     await log(`${activo ? "Reactivó" : "Desactivó"} la cuenta de "${u.nombre}"`);
+  };
+
+  // Pasa la propiedad a otra persona (que debe estar activa). Quien la entrega sigue como administrador.
+  // Se escriben los dos perfiles en una sola operación: o cambian los dos o no cambia ninguno.
+  const transferir = async (u) => {
+    setError("");
+    const yo = lista.find((x) => x.uid === usuarioActual.uid);
+    if (!yo || !yoPropietario || !u.activo) return;
+    const ok = await updateShared("perfiles", {
+      [u.uid]: { ...u, propietario: true, activo: true, roles: { ...rolesAMapa(rolesDe(u)), admin: true } },
+      [yo.uid]: { ...yo, propietario: false },
+    });
+    setConfirmTransfer(null);
+    if (!ok) { setError("No se pudo transferir. Revisa tu conexión e inténtalo de nuevo."); return; }
+    await log(`Transfirió la propiedad del negocio a "${u.nombre}"`);
   };
 
   const enviarClave = async (u) => {
@@ -84,22 +103,45 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
           <div style={styles.usuarioRowLeft}>
             <UserCircle2 size={16} color="var(--c-8a8272-t)" />
             <span style={styles.pagoRowEtiqueta}>{u.nombre}</span>
-            <span style={styles.rolBadge}>{u.activo ? rolesLabel(u) : "Desactivada"}</span>
+            <span style={{ ...styles.rolBadge, ...(u.propietario ? { background: "var(--c-242019-b)", color: "#F7F4EC" } : {}) }}>{u.activo ? rolesLabel(u) : "Desactivada"}</span>
           </div>
           <div style={{ fontSize: 12, color: "var(--c-8a8272-t)" }}>{u.correo}</div>
-          <div style={styles.usuarioRowActions}>
-            <div style={styles.rolPillsRowSmall}>
-              {ROLES_ORDEN.map((r) => (
-                <button key={r} style={{ ...styles.rolPillSmall, ...(tieneRol(u, r) ? styles.rolPillActive : {}) }} onClick={() => toggleRolUsuario(u, r)}>{rolLabel(r)}</button>
-              ))}
+          {(!u.propietario || u.uid === usuarioActual.uid) && (
+            <div style={styles.usuarioRowActions}>
+              <div style={styles.rolPillsRowSmall}>
+                {ROLES_ORDEN.map((r) => {
+                  const bloqueado = u.propietario && r === "admin"; // el propietario siempre es admin
+                  return (
+                    <button
+                      key={r} disabled={bloqueado} title={bloqueado ? "El propietario siempre es administrador" : undefined}
+                      style={{ ...styles.rolPillSmall, ...(tieneRol(u, r) ? styles.rolPillActive : {}), ...(bloqueado ? { opacity: 0.6, cursor: "not-allowed" } : {}) }}
+                      onClick={() => toggleRolUsuario(u, r)}
+                    >{rolLabel(r)}</button>
+                  );
+                })}
+              </div>
+              <button style={styles.inlineLink} onClick={() => enviarClave(u)}>enviar clave nueva</button>
+              {!u.propietario && u.uid !== usuarioActual.uid && (
+                u.activo
+                  ? <button style={{ ...styles.inlineLink, color: "var(--c-c1442d-t)" }} onClick={() => cambiarActivo(u, false)}>desactivar</button>
+                  : <button style={styles.inlineLink} onClick={() => cambiarActivo(u, true)}>reactivar</button>
+              )}
+              {yoPropietario && !u.propietario && u.activo && (
+                <button style={styles.inlineLink} onClick={() => setConfirmTransfer(u.uid)}>transferir propiedad</button>
+              )}
             </div>
-            <button style={styles.inlineLink} onClick={() => enviarClave(u)}>enviar clave nueva</button>
-            {u.uid !== usuarioActual.uid && (
-              u.activo
-                ? <button style={{ ...styles.inlineLink, color: "var(--c-c1442d-t)" }} onClick={() => cambiarActivo(u, false)}>desactivar</button>
-                : <button style={styles.inlineLink} onClick={() => cambiarActivo(u, true)}>reactivar</button>
-            )}
-          </div>
+          )}
+          {confirmTransfer === u.uid && (
+            <div style={{ ...styles.turnoBox, marginTop: 6 }}>
+              <div style={styles.closeConfirmText}>
+                ¿Transferir la propiedad del negocio a <b>{u.nombre}</b>? Pasará a ser la propietaria y tú seguirás como administrador. Solo ella podrá volver a transferirla.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={styles.cancelEditBtn} onClick={() => setConfirmTransfer(null)}>Cancelar</button>
+                <button style={{ ...styles.addItemBtn, flex: 1 }} onClick={() => transferir(u)}>Sí, transferir</button>
+              </div>
+            </div>
+          )}
           {aviso[u.uid] && <div style={{ fontSize: 12, color: "var(--c-5b7553-t)", fontWeight: 600 }}>{aviso[u.uid]}</div>}
         </div>
       ))}
