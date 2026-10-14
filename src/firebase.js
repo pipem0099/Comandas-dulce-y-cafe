@@ -1,5 +1,5 @@
-import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { initializeApp, getApps } from "firebase/app";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "firebase/auth";
 import { getDatabase, ref, onValue, get, query, orderByChild, startAt, set, update, remove, increment } from "firebase/database";
 
 /*
@@ -36,31 +36,64 @@ const auth = getAuth(app);
 
 /*
  * ─────────────────────────────────────────────────────────────────────────
- *  ACCESO AL NEGOCIO (protege la base de datos)
+ *  CUENTAS DE USUARIO (protegen la base de datos)
  * ─────────────────────────────────────────────────────────────────────────
- * Cada dispositivo se "vincula" UNA vez con la clave del negocio y queda
- * vinculado (no la vuelve a pedir). Las reglas de la base de datos
- * (database.rules.json) solo dejan leer y escribir a esa cuenta, así que
- * quien tenga el link de la app pero no la clave no puede ver ni tocar nada.
- * El correo es fijo: en Firebase se crea un usuario con ESTE correo y la
- * clave que tú elijas.
+ * Cada persona del equipo entra con SU correo y SU clave (Firebase
+ * Authentication). Su rol (admin, mesero, cajero, cocina) y si está activa
+ * viven en `perfiles/{uid}`, y las reglas de la base de datos
+ * (database.rules.json) se apoyan en eso: sin perfil activo no se puede leer
+ * ni escribir nada, y cada rol solo puede escribir lo que le corresponde.
  */
-export const CORREO_NEGOCIO = "negocio@comandas.app";
 
-/** Avisa cuando este dispositivo queda vinculado (usuario) o no (null). */
+/** Avisa cuando hay sesión iniciada (usuario de Firebase) o no (null). */
 export function observarSesion(callback) {
   return onAuthStateChanged(auth, (user) => callback(user || null));
 }
-export async function vincularDispositivo(clave) {
+export async function iniciarSesion(correo, clave) {
   try {
-    await signInWithEmailAndPassword(auth, CORREO_NEGOCIO, clave);
+    await signInWithEmailAndPassword(auth, correo.trim(), clave);
     return { ok: true };
   } catch (e) {
     return { ok: false, code: e.code || "error" };
   }
 }
-export async function desvincularDispositivo() {
-  try { await signOut(auth); } catch (e) { console.error("Error al desvincular:", e); }
+export async function cerrarSesion() {
+  try { await signOut(auth); } catch (e) { console.error("Error al cerrar sesión:", e); }
+}
+export async function enviarCorreoCambioClave(correo) {
+  try {
+    await sendPasswordResetEmail(auth, correo.trim());
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, code: e.code || "error" };
+  }
+}
+
+/**
+ * Crea la cuenta de un empleado SIN sacar al administrador de su sesión.
+ * (createUserWithEmailAndPassword inicia sesión con la cuenta nueva; por eso
+ * se hace en una segunda "app" de Firebase aparte, que se cierra enseguida.)
+ * Devuelve el uid de la cuenta para crear su perfil.
+ */
+export async function crearCuentaEmpleado(correo, clave) {
+  const sec = getApps().find((a) => a.name === "secundaria") || initializeApp(app.options, "secundaria");
+  const secAuth = getAuth(sec);
+  try {
+    let uid;
+    try {
+      uid = (await createUserWithEmailAndPassword(secAuth, correo.trim(), clave)).user.uid;
+    } catch (e) {
+      // Si la cuenta ya existe (por ejemplo, un intento anterior que se cortó antes de crear
+      // el perfil) y la clave es la misma, se reutiliza en vez de dejar al empleado a medias.
+      if (e.code !== "auth/email-already-in-use") throw e;
+      uid = (await signInWithEmailAndPassword(secAuth, correo.trim(), clave)).user.uid;
+    }
+    await signOut(secAuth);
+    return { ok: true, uid };
+  } catch (e) {
+    try { await signOut(secAuth); } catch (_) {}
+    return { ok: false, code: e.code || "error" };
+  }
 }
 
 /**
@@ -297,6 +330,17 @@ export async function updateRecord(path, id, partial) {
     return true;
   } catch (e) {
     console.error(`Error actualizando "${path}/${id}":`, e);
+    return false;
+  }
+}
+
+/** Cambia solo algunos campos de una carpeta (sin pisar el resto). */
+export async function updateShared(path, partial) {
+  try {
+    await update(ref(db, path), sanitizeForFirebase(partial));
+    return true;
+  } catch (e) {
+    console.error(`Error actualizando "${path}":`, e);
     return false;
   }
 }
