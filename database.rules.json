@@ -1,5 +1,14 @@
 {
   "rules": {
+    "sistema": {
+      ".read": true,
+      "inicializado": {
+        ".write": "auth != null && !data.exists() && root.child('perfiles').child(auth.uid).child('propietario').val() === true"
+      },
+      "marca": {
+        ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true"
+      }
+    },
     "perfiles": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
       "$uid": {
