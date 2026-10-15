@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { vibrar } from "../theme.js";
 import { claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
-import { ModalOpciones, AjustesPanel, NuevoPedidoExterno } from "../extras.jsx";
+import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
 import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
 import { AvisoActivarNotificaciones } from "../componentes/Comunes.jsx";
 import { STATE_META } from "../constantes.js";
@@ -17,7 +17,7 @@ import { NOMBRES_EXTERNOS, conProgreso, cuentaOrders, cuentaSubtotal, dayKey, es
 
 /* ---------------- MESERO ---------------- */
 
-export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas, persistMesas, saveOrder, saveOrdersMap, saveCuenta, persistMenu, persistConfig, insumos, ajustarInventario }) {
+export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas, persistMesas, saveOrder, saveOrdersMap, saveCuenta, persistMenu, persistConfig, insumos, ajustarInventario, onAbrirAjustes }) {
   // Editar el menú, precios y mesas queda reservado al administrador — un
   // mesero normal no debería poder cambiar precios ni borrar productos.
   const meseroActual = usuarioActual.nombre;
@@ -36,7 +36,7 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
       o.items.forEach((it, idx) => {
         const n = itemListos(o, it) - itemServidos(o, it);
         // una "marca" por cada unidad lista sin servir, para detectar cuando sale una nueva
-        for (let k = 1; k <= n; k++) listosAhora.push({ ...o, id: `${o.id}#${idx}#${itemServidos(o, it) + k}` });
+        for (let k = 1; k <= n; k++) listosAhora.push({ id: `${o.id}#${idx}#${itemServidos(o, it) + k}`, mesa: o.mesa, nombre: itemNombre(it) });
       });
     });
     const idsActuales = new Set(listosAhora.map((o) => o.id));
@@ -48,11 +48,19 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
     idsListosVistosRef.current = idsActuales;
     if (nuevos.length > 0) {
       playBeep();
-      const nombreMesa = mesaNombre(mesas, nuevos[0].mesa);
-      const mensaje = nuevos.length === 1 ? `${nombreMesa}: pedido listo para servir` : `${nuevos.length} pedidos listos para servir`;
-      setAvisoListo(mensaje);
-      mostrarNotificacionSistema("Comandas", mensaje);
-      setTimeout(() => setAvisoListo(null), 4500);
+      // "Mesa 3: 2× Limonada Natural" — qué mesa y qué producto, agrupando lo que salió junto
+      const grupos = new Map();
+      nuevos.forEach((u) => {
+        const k = `${u.mesa}|${u.nombre}`;
+        grupos.set(k, { mesa: u.mesa, nombre: u.nombre, n: (grupos.get(k)?.n || 0) + 1 });
+      });
+      const lista = [...grupos.values()];
+      const partes = lista.slice(0, 3).map((g) => `${mesaNombre(mesas, g.mesa)}: ${g.n}× ${g.nombre}`);
+      const texto = partes.join("  ·  ") + (lista.length > 3 ? `  · +${lista.length - 3} más` : "");
+      const mesasUnicas = [...new Set(lista.map((g) => g.mesa))];
+      setAvisoListo({ texto, mesa: mesasUnicas.length === 1 ? mesasUnicas[0] : null });
+      mostrarNotificacionSistema("Para servir", texto);
+      setTimeout(() => setAvisoListo(null), 7000);
     }
   }, [orders, cuentas, meseroActual, mesas]);
 
@@ -71,7 +79,6 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
   const [mesaAction, setMesaAction] = useState(null); // 'trasladar' | 'unir'
   const [vistaMesas, setVistaMesas] = useState("grid"); // 'grid' | 'plano'
   const [modalItem, setModalItem] = useState(null);       // producto con opciones que se está personalizando
-  const [showAjustes, setShowAjustes] = useState(false);
   const [nuevoExterno, setNuevoExterno] = useState(null); // 'llevar' | 'domicilio'
 
   const cuentaAbiertaDe = (mesaId) => cuentas.find((c) => mesaMatch(c.mesa, mesaId) && c.estado === "abierta");
@@ -140,6 +147,16 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
     if (!it || itemServidos(order, it) >= itemListos(order, it)) return;
     vibrar(15);
     const items = order.items.map((x, i) => (i === idx ? { ...x, listos: itemListos(order, x), servidos: itemServidos(order, x) + 1 } : x));
+    await saveOrder(conProgreso(order, items));
+  };
+  // Sirve todas las unidades listas de UN producto (para el panel "Para servir ahora").
+  const servirLinea = async (orderId, idx) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    const it = order.items[idx];
+    if (!it || itemServidos(order, it) >= itemListos(order, it)) return;
+    vibrar(15);
+    const items = order.items.map((x, i) => (i === idx ? { ...x, listos: itemListos(order, x), servidos: itemListos(order, x) } : x));
     await saveOrder(conProgreso(order, items));
   };
   // Sirve de una vez todo lo que ya está listo en ese pedido.
@@ -248,10 +265,6 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
     return <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={meseroActual} insumos={insumos} onClose={() => setShowMenuEditor(false)} />;
   }
 
-  if (showAjustes && esAdminMesero) {
-    return <div style={styles.screen}><AjustesPanel config={config} persistConfig={persistConfig} menu={menu} onClose={() => setShowAjustes(false)} /></div>;
-  }
-
   if (showMesasEditor && esAdminMesero) {
     return <MesasEditor mesas={mesas} persistMesas={persistMesas} cuentas={cuentas} orders={orders} config={config} persistConfig={persistConfig} actor={meseroActual} onClose={() => setShowMesasEditor(false)} />;
   }
@@ -263,7 +276,7 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
 
     return (
       <div style={styles.screen}>
-        {avisoListo && <div style={styles.avisoListoBanner}><Volume2 size={14} /> {avisoListo}</div>}
+        {avisoListo && <div style={styles.avisoListoBanner}><Volume2 size={14} /> {avisoListo.texto}</div>}
         {modalItem && <ModalOpciones item={modalItem} onClose={() => setModalItem(null)} onAdd={(mods, qty, nota) => agregarConOpciones(modalItem, mods, qty, nota)} />}
         <div className="ancho" style={styles.subHeader}>
           <button style={styles.backBtn} onClick={exitMesa}>← Mesas</button>
@@ -510,9 +523,32 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
     );
   }
 
+  // Todo lo que ya salió de cocina y falta llevar, por mesa — solo de MIS cuentas abiertas.
+  const paraServirPorMesa = (() => {
+    const grupos = [];
+    cuentas
+      .filter((c) => c.mesero === meseroActual && c.estado === "abierta")
+      .forEach((c) => {
+        const lineas = [];
+        cuentaOrders(orders, c.id).forEach((o) => {
+          if (o.estado === "cancelado") return;
+          o.items.forEach((it, idx) => {
+            const n = itemListos(o, it) - itemServidos(o, it);
+            if (n > 0) lineas.push({ orderId: o.id, idx, nombre: itemNombre(it), n, faltan: it.qty - itemListos(o, it), ts: o.ts });
+          });
+        });
+        if (lineas.length > 0) grupos.push({ mesa: c.mesa, nombre: mesaNombre(mesas, c.mesa), lineas: lineas.sort((a, b) => a.ts - b.ts), ts: Math.min(...lineas.map((l) => l.ts)) });
+      });
+    return grupos.sort((a, b) => a.ts - b.ts);
+  })();
+
   return (
     <div style={styles.screen}>
-      {avisoListo && <div style={styles.avisoListoBanner}><Volume2 size={14} /> {avisoListo}</div>}
+      {avisoListo && (
+        <button style={{ ...styles.avisoListoBanner, width: "100%", border: "none", textAlign: "left", cursor: avisoListo.mesa ? "pointer" : "default" }} onClick={() => avisoListo.mesa && enterMesa(avisoListo.mesa)}>
+          <Volume2 size={16} /> <span style={{ flex: 1 }}>{avisoListo.texto}</span>{avisoListo.mesa && <span style={{ fontSize: 11, opacity: 0.9 }}>ir a la mesa ›</span>}
+        </button>
+      )}
       <AvisoActivarNotificaciones />
       <div className="ancho" style={styles.mesaGridHeader}>
         <div>
@@ -524,7 +560,7 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
             <>
               <button style={styles.editMenuBtn} onClick={() => setShowMesasEditor(true)}><Settings2 size={15} /> Mesas</button>
               <button style={styles.editMenuBtn} onClick={() => setShowMenuEditor(true)}><Settings2 size={15} /> Menú</button>
-              <button style={styles.editMenuBtn} onClick={() => setShowAjustes(true)}><SlidersHorizontal size={15} /> Ajustes</button>
+              <button style={styles.editMenuBtn} onClick={onAbrirAjustes}><SlidersHorizontal size={15} /> Ajustes</button>
             </>
           ) : (
             <span style={styles.lockedNote}><Lock size={11} /> Menú y mesas los administra el admin</span>
@@ -536,6 +572,22 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
         <button style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "plano" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("plano")}>Plano</button>
       </div>
       <div style={styles.mesasScroll}>
+        {paraServirPorMesa.length > 0 && (
+          <div className="ancho" style={styles.paraServirWrap}>
+            <div style={styles.paraServirTitulo}><Volume2 size={13} /> PARA SERVIR AHORA</div>
+            {paraServirPorMesa.map((g) => (
+              <div key={g.mesa} className="anim-in" style={styles.paraServirCard}>
+                <button style={styles.paraServirMesa} onClick={() => enterMesa(g.mesa)}>{g.nombre} ›</button>
+                {g.lineas.map((l) => (
+                  <div key={`${l.orderId}-${l.idx}`} style={styles.paraServirLinea}>
+                    <span style={styles.paraServirTxt}><b>{l.n}×</b> {l.nombre}{l.faltan > 0 ? <span style={styles.paraServirFaltan}> · faltan {l.faltan} en cocina</span> : null}</span>
+                    <button style={styles.marcarServidoBtn} onClick={() => servirLinea(l.orderId, l.idx)}><Check size={12} /> Servir{l.n > 1 ? ` ${l.n}` : ""}</button>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       {vistaMesas === "plano" ? (
         <div style={{ padding: "0 16px 16px" }}>
           <PlanoSalon mesas={mesas} cuentas={cuentas} orders={orders} editable={false} onTapMesa={enterMesa} />
@@ -552,6 +604,7 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
               <button key={m.id} className="anim-in" style={styles.mesaCard} onClick={() => enterMesa(m.id)}>
                 <span style={styles.mesaCardNum}>{m.nombre}</span>
                 <span style={{ ...styles.mesaCardTag, background: visual.bg, color: visual.color }}>{visual.tag}</span>
+                {visual.extra && <span style={styles.mesaCardExtra}>{visual.extra}</span>}
                 {cuenta && <span style={styles.mesaCardSince}>desde {timeLabel(cuenta.ts)}</span>}
               </button>
             );

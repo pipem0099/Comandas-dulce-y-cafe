@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Receipt, AlertTriangle,
 } from "lucide-react";
@@ -14,8 +14,10 @@ import { cuentaGranTotal, dayKey, mesaOrderIndex, pagosDe, tieneRol } from "../u
 
 /* ---------------- CAJA ---------------- */
 
-export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, turnos, turnoAbierto, saveTurno, config, persistConfig, usuarioActual, mesas, persistMesas, insumos, saveInsumo, updateInsumo, deleteInsumo, ajustarInventario, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto }) {
+export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, turnos, turnoAbierto, saveTurno, config, persistConfig, usuarioActual, mesas, persistMesas, insumos, saveInsumo, updateInsumo, deleteInsumo, ajustarInventario, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, tabSolicitada, onTabAplicada }) {
   const [tab, setTab] = useState("mesas");
+  // El menú de usuario puede pedir abrir una pestaña concreta (ej. "Equipo y usuarios" → Turno).
+  useEffect(() => { if (tabSolicitada) { setTab(tabSolicitada); onTabAplicada && onTabAplicada(); } }, [tabSolicitada]);
   const [expandedId, setExpandedId] = useState(null);
   const esAdmin = tieneRol(usuarioActual, "admin");
 
