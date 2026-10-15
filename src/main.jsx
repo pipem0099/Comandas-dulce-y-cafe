@@ -1,8 +1,20 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import "./theme.js";
+import { aplicarMarca } from "./theme.js";
+import { leerMarcaCache } from "./marcaCache.js";
 import "./index.css";
 import App from "./App.jsx";
+
+// Marca (color y tipografía) de este negocio, desde el primer instante
+const marcaGuardada = leerMarcaCache();
+if (marcaGuardada && marcaGuardada.marca) aplicarMarca(marcaGuardada.marca);
+
+// "Instalar la app": Chrome avisa cuando se puede; el menú de usuario ofrece el botón.
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  window.__instalarApp = e;
+  window.dispatchEvent(new Event("instalar-disponible"));
+});
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 

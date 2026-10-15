@@ -51,10 +51,13 @@ export function mesaOrderIndex(mesas, mesaId) {
 // llevado a la mesa" (azul), "cuenta abierta, todo servido" (verde) y libre.
 export function estadoVisualMesa(cuenta, ordersDeLaCuenta) {
   if (!cuenta) return { tag: "Libre", bg: "var(--c-ede7d8-b)", color: "var(--c-8a8272-t)" };
-  const enCocina = ordersDeLaCuenta.some((o) => o.estado === "pendiente" || o.estado === "preparando");
+  const vivos = ordersDeLaCuenta.filter((o) => o.estado !== "cancelado");
+  const enCocina = vivos.some((o) => o.estado === "pendiente" || o.estado === "preparando");
+  // Lo que ya salió de cocina y falta llevar a la mesa pesa más que lo que sigue en cocina:
+  // si salen de a una de 10 bebidas, la mesa avisa cuántas hay para servir YA.
+  const paraServir = vivos.reduce((a, o) => a + porServir(o), 0);
+  if (paraServir > 0) return { tag: `${paraServir} para servir`, bg: "#2F6690", color: "#F7F4EC", extra: enCocina ? "El resto sigue en cocina" : null };
   if (enCocina) return { tag: "En cocina", bg: "#C1442D", color: "#F7F4EC" };
-  const listoSinServir = ordersDeLaCuenta.some((o) => o.estado !== "cancelado" && porServir(o) > 0);
-  if (listoSinServir) return { tag: "Listo para servir", bg: "#2F6690", color: "#F7F4EC" };
   return { tag: "Cuenta abierta", bg: "#5B7553", color: "#F7F4EC" };
 }
 

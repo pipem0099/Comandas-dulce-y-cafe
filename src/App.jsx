@@ -6,6 +6,9 @@ import { aplicarMarca } from "./theme.js";
 import { esExterna, etiquetaExterna } from "./logica.js";
 import { subscribeShared, saveShared, subscribeCollection, subscribeCollectionSince, getCollectionAll, getCollectionRange, getRecord, saveRecord, saveRecords, deleteRecord, updateRecord, ajustarStock, observarSesion, cerrarSesion, updateShared } from "./firebase.js";
 import { TopBar } from "./componentes/BarraSuperior.jsx";
+import { PantallaCarga } from "./componentes/PantallaCarga.jsx";
+import { AjustesPanel } from "./extras.jsx";
+import { guardarMarcaCache } from "./marcaCache.js";
 import { DEFAULT_CONFIG, DEFAULT_MENU, DEFAULT_MESAS, VENTANA_MS } from "./constantes.js";
 import { styles } from "./estilos.js";
 import { AccesoDenegado, InicioSesion, SinAcceso } from "./pantallas/Acceso.jsx";
@@ -23,6 +26,9 @@ export default function App() {
   const [turnos, setTurnos] = useState([]);
   const [mesas, setMesas] = useState(DEFAULT_MESAS);
   const [insumos, setInsumos] = useState([]);
+  const [verAjustes, setVerAjustes] = useState(false);
+  const [tabCajaSolicitada, setTabCajaSolicitada] = useState(null);
+  const ultimaMarcaPublica = useRef("");
   const [sesion, setSesion] = useState(undefined); // undefined = comprobando · null = sin iniciar sesión
   const [perfil, setPerfil] = useState(undefined); // undefined = cargando · null = esta cuenta no tiene perfil
   const [loaded, setLoaded] = useState(false);
@@ -254,27 +260,46 @@ export default function App() {
 
   // Color, tipografía y logo del negocio (Ajustes → Marca): se aplican en todos los dispositivos.
   useEffect(() => { aplicarMarca(config.marca); }, [config.marca]);
+  // Se recuerda en este dispositivo para que la carga y el ingreso salgan ya con la marca.
+  useEffect(() => { if (loaded) guardarMarcaCache(config.businessName, config.marca); }, [loaded, config.businessName, config.marca]);
+  const esAdminApp = !!usuarioActual && tieneRol(usuarioActual, "admin");
+  // Datos públicos del negocio (nombre y marca) para la pantalla de ingreso, que se ve antes de iniciar sesión.
+  useEffect(() => {
+    if (!loaded || !esAdminApp) return;
+    const m = config.marca || {};
+    const publica = { nombre: config.businessName || "", color: m.color || "terracota", fuente: m.fuente || "clasica", logo: m.logo || null };
+    const huella = JSON.stringify(publica);
+    if (ultimaMarcaPublica.current === huella) return;
+    ultimaMarcaPublica.current = huella;
+    updateShared("sistema", { marca: publica });
+  }, [loaded, esAdminApp, config.businessName, config.marca]);
+  // Aviso público de que el negocio ya tiene propietario (oculta la opción de "primer ingreso").
+  useEffect(() => {
+    if (!loaded || !usuarioActual || !usuarioActual.propietario) return;
+    getRecord("sistema/inicializado").then((v) => { if (v !== true) updateShared("sistema", { inicializado: true }); });
+  }, [loaded, usuarioActual]);
 
   // nombres de los pedidos para llevar / domicilio (se usan en cocina, caja e historial)
   cuentasParaHistorial.forEach((c) => { if (esExterna(c)) NOMBRES_EXTERNOS[c.mesa] = etiquetaExterna(c); });
 
   if (sesion === undefined || (sesion && perfil === undefined)) {
-    return <div style={styles.loadingScreen}><div style={styles.loadingStamp}>CARGANDO COMANDAS…</div></div>;
+    return <PantallaCarga />;
   }
   if (!sesion) return <InicioSesion />;
   if (!accesoOk) return <SinAcceso sesion={sesion} perfil={perfil} onSalir={cerrarSesionYRecargar} />;
 
   if (!loaded) {
-    return (
-      <div style={styles.loadingScreen}>
-        <div style={styles.loadingStamp}>CARGANDO COMANDAS…</div>
-      </div>
-    );
+    return <PantallaCarga />;
   }
 
   return (
     <div style={styles.app}>
-      <TopBar role={role} setRole={setRole} config={config} usuarioActual={usuarioActual} onCambiarUsuario={cerrarSesionYRecargar} online={online} />
+      <TopBar
+        role={role} setRole={(r) => { setVerAjustes(false); setRole(r); }} config={config} usuarioActual={usuarioActual} online={online}
+        onAjustes={() => setVerAjustes(true)}
+        onEquipo={() => { setVerAjustes(false); setRole("caja"); setTabCajaSolicitada("turno"); }}
+        onSalir={cerrarSesionYRecargar}
+      />
       {errorGuardado && (
         <div style={styles.errorGuardadoBanner}>
           <AlertTriangle size={14} />
@@ -282,7 +307,10 @@ export default function App() {
           <button style={styles.errorGuardadoCerrar} onClick={() => setErrorGuardado(null)}>✕</button>
         </div>
       )}
-      {role === "mesero" && (
+      {verAjustes && esAdminApp && (
+        <div style={styles.screen}><AjustesPanel config={config} persistConfig={persistConfig} menu={menu} onClose={() => setVerAjustes(false)} /></div>
+      )}
+      {!verAjustes && role === "mesero" && (
         !tieneRol(usuarioActual, "mesero") && !tieneRol(usuarioActual, "admin") ? (
           <AccesoDenegado mensaje="Tu usuario no tiene el rol de Mesero — esto es Mesero." accion="Ir a Caja" onAccion={() => setRole("caja")} onCambiarUsuario={cerrarSesionYRecargar} />
         ) : (
@@ -292,11 +320,12 @@ export default function App() {
             saveOrder={saveOrder} saveOrdersMap={saveOrdersMap} saveCuenta={saveCuenta}
             persistMenu={persistMenu} persistConfig={persistConfig}
             insumos={insumos} ajustarInventario={ajustarInventario}
+            onAbrirAjustes={() => setVerAjustes(true)}
           />
         )
       )}
-      {role === "cocina" && <CocinaView orders={orders} saveOrder={saveOrder} mesas={mesas} config={config} />}
-      {role === "caja" && (
+      {!verAjustes && role === "cocina" && <CocinaView orders={orders} saveOrder={saveOrder} mesas={mesas} config={config} />}
+      {!verAjustes && role === "caja" && (
         !tieneRol(usuarioActual, "cajero") && !tieneRol(usuarioActual, "admin") ? (
           <AccesoDenegado mensaje="Tu usuario no tiene el rol de Cajero — esto es Caja." accion="Ir a Mesero" onAccion={() => setRole("mesero")} onCambiarUsuario={cerrarSesionYRecargar} />
         ) : (
@@ -308,6 +337,7 @@ export default function App() {
             insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario}
             ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial}
             historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto}
+            tabSolicitada={tabCajaSolicitada} onTabAplicada={() => setTabCajaSolicitada(null)}
           />
         )
       )}

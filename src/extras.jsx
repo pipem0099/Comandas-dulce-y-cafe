@@ -379,8 +379,8 @@ export function AjustesPanel({ config, persistConfig, menu, onClose }) {
         <div style={x.card}>
           <div style={x.eyebrow}>Marca</div>
           <div style={x.row}>
-            <div style={{ width: 64, height: 64, borderRadius: 14, background: K.soft, border: `1px solid ${K.border}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-              {marca.logo ? <img src={marca.logo} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <ImageIcon size={24} color="#B3A891" strokeWidth={1.5} />}
+            <div style={{ minWidth: 64, maxWidth: 150, height: 64, padding: marca.logo ? "0 10px" : 0, borderRadius: 14, background: "#14110D", border: `1px solid ${K.border}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+              {marca.logo ? <img src={marca.logo} alt="Logo" style={{ height: 40, width: "auto", maxWidth: 130, objectFit: "contain" }} /> : <ImageIcon size={24} color="#B3A891" strokeWidth={1.5} />}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
               <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={subirLogo} />
@@ -389,7 +389,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose }) {
             </div>
           </div>
           {errorLogo && <div style={{ fontSize: 12.5, color: K.red, fontWeight: 600 }}>{errorLogo}</div>}
-          <div style={x.hint}>El logo se ve en la barra superior y en la pantalla de ingreso. Mejor si es cuadrado y con fondo transparente.</div>
+          <div style={x.hint}>El logo se ve en la barra superior, el ingreso y la pantalla de carga, sobre fondo oscuro. Funciona mejor un PNG con fondo transparente y letras claras.</div>
 
           <div style={{ ...x.label, marginTop: 4 }}>Color de la marca</div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

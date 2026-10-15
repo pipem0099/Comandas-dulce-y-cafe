@@ -125,8 +125,8 @@ export function aplicarMarca(marca) {
 }
 aplicarMarca(MARCA_POR_DEFECTO);
 
-/** Reduce una imagen subida (logo) a un cuadrado pequeño en base64 para guardarla en la config. */
-export function reducirLogo(file, lado = 192) {
+/** Reduce una imagen subida (logo) conservando su proporción, para guardarla en base64 en la config. */
+export function reducirLogo(file, ladoMax = 480) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
@@ -134,13 +134,13 @@ export function reducirLogo(file, lado = 192) {
       const img = new Image();
       img.onerror = () => reject(new Error("La imagen no es válida"));
       img.onload = () => {
+        const escala = Math.min(1, ladoMax / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * escala)), h = Math.max(1, Math.round(img.height * escala));
         const canvas = document.createElement("canvas");
-        canvas.width = lado; canvas.height = lado;
+        canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext("2d");
-        const escala = Math.min(lado / img.width, lado / img.height);
-        const w = img.width * escala, h = img.height * escala;
-        ctx.clearRect(0, 0, lado, lado);
-        ctx.drawImage(img, (lado - w) / 2, (lado - h) / 2, w, h);
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
         resolve(canvas.toDataURL("image/png"));
       };
       img.src = reader.result;
