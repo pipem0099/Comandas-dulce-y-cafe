@@ -1,43 +1,25 @@
 import React, { useState } from "react";
-import {
-  ChefHat, ClipboardList, Receipt, UserCircle2, Sun, Moon, MonitorSmartphone,
-} from "lucide-react";
-import { guardarTema, temaGuardado, vibrar } from "../theme.js";
+import { ChefHat, ClipboardList, Receipt, ChevronDown } from "lucide-react";
+import { MenuUsuario } from "./MenuUsuario.jsx";
 import { LogoMarca } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { rolesLabel } from "../utilidades.js";
 
-export const TEMA_META = {
-  auto: { icon: MonitorSmartphone, label: "Automático (sigue al teléfono)", next: "claro" },
-  claro: { icon: Sun, label: "Modo claro", next: "oscuro" },
-  oscuro: { icon: Moon, label: "Modo oscuro", next: "auto" },
-};
-export function BotonTema() {
-  const [modo, setModo] = useState(temaGuardado());
-  const meta = TEMA_META[modo];
-  const Icon = meta.icon;
-  return (
-    <button
-      style={styles.temaBtn} title={`${meta.label} — toca para cambiar`} aria-label={meta.label}
-      onClick={() => { vibrar(); guardarTema(meta.next); setModo(meta.next); }}
-    >
-      <Icon size={15} />
-    </button>
-  );
-}
-
-export function TopBar({ role, setRole, config, usuarioActual, onCambiarUsuario, online }) {
+export function TopBar({ role, setRole, config, usuarioActual, onAjustes, onEquipo, onSalir, online }) {
+  const [menuAbierto, setMenuAbierto] = useState(false);
   return (
     <div className="no-imprimir" style={styles.topBar}>
       <div style={styles.brand}>
         <LogoMarca marca={config.marca} />
         <span style={styles.brandText}>{(config.businessName || "LA COMANDA").toUpperCase()}</span>
         <span style={{ ...styles.syncDot, background: online ? "#5B7553" : "#C1442D" }} title={online ? "En línea" : "Sin conexión"} />
-        <BotonTema />
       </div>
       {usuarioActual && (
-        <button style={styles.meseroChip} onClick={onCambiarUsuario} title="Cerrar sesión">
-          <UserCircle2 size={13} /> {usuarioActual.nombre} · {rolesLabel(usuarioActual)}
+        <button style={styles.meseroChip} onClick={() => setMenuAbierto(true)} aria-label="Mi cuenta" aria-haspopup="dialog">
+          <span style={{ width: 20, height: 20, borderRadius: 10, background: "var(--accent)", color: "#F7F4EC", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+            {(usuarioActual.nombre || "?").trim().charAt(0).toUpperCase()}
+          </span>
+          {usuarioActual.nombre} · {rolesLabel(usuarioActual)} <ChevronDown size={13} />
         </button>
       )}
       <div style={styles.roleSwitch}>
@@ -51,6 +33,9 @@ export function TopBar({ role, setRole, config, usuarioActual, onCambiarUsuario,
           <Receipt size={15} strokeWidth={2.2} /> Caja
         </button>
       </div>
+      {menuAbierto && usuarioActual && (
+        <MenuUsuario usuarioActual={usuarioActual} config={config} onCerrar={() => setMenuAbierto(false)} onAjustes={onAjustes} onEquipo={onEquipo} onSalir={onSalir} />
+      )}
     </div>
   );
 }

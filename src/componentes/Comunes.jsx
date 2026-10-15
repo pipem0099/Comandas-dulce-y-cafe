@@ -3,7 +3,7 @@ import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 
 export function LogoMarca({ marca, size = 22 }) {
-  if (marca && marca.logo) return <img src={marca.logo} alt="" style={{ width: size, height: size, borderRadius: 6, objectFit: "contain", flexShrink: 0 }} />;
+  if (marca && marca.logo) return <img src={marca.logo} alt="" style={{ height: size, width: "auto", maxWidth: size * 3, objectFit: "contain", flexShrink: 0 }} />;
   return <span style={styles.brandMark}>◆</span>;
 }
 
