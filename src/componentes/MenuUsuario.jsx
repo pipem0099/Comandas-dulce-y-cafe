@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Sun, Moon, MonitorSmartphone, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check } from "lucide-react";
+import { X, Sun, Moon, MonitorSmartphone, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup } from "lucide-react";
 import { guardarTema, temaGuardado, vibrar } from "../theme.js";
 import { enviarCorreoCambioClave } from "../firebase.js";
 import { rolesLabel } from "../utilidades.js";
@@ -11,7 +11,7 @@ import { VERSION } from "../constantes.js";
  */
 const K = {
   bg: "var(--c-f7f4ec-b)", surface: "var(--c-fffdf8-b)", soft: "var(--c-ede7d8-b)", border: "var(--c-e4dfce-o)",
-  ink: "var(--c-242019-t)", muted: "var(--c-8a8272-t)", sub: "var(--c-5c5648-t)", faint: "#B3A891", cream: "#F7F4EC",
+  ink: "var(--c-242019-t)", muted: "var(--c-8a8272-t)", sub: "var(--c-5c5648-t)", faint: "#9BA4B0", cream: "#F4F6F8",
 };
 const TEMAS = [
   { id: "auto", label: "Automático", icon: MonitorSmartphone },
@@ -19,7 +19,7 @@ const TEMAS = [
   { id: "oscuro", label: "Oscuro", icon: Moon },
 ];
 
-export function MenuUsuario({ usuarioActual, config, onCerrar, onAjustes, onEquipo, onSalir }) {
+export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) {
   const [tema, setTema] = useState(temaGuardado());
   const [confirmSalir, setConfirmSalir] = useState(false);
   const [aviso, setAviso] = useState("");
@@ -49,8 +49,8 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onAjustes, onEqui
   const ir = (fn) => () => { onCerrar(); fn(); };
 
   const Fila = ({ icon: Icon, titulo, sub, onClick, peligro }) => (
-    <button style={{ ...s.fila, color: peligro ? "#C1442D" : K.ink }} onClick={onClick}>
-      <span style={{ ...s.filaIcono, color: peligro ? "#C1442D" : K.sub }}><Icon size={17} strokeWidth={1.9} /></span>
+    <button style={{ ...s.fila, color: peligro ? "#D64545" : K.ink }} onClick={onClick}>
+      <span style={{ ...s.filaIcono, color: peligro ? "#D64545" : K.sub }}><Icon size={17} strokeWidth={1.9} /></span>
       <span style={s.filaTexto}>
         <span style={s.filaTitulo}>{titulo}</span>
         {sub && <span style={s.filaSub}>{sub}</span>}
@@ -84,19 +84,28 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onAjustes, onEqui
           })}
         </div>
 
-        <div style={s.etiqueta}>CUENTA</div>
+        {esAdmin && (
+          <>
+            <div style={s.etiqueta}>ADMINISTRACIÓN</div>
+            <div style={s.grupo}>
+              <Fila icon={UtensilsCrossed} titulo="Menú y precios" sub="Productos, categorías y agotados" onClick={ir(() => onIr("menu"))} />
+              <Fila icon={LayoutGrid} titulo="Mesas y plano" sub="Mesas, espacios y su distribución" onClick={ir(() => onIr("mesas"))} />
+              <Fila icon={Users} titulo="Equipo y usuarios" sub="Cuentas, roles y propiedad" onClick={ir(() => onIr("equipo"))} />
+              <Fila icon={DatabaseBackup} titulo="Respaldos y datos" sub="Copias de seguridad y restauración" onClick={ir(() => onIr("respaldos"))} />
+              <Fila icon={SlidersHorizontal} titulo="Ajustes del negocio" sub="Marca, estaciones e inventario" onClick={ir(() => onIr("ajustes"))} />
+            </div>
+          </>
+        )}
+
+        <div style={s.etiqueta}>MI CUENTA</div>
         <div style={s.grupo}>
-          {esAdmin && <Fila icon={SlidersHorizontal} titulo="Ajustes del negocio" sub="Marca, estaciones e inventario" onClick={ir(onAjustes)} />}
-          {esAdmin && <Fila icon={Users} titulo="Equipo y usuarios" sub="Cuentas, roles y propiedad" onClick={ir(onEquipo)} />}
           <Fila icon={KeyRound} titulo="Cambiar mi clave" sub="Te llega un correo para crear una nueva" onClick={cambiarClave} />
-          {puedeInstalar && <Fila icon={Download} titulo="Instalar la app" sub="Ábrela como una app, desde tu pantalla de inicio" onClick={instalar} />}
+          {puedeInstalar && <Fila icon={Download} titulo="Instalar la app" sub="Ábrela desde tu pantalla de inicio" onClick={instalar} />}
+          <Fila icon={LogOut} titulo="Cerrar sesión" peligro onClick={() => { setConfirmSalir(true); setAviso(""); }} />
         </div>
         {aviso && <div style={s.aviso}><Check size={14} /> {aviso}</div>}
-
-        {!confirmSalir ? (
-          <div style={s.grupo}><Fila icon={LogOut} titulo="Cerrar sesión" peligro onClick={() => { setConfirmSalir(true); setAviso(""); }} /></div>
-        ) : (
-          <div style={s.confirmar}>
+        {confirmSalir && (
+          <div style={s.confirmar} className="anim-in">
             <div style={{ fontSize: 14, fontWeight: 600, color: K.ink }}>¿Cerrar la sesión en este equipo?</div>
             <div style={{ display: "flex", gap: 8 }}>
               <button style={s.btnGhost} onClick={() => setConfirmSalir(false)}>Cancelar</button>
@@ -133,6 +142,6 @@ const s = {
   aviso: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--c-5b7553-t)", fontWeight: 600, padding: "0 4px" },
   confirmar: { background: K.surface, border: `1px solid ${K.border}`, borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 10 },
   btnGhost: { flex: 1, padding: "11px 12px", background: "transparent", color: K.sub, border: `1px solid ${K.border}`, borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
-  btnSalir: { flex: 1, padding: "11px 12px", background: "#C1442D", color: K.cream, border: "none", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
+  btnSalir: { flex: 1, padding: "11px 12px", background: "#D64545", color: K.cream, border: "none", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
   pie: { textAlign: "center", fontSize: 11, color: K.faint, letterSpacing: 0.5, marginTop: 4 },
 };

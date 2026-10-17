@@ -5,18 +5,18 @@ import { LogoMarca } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { rolesLabel } from "../utilidades.js";
 
-export function TopBar({ role, setRole, config, usuarioActual, onAjustes, onEquipo, onSalir, online }) {
+export function TopBar({ role, setRole, config, usuarioActual, onIr, onSalir, online }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   return (
     <div className="no-imprimir" style={styles.topBar}>
       <div style={styles.brand}>
         <LogoMarca marca={config.marca} />
         <span style={styles.brandText}>{(config.businessName || "LA COMANDA").toUpperCase()}</span>
-        <span style={{ ...styles.syncDot, background: online ? "#5B7553" : "#C1442D" }} title={online ? "En línea" : "Sin conexión"} />
+        <span style={{ ...styles.syncDot, background: online ? "#1F8A62" : "#D64545" }} title={online ? "En línea" : "Sin conexión"} />
       </div>
       {usuarioActual && (
         <button style={styles.meseroChip} onClick={() => setMenuAbierto(true)} aria-label="Mi cuenta" aria-haspopup="dialog">
-          <span style={{ width: 20, height: 20, borderRadius: 10, background: "var(--accent)", color: "#F7F4EC", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+          <span style={{ width: 20, height: 20, borderRadius: 10, background: "var(--accent)", color: "#F4F6F8", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
             {(usuarioActual.nombre || "?").trim().charAt(0).toUpperCase()}
           </span>
           {usuarioActual.nombre} · {rolesLabel(usuarioActual)} <ChevronDown size={13} />
@@ -34,7 +34,7 @@ export function TopBar({ role, setRole, config, usuarioActual, onAjustes, onEqui
         </button>
       </div>
       {menuAbierto && usuarioActual && (
-        <MenuUsuario usuarioActual={usuarioActual} config={config} onCerrar={() => setMenuAbierto(false)} onAjustes={onAjustes} onEquipo={onEquipo} onSalir={onSalir} />
+        <MenuUsuario usuarioActual={usuarioActual} config={config} onCerrar={() => setMenuAbierto(false)} onIr={onIr} onSalir={onSalir} />
       )}
     </div>
   );

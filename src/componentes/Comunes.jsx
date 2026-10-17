@@ -55,7 +55,7 @@ export function MetodoPills({ selected, onSelect }) {
         const Icon = meta.icon;
         const isSel = selected === key;
         return (
-          <button key={key} style={{ ...styles.metodoPill, ...(isSel ? { background: meta.color, color: "#F7F4EC", border: `1px solid ${meta.color}` } : {}) }} onClick={() => onSelect(key)}>
+          <button key={key} style={{ ...styles.metodoPill, ...(isSel ? { background: meta.color, color: "#F4F6F8", border: `1px solid ${meta.color}` } : {}) }} onClick={() => onSelect(key)}>
             <Icon size={14} /> {meta.label}
           </button>
         );
