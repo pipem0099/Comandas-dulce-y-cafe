@@ -107,13 +107,18 @@ El rol de propietario no se puede quitar ni desactivar, pero sí **transferir** 
     ├── constantes.js     menú y mesas de ejemplo, colores de estados, valores fijos
     ├── utilidades.js     cálculos y formatos: totales, fechas, roles, nombres de mesa
     ├── logica.js         reglas del negocio: opciones, estaciones, inventario, para llevar
-    ├── theme.js          modo claro/oscuro y marca (color, tipografía, logo)
+    ├── relevoCaja.js     tramos de caja: quién tuvo el efectivo y cómo se entrega
+    ├── theme.js          paleta (claro/oscuro) y marca (color, tipografía, logo)
+    ├── marcaCache.js     recuerda la marca en el dispositivo para el ingreso y la carga
     ├── estilos.js        todos los estilos visuales
     ├── avisos.js         sonido de campana y notificaciones
     ├── exportar.js       respaldo y exportación a Excel
     ├── extras.jsx        pantallas de opciones, ajustes, inventario y pedidos externos
     ├── componentes/      piezas que se repiten
-    │   ├── BarraSuperior.jsx   barra de arriba, botón de tema
+    │   ├── BarraSuperior.jsx   barra de arriba y acceso al menú de usuario
+    │   ├── MenuUsuario.jsx     menú de la persona: apariencia, administración y cuenta
+    │   ├── CabeceraAdmin.jsx   encabezado común de las pantallas de administración
+    │   ├── PantallaCarga.jsx   pantalla de carga con la marca
     │   └── Comunes.jsx         campo de monto, logo, avisos
     └── pantallas/        una pantalla por archivo
         ├── Acceso.jsx          inicio de sesión y pantallas sin acceso
@@ -123,8 +128,13 @@ El rol de propietario no se puede quitar ni desactivar, pero sí **transferir** 
         ├── Cocina.jsx          pantalla de cocina por estaciones
         ├── Caja.jsx            caja: pestañas y cuentas abiertas
         ├── CuentaMesa.jsx      cobro de una cuenta (pagos, propina, descuentos)
-        ├── Turno.jsx           apertura y cierre de turno, respaldos
-        ├── Usuarios.jsx        cuentas del equipo y roles
+        ├── Turno.jsx           turno de caja: apertura, movimientos, arqueo y turnos anteriores
+        ├── MovimientosCaja.jsx entradas y salidas de efectivo (pago a proveedores, retiros, gastos)
+        ├── RelevoCaja.jsx      entregar la caja a otra persona, asumirla y recibirla
+        ├── ResumenDia.jsx      resumen del día: quién tuvo la caja, lo vendido, diferencias
+        ├── Equipo.jsx          pantalla del equipo (usa Usuarios.jsx): cuentas, roles, propiedad
+        ├── Respaldos.jsx       copia de seguridad, restauración y copias automáticas
+        ├── Usuarios.jsx        lista de cuentas, alta de personas y registro de seguridad
         ├── Historial.jsx       historial de ventas
         └── Reportes.jsx        reportes y gráficas
 ```
