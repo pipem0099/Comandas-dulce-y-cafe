@@ -121,7 +121,7 @@ export function InicioSesion() {
     <MarcoAcceso sistema={sistema}>
       <div style={a.eyebrow}>{esCrear ? "PRIMER INGRESO" : "BIENVENIDO"}</div>
       <div style={a.titulo}>{esCrear ? "Crea la cuenta del propietario" : "Iniciar sesión"}</div>
-      {esCrear && <div style={a.texto}>Se hace una sola vez. Esta cuenta queda como <b style={{ color: "#F3EEE3" }}>propietaria</b> y desde ahí creas las cuentas de tu equipo.</div>}
+      {esCrear && <div style={a.texto}>Se hace una sola vez. Esta cuenta queda como <b style={{ color: "#ECEFF3" }}>propietaria</b> y desde ahí creas las cuentas de tu equipo.</div>}
       <div style={a.campos}>
         {esCrear && <input style={a.input} autoComplete="name" placeholder="Tu nombre" value={nombre} onChange={(e) => { setNombre(e.target.value); setError(""); }} />}
         <input style={a.input} type="email" inputMode="email" autoComplete="username" autoCapitalize="none" placeholder="Correo electrónico" value={correo} onChange={(e) => { setCorreo(e.target.value); setError(""); }} />
@@ -193,7 +193,7 @@ export function SinAcceso({ sesion, perfil, onSalir }) {
       {error && <div style={a.error}><AlertCircle size={15} /> <span>{error}</span></div>}
       {!desactivada && primeraVez && !yaTienePropietario && (
         <>
-          <div style={a.texto}>Esta cuenta quedará como <b style={{ color: "#F3EEE3" }}>Propietaria</b>: es administradora y ese rol no se puede quitar, solo transferir.</div>
+          <div style={a.texto}>Esta cuenta quedará como <b style={{ color: "#ECEFF3" }}>Propietaria</b>: es administradora y ese rol no se puede quitar, solo transferir.</div>
           <input style={a.input} placeholder="Tu nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
           <button style={{ ...a.boton, opacity: guardando ? 0.5 : 1 }} disabled={guardando} onClick={configurar}><KeyRound size={16} /> Quedar como propietario</button>
         </>
@@ -209,27 +209,27 @@ export function SinAcceso({ sesion, perfil, onSalir }) {
 }
 
 const a = {
-  pagina: { minHeight: "100dvh", background: "#14110D", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, position: "relative", overflow: "hidden", boxSizing: "border-box" },
+  pagina: { minHeight: "100dvh", background: "#1E2227", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, position: "relative", overflow: "hidden", boxSizing: "border-box" },
   brillo: { position: "absolute", top: -180, left: "50%", width: 640, height: 640, transform: "translateX(-50%)", background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 26%, transparent) 0%, transparent 62%)", pointerEvents: "none" },
   columna: { position: "relative", width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", gap: 22 },
   marca: { display: "flex", flexDirection: "column", alignItems: "center", gap: 12 },
   logo: { height: 60, width: "auto", maxWidth: 240, objectFit: "contain" },
   monograma: { width: 68, height: 68, borderRadius: 18, border: "1.5px solid var(--accent)", color: "var(--accent-t)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 700, background: "rgba(255,255,255,0.02)" },
-  nombre: { fontFamily: "var(--font-display)", color: "#F7F4EC", letterSpacing: 5, fontSize: 17, fontWeight: 600, textAlign: "center" },
+  nombre: { fontFamily: "var(--font-display)", color: "#F4F6F8", letterSpacing: 5, fontSize: 17, fontWeight: 600, textAlign: "center" },
   linea: { width: 36, height: 2, background: "var(--accent)", borderRadius: 1 },
-  tarjeta: { display: "flex", flexDirection: "column", gap: 12, padding: 24, background: "rgba(255,255,255,0.035)", border: "1px solid #2B261E", borderRadius: 20, boxShadow: "0 24px 60px -24px rgba(0,0,0,.7)", backdropFilter: "blur(8px)" },
+  tarjeta: { display: "flex", flexDirection: "column", gap: 12, padding: 24, background: "rgba(255,255,255,0.035)", border: "1px solid #23282E", borderRadius: 20, boxShadow: "0 24px 60px -24px rgba(0,0,0,.7)", backdropFilter: "blur(8px)" },
   eyebrow: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 2, color: "var(--accent-t)", fontWeight: 600 },
-  titulo: { fontFamily: "var(--font-display)", fontSize: 27, fontWeight: 700, color: "#F7F4EC", lineHeight: 1.15, marginBottom: 2 },
-  texto: { fontSize: 13.5, lineHeight: 1.55, color: "#A59D8A" },
+  titulo: { fontFamily: "var(--font-display)", fontSize: 27, fontWeight: 700, color: "#F4F6F8", lineHeight: 1.15, marginBottom: 2 },
+  texto: { fontSize: 13.5, lineHeight: 1.55, color: "#8F99A6" },
   campos: { display: "flex", flexDirection: "column", gap: 10, marginTop: 4 },
-  input: { width: "100%", boxSizing: "border-box", padding: "14px 15px", background: "#1D1913", border: "1px solid #373026", borderRadius: 12, color: "#F3EEE3", fontSize: 15, fontFamily: "var(--font-body)" },
-  ojo: { position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", color: "#8A8272", cursor: "pointer" },
-  boton: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 6, padding: "15px 16px", background: "var(--accent)", color: "#F7F4EC", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, letterSpacing: 0.3, cursor: "pointer", boxShadow: "0 10px 28px -10px color-mix(in srgb, var(--accent) 70%, transparent)" },
-  error: { display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#E8A090", background: "rgba(193,68,45,0.12)", border: "1px solid rgba(193,68,45,0.35)", borderRadius: 10, padding: "10px 12px", lineHeight: 1.4 },
-  info: { fontSize: 13, color: "#8FB487", lineHeight: 1.45 },
+  input: { width: "100%", boxSizing: "border-box", padding: "14px 15px", background: "#16191E", border: "1px solid #2A2F36", borderRadius: 12, color: "#ECEFF3", fontSize: 15, fontFamily: "var(--font-body)" },
+  ojo: { position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", color: "#8F99A6", cursor: "pointer" },
+  boton: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 6, padding: "15px 16px", background: "var(--accent)", color: "#F4F6F8", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, letterSpacing: 0.3, cursor: "pointer", boxShadow: "0 10px 28px -10px color-mix(in srgb, var(--accent) 70%, transparent)" },
+  error: { display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#F0A3A0", background: "rgba(193,68,45,0.12)", border: "1px solid rgba(193,68,45,0.35)", borderRadius: 10, padding: "10px 12px", lineHeight: 1.4 },
+  info: { fontSize: 13, color: "#5FCAA0", lineHeight: 1.45 },
   enlaces: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginTop: 4 },
-  enlace: { background: "transparent", border: "none", color: "#B3A891", fontSize: 13, padding: "8px 6px", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: "#4A4236" },
-  pie: { textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1.8, color: "#4A4236" },
+  enlace: { background: "transparent", border: "none", color: "#9BA4B0", fontSize: 13, padding: "8px 6px", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: "#3A4048" },
+  pie: { textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1.8, color: "#3A4048" },
 };
 
 export function AccesoDenegado({ mensaje, accion, onAccion, onCambiarUsuario }) {

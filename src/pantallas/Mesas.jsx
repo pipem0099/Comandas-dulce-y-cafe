@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
+import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import {
-  Plus, Trash2, Pencil,
+  Plus, Trash2, Pencil, Lock, Check, GripVertical, X,
 } from "lucide-react";
 import { uid } from "../logica.js";
 import { styles } from "../estilos.js";
@@ -23,13 +24,20 @@ export function PlanoSalon({ mesas, cuentas, orders, editable, onTapMesa, onMove
   };
   const posDe = (m, idx) => (typeof m.x === "number" && typeof m.y === "number") ? { x: m.x, y: m.y } : posDefault(idx);
 
+  const inicio = useRef(null); // dónde empezó el dedo: hasta que se mueve unos píxeles, no se arrastra nada
   const onPointerDown = (e, m) => {
     if (!editable) return;
     e.currentTarget.setPointerCapture(e.pointerId);
+    inicio.current = { id: m.id, x: e.clientX, y: e.clientY, moviendo: false };
     setArrastrando(m.id);
   };
   const onPointerMove = (e) => {
     if (!arrastrando || !containerRef.current) return;
+    const ini = inicio.current;
+    if (ini && !ini.moviendo) {
+      if (Math.hypot(e.clientX - ini.x, e.clientY - ini.y) < 8) return;
+      ini.moviendo = true;
+    }
     const rect = containerRef.current.getBoundingClientRect();
     let x = ((e.clientX - rect.left) / rect.width) * 100;
     let y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -44,7 +52,11 @@ export function PlanoSalon({ mesas, cuentas, orders, editable, onTapMesa, onMove
   };
 
   return (
-    <div ref={containerRef} style={styles.planoContainer} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
+    <div
+      ref={containerRef}
+      style={{ ...styles.planoContainer, ...(editable ? { border: "2px dashed var(--accent)", backgroundImage: "radial-gradient(var(--c-d9cfae-o) 1px, transparent 1px)", backgroundSize: "20px 20px" } : {}) }}
+      onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
+    >
       {mesas.length === 0 && <div style={styles.planoVacio}>Agrega mesas para verlas aquí.</div>}
       {mesas.map((m, idx) => {
         const cuenta = cuentas.find((c) => mesaMatch(c.mesa, m.id) && c.estado === "abierta");
@@ -67,6 +79,7 @@ export function PlanoSalon({ mesas, cuentas, orders, editable, onTapMesa, onMove
               zIndex: arrastrando === m.id ? 2 : 1,
             }}
           >
+            {editable && <GripVertical size={12} style={{ position: "absolute", top: 4, right: 3, opacity: 0.45 }} />}
             {m.nombre}
           </button>
         );
@@ -113,9 +126,18 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
     setConfirmDeleteId(null);
   };
 
-  const moverEnPlano = (id, x, y) => {
-    persistMesas(mesas.map((m) => (m.id === id ? { ...m, x, y } : m)));
+  // El plano está BLOQUEADO por defecto (un roce al hacer scroll no mueve mesas). Al tocar "Editar
+  // posiciones" los cambios quedan en un borrador y solo se guardan con "Guardar posiciones".
+  const [editandoPlano, setEditandoPlano] = useState(false);
+  const [borrador, setBorrador] = useState({});
+  const mesasVista = mesas.map((m) => (borrador[m.id] ? { ...m, ...borrador[m.id] } : m));
+  const hayCambios = Object.keys(borrador).length > 0;
+  const moverEnPlano = (id, x, y) => setBorrador((b) => ({ ...b, [id]: { x, y } }));
+  const guardarPlano = () => {
+    if (hayCambios) { persistMesas(mesasVista); registrar("Reubicó las mesas en el plano"); }
+    setBorrador({}); setEditandoPlano(false);
   };
+  const cancelarPlano = () => { setBorrador({}); setEditandoPlano(false); };
 
   const mover = (idx, dir) => {
     const next = [...mesas];
@@ -127,11 +149,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
 
   return (
     <div style={styles.screen}>
-      <div className="ancho" style={styles.subHeader}>
-        <button style={styles.backBtn} onClick={onClose}>← Mesas</button>
-        <div style={styles.mesaTitleWrap}><span style={styles.mesaEyebrow}>AJUSTES</span><span style={styles.mesaTitle}>Mesas y espacios</span></div>
-        <div style={{ width: 70 }} />
-      </div>
+      <CabeceraAdmin titulo="Mesas y espacios" onClose={onClose} />
       <div className="ancho" style={styles.menuScroll}>
         <div style={styles.addItemCard}>
           <div style={styles.catLabel}>AGREGAR MESA O ESPACIO</div>
@@ -143,8 +161,21 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
         {error && <div style={styles.pinError}>{error}</div>}
 
         <div style={styles.catLabel}>UBICACIÓN EN EL PLANO</div>
-        <div style={styles.closeConfirmText}>Arrastra cada mesa a su lugar real del salón — así se ve en Mesero cuando cambias a vista "Plano".</div>
-        <PlanoSalon mesas={mesas} cuentas={cuentas} orders={orders} editable onMoverMesa={moverEnPlano} />
+        {!editandoPlano ? (
+          <>
+            <div style={{ ...styles.closeConfirmText, display: "flex", alignItems: "center", gap: 6 }}><Lock size={13} /> Plano bloqueado: así se ve en Mesero con la vista "Plano".</div>
+            <button style={styles.addItemBtn} onClick={() => setEditandoPlano(true)}><Pencil size={15} /> Editar posiciones</button>
+          </>
+        ) : (
+          <>
+            <div style={styles.closeConfirmText}>Modo edición: arrastra cada mesa a su lugar real del salón. Los cambios se aplican al tocar <b>Guardar posiciones</b>.</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={styles.cancelEditBtn} onClick={cancelarPlano}><X size={14} /> Cancelar</button>
+              <button style={{ ...styles.addItemBtn, flex: 1 }} onClick={guardarPlano}><Check size={15} /> {hayCambios ? "Guardar posiciones" : "Listo"}</button>
+            </div>
+          </>
+        )}
+        <PlanoSalon mesas={mesasVista} cuentas={cuentas} orders={orders} editable={editandoPlano} onMoverMesa={moverEnPlano} />
 
         <div style={{ ...styles.catLabel, marginTop: 18 }}>TUS MESAS Y ESPACIOS</div>
         {mesas.length === 0 && <div style={styles.cajaEmptyText}>Todavía no has agregado ninguna.</div>}

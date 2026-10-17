@@ -142,7 +142,7 @@ export function CocinaView({ orders, saveOrder, mesas, config }) {
               </div>
               <div style={styles.ticketExactTime}>
                 {o.tipo === "llevar" && <span style={styles.ticketTipo}>PARA LLEVAR</span>}
-                {o.tipo === "domicilio" && <span style={{ ...styles.ticketTipo, background: "#2F6690" }}>DOMICILIO</span>}
+                {o.tipo === "domicilio" && <span style={{ ...styles.ticketTipo, background: "#2E6FD6" }}>DOMICILIO</span>}
                 Pedido a las {timeLabel(o.ts)}
               </div>
               <div style={styles.ticketDivider} />
@@ -178,7 +178,7 @@ export function CocinaView({ orders, saveOrder, mesas, config }) {
                 {o.estado === "preparando" && est === "todas" && (
                   <button style={styles.ticketBackBtn} onClick={() => retroceder(o.id)} title="Volver a pendiente">◀</button>
                 )}
-                <button style={{ ...styles.ticketBtn, flex: 1, background: o.estado === "pendiente" ? "#B98A2E" : "#5B7553" }} onClick={() => advance(o.id)}>
+                <button style={{ ...styles.ticketBtn, flex: 1, background: o.estado === "pendiente" ? "#C58B1B" : "#1F8A62" }} onClick={() => advance(o.id)}>
                   {o.estado === "pendiente" ? <><Flame size={14} /> Empezar preparación</> : <><Check size={14} /> Marcar todo listo</>}
                 </button>
               </div>

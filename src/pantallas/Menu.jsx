@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import {
-  Plus, Check, Trash2, Pencil, PauseCircle,
-} from "lucide-react";
+import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
+import { Plus, Check, Trash2, Pencil, PauseCircle, Settings2 } from "lucide-react";
 import { tieneOpciones, getEstaciones, costoReceta, uid, money } from "../logica.js";
 import { ProductoConfig } from "../extras.jsx";
 import { CampoMonto } from "../componentes/Comunes.jsx";
@@ -74,11 +73,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
 
   return (
     <div style={styles.screen}>
-      <div className="ancho" style={styles.subHeader}>
-        <button style={styles.backBtn} onClick={onClose}>← Mesas</button>
-        <div style={styles.mesaTitleWrap}><span style={styles.mesaEyebrow}>AJUSTES</span><span style={styles.mesaTitle}>Menú</span></div>
-        <div style={{ width: 70 }} />
-      </div>
+      <CabeceraAdmin titulo="Menú y precios" onClose={onClose} />
       <div className="ancho" style={styles.menuScroll}>
         <div style={styles.addItemCard}>
           <div style={styles.catLabel}>NOMBRE DEL NEGOCIO</div>
@@ -144,7 +139,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
                     </button>
                   )}
                   <button style={styles.costoPillBtn} onClick={() => setConfigId(configId === item.id ? null : item.id)}>
-                    ⚙ Configurar: opciones{getEstaciones(config).length > 1 ? ", estación" : ""} y receta
+                    <Settings2 size={13} style={{ verticalAlign: -2, marginRight: 5 }} />Configurar: opciones{getEstaciones(config).length > 1 ? ", estación" : ""} y receta
                     {(tieneOpciones(item) || (item.receta && item.receta.length > 0)) && (
                       <> · {tieneOpciones(item) ? `${item.grupos.length} grupo${item.grupos.length > 1 ? "s" : ""}` : ""}{tieneOpciones(item) && item.receta && item.receta.length > 0 ? " · " : ""}{item.receta && item.receta.length > 0 ? "con receta" : ""}</>
                     )}

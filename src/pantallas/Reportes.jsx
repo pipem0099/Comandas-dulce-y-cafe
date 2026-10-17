@@ -1,7 +1,5 @@
 import React, { useState } from "react";
-import {
-  Plus, Minus, Clock, UserCircle2,
-} from "lucide-react";
+import { Plus, Minus, Clock, UserCircle2, Printer } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { money } from "../logica.js";
 import { styles } from "../estilos.js";
@@ -80,7 +78,7 @@ export function ReportesView({ cuentas, orders, menu, usuarioActual }) {
         <button style={{ ...styles.cajaTabBtn, ...(rango === "hoy" ? styles.cajaTabBtnActive : {}) }} onClick={() => setRango("hoy")}>Hoy</button>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "semana" ? styles.cajaTabBtnActive : {}) }} onClick={() => setRango("semana")}>7 días</button>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "mes" ? styles.cajaTabBtnActive : {}) }} onClick={() => setRango("mes")}>30 días</button>
-        {esAdmin && <button style={styles.exportLink} onClick={() => window.print()}>🖨️ Imprimir</button>}
+        {esAdmin && <button style={styles.exportLink} onClick={() => window.print()}><Printer size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Imprimir</button>}
       </div>
 
       <div className="solo-imprimir" style={styles.reportePrintHeader}>
@@ -159,7 +157,7 @@ export function ReportesView({ cuentas, orders, menu, usuarioActual }) {
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={dataHora}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E4DFCE" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E6EB" />
               <XAxis dataKey="hora" tick={{ fontSize: 10, fill: "var(--c-8a8272-t)" }} interval={1} />
               <YAxis tick={{ fontSize: 10, fill: "var(--c-8a8272-t)" }} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
               <Tooltip formatter={(v) => money(v)} contentStyle={{ fontSize: 12, borderRadius: 8 }} />

@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Plus, UserCircle2,
-} from "lucide-react";
+import { Plus, UserCircle2, UserPlus, ShieldCheck, ChevronUp, ChevronDown } from "lucide-react";
 
 import { subscribeCollection, saveRecord, updateRecord, updateShared, enviarCorreoCambioClave, crearCuentaEmpleado } from "../firebase.js";
 import { ROLES_ORDEN } from "../constantes.js";
@@ -20,6 +18,8 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
   const [exito, setExito] = useState("");
   const [creando, setCreando] = useState(false);
   const [aviso, setAviso] = useState({}); // mensajes por usuario (ej. "correo enviado")
+  const [crearAbierto, setCrearAbierto] = useState(false); // formulario "Agregar persona" plegado por defecto
+  const [logAbierto, setLogAbierto] = useState(false);       // registro de seguridad plegado por defecto
   const [confirmTransfer, setConfirmTransfer] = useState(null); // uid de quien recibiría la propiedad
   const yoPropietario = usuarioActual.propietario === true;
 
@@ -103,7 +103,7 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
           <div style={styles.usuarioRowLeft}>
             <UserCircle2 size={16} color="var(--c-8a8272-t)" />
             <span style={styles.pagoRowEtiqueta}>{u.nombre}</span>
-            <span style={{ ...styles.rolBadge, ...(u.propietario ? { background: "var(--c-242019-b)", color: "#F7F4EC" } : {}) }}>{u.activo ? rolesLabel(u) : "Desactivada"}</span>
+            <span style={{ ...styles.rolBadge, ...(u.propietario ? { background: "var(--c-242019-b)", color: "#F4F6F8" } : {}) }}>{u.activo ? rolesLabel(u) : "Desactivada"}</span>
           </div>
           <div style={{ fontSize: 12, color: "var(--c-8a8272-t)" }}>{u.correo}</div>
           {(!u.propietario || u.uid === usuarioActual.uid) && (
@@ -147,7 +147,11 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
       ))}
       {perfiles && lista.length === 0 && <div style={styles.cajaEmptyText}>Todavía no hay cuentas.</div>}
 
-      <div style={{ ...styles.catLabel, marginTop: 16 }}>CREAR CUENTA</div>
+      {!crearAbierto ? (
+        <button style={{ ...styles.addItemBtn, marginTop: 16 }} onClick={() => setCrearAbierto(true)}><UserPlus size={15} /> Agregar persona</button>
+      ) : (
+        <>
+      <div style={{ ...styles.catLabel, marginTop: 16 }}>NUEVA CUENTA</div>
       <div style={styles.turnoBox}>
         <div style={styles.closeConfirmText}>Cada persona entra con su propio correo y clave. Puedes marcar más de un rol (ej. Mesero + Cajero). La tablet de cocina puede tener su propia cuenta con el rol Cocina.</div>
         <input style={styles.editInput} placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
@@ -160,8 +164,14 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
         </div>
         {error && <div style={styles.pinError}>{error}</div>}
         {exito && <div style={{ ...styles.closeConfirmText, color: "var(--c-5b7553-t)", fontWeight: 600 }}>{exito}</div>}
-        <button style={{ ...styles.addItemBtn, opacity: creando ? 0.5 : 1 }} disabled={creando} onClick={crear}><Plus size={15} /> {creando ? "Creando…" : "Crear cuenta"}</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={styles.cancelEditBtn} onClick={() => { setCrearAbierto(false); setError(""); setExito(""); }}>Cerrar</button>
+          <button style={{ ...styles.addItemBtn, flex: 1, opacity: creando ? 0.5 : 1 }} disabled={creando} onClick={crear}><Plus size={15} /> {creando ? "Creando…" : "Crear cuenta"}</button>
+        </div>
       </div>
+
+        </>
+      )}
 
       {hayPinesViejos && (
         <>
@@ -175,9 +185,12 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
 
       {auditLog.length > 0 && (
         <>
-          <div style={{ ...styles.catLabel, marginTop: 16 }}>REGISTRO DE SEGURIDAD</div>
-          {auditLog.map((r, i) => (
-            <div key={i} style={styles.turnoRow}>
+          <button style={styles.plegableBtn} onClick={() => setLogAbierto((v) => !v)} aria-expanded={logAbierto}>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}><ShieldCheck size={15} /> Registro de seguridad <span style={styles.plegableCuenta}>{auditLog.length}</span></span>
+            {logAbierto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+          {logAbierto && auditLog.map((r, i) => (
+            <div key={i} className="anim-in" style={styles.turnoRow}>
               <span style={styles.cierreDate}>{dateTimeLabel(r.ts)}</span>
               <span style={styles.auditText}>{r.actor}: {r.accion}</span>
             </div>

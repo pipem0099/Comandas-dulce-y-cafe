@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Receipt, AlertTriangle,
 } from "lucide-react";
@@ -14,10 +14,8 @@ import { cuentaGranTotal, dayKey, mesaOrderIndex, pagosDe, tieneRol } from "../u
 
 /* ---------------- CAJA ---------------- */
 
-export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, turnos, turnoAbierto, saveTurno, config, persistConfig, usuarioActual, mesas, persistMesas, insumos, saveInsumo, updateInsumo, deleteInsumo, ajustarInventario, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, tabSolicitada, onTabAplicada }) {
+export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, turnos, turnoAbierto, saveTurno, config, persistConfig, usuarioActual, mesas, persistMesas, insumos, saveInsumo, updateInsumo, deleteInsumo, ajustarInventario, equipo, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto }) {
   const [tab, setTab] = useState("mesas");
-  // El menú de usuario puede pedir abrir una pestaña concreta (ej. "Equipo y usuarios" → Turno).
-  useEffect(() => { if (tabSolicitada) { setTab(tabSolicitada); onTabAplicada && onTabAplicada(); } }, [tabSolicitada]);
   const [expandedId, setExpandedId] = useState(null);
   const esAdmin = tieneRol(usuarioActual, "admin");
 
@@ -41,13 +39,13 @@ export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, tur
         <button style={{ ...styles.cajaTabBtn, ...(tab === "reportes" ? styles.cajaTabBtnActive : {}) }} onClick={() => setTab("reportes")}>Reportes</button>
         {esAdmin && (
           <button style={{ ...styles.cajaTabBtn, ...(tab === "inventario" ? styles.cajaTabBtnActive : {}) }} onClick={() => setTab("inventario")}>
-            Inventario{insumos.filter((i) => estadoStock(i) !== "ok").length > 0 ? ` (${insumos.filter((i) => estadoStock(i) !== "ok").length}⚠)` : ""}
+            Inventario{insumos.filter((i) => estadoStock(i) !== "ok").length > 0 ? ` · ${insumos.filter((i) => estadoStock(i) !== "ok").length}` : ""}
           </button>
         )}
       </div>
 
       {tab === "turno" && (
-        <TurnoView turnos={turnos} turnoAbierto={turnoAbierto} saveTurno={saveTurno} orders={orders} cuentas={cuentas} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} menu={menu} mesas={mesas} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} />
+        <TurnoView equipo={equipo} turnos={turnos} turnoAbierto={turnoAbierto} saveTurno={saveTurno} orders={orders} cuentas={cuentas} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} menu={menu} mesas={mesas} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} />
       )}
 
       {tab === "mesas" && (
@@ -60,7 +58,7 @@ export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, tur
                 const Icon = meta.icon;
                 return (
                   <div key={key} style={styles.metodoBreakdownItem}>
-                    <Icon size={13} color="#B3A891" /><span style={styles.metodoBreakdownLabel}>{meta.label}</span><span style={styles.metodoBreakdownValue}>{money(porMetodoHoy[key] || 0)}</span>
+                    <Icon size={13} color="#9BA4B0" /><span style={styles.metodoBreakdownLabel}>{meta.label}</span><span style={styles.metodoBreakdownValue}>{money(porMetodoHoy[key] || 0)}</span>
                   </div>
                 );
               })}

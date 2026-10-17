@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Ban, Download,
-} from "lucide-react";
+import { Ban, Download, Printer } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { money } from "../logica.js";
 import { METODO_META } from "../constantes.js";
@@ -104,7 +102,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
           <div style={styles.chartBox}>
             <ResponsiveContainer width="100%" height={150}>
               <BarChart data={[...list].sort((a, b) => a.key.localeCompare(b.key))}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E4DFCE" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E6EB" />
                 <XAxis dataKey="key" tick={{ fontSize: 11, fill: "var(--c-8a8272-t)" }} />
                 <YAxis tick={{ fontSize: 10, fill: "var(--c-8a8272-t)" }} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
                 <Tooltip formatter={(v) => money(v)} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
@@ -178,7 +176,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
           <div style={styles.pageEyebrow}>{dayLabel(d.ts)}</div>
           <div style={{ ...styles.cajaTotalValue, color: "var(--c-242019-t)" }}>{money(d.total)}</div>
         </div>
-        <button className="no-imprimir" style={styles.exportLink} onClick={() => window.print()}>🖨️ Imprimir</button>
+        <button className="no-imprimir" style={styles.exportLink} onClick={() => window.print()}><Printer size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Imprimir</button>
       </div>
 
       <div style={styles.metodoBreakdownRowLight}>
@@ -219,6 +217,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
                         <span style={styles.pagoRowEtiqueta}>{p.etiqueta || "Cuenta completa"}</span>
                         {p.tipo === "por_producto" && <span style={styles.pagoRowItems}>{p.items.map((it) => `${it.qty}× ${it.name}`).join(", ")}</span>}
                         <span style={styles.pagoRowTime}>{timeLabel(p.ts)} · {pmeta.label}{p.procesadoPor ? ` · cobró ${p.procesadoPor}` : ""}</span>
+                        {p.propinaVuelta > 0 && <span style={styles.pagoRowItems}>Incluye {money(p.propinaVuelta)} de propina (la vuelta)</span>}
                       </div>
                       <span style={styles.pagoRowMonto}>{money(p.monto)}</span>
                     </div>

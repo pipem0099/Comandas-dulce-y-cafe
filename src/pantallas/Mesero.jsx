@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  Plus, Minus, Send, Check, Settings2, Pencil, Ban, AlertTriangle,
-  Lock, Users, ArrowRightLeft, Volume2, MessageSquarePlus, ShoppingBag, Bike, SlidersHorizontal,
-  Phone, MapPin,
-} from "lucide-react";
+import { Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, ShoppingBag, Bike, Phone, MapPin, Search, X } from "lucide-react";
 import { vibrar } from "../theme.js";
 import { claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
 import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
@@ -11,17 +7,15 @@ import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
 import { AvisoActivarNotificaciones } from "../componentes/Comunes.jsx";
 import { STATE_META } from "../constantes.js";
 import { styles } from "../estilos.js";
-import { MenuEditor } from "../pantallas/Menu.jsx";
-import { MesasEditor, PlanoSalon } from "../pantallas/Mesas.jsx";
-import { NOMBRES_EXTERNOS, conProgreso, cuentaOrders, cuentaSubtotal, dayKey, estadoVisualMesa, itemListos, itemServidos, mesaMatch, mesaNombre, orderTotal, porServir, tieneRol, timeLabel } from "../utilidades.js";
+import { PlanoSalon } from "../pantallas/Mesas.jsx";
+import { NOMBRES_EXTERNOS, conProgreso, cuentaOrders, cuentaSubtotal, dayKey, estadoVisualMesa, itemListos, itemServidos, mesaMatch, mesaNombre, orderTotal, porServir, timeLabel } from "../utilidades.js";
 
 /* ---------------- MESERO ---------------- */
 
-export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas, persistMesas, saveOrder, saveOrdersMap, saveCuenta, persistMenu, persistConfig, insumos, ajustarInventario, onAbrirAjustes }) {
+export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas, persistMesas, saveOrder, saveOrdersMap, saveCuenta, persistMenu, persistConfig, insumos, ajustarInventario }) {
   // Editar el menú, precios y mesas queda reservado al administrador — un
   // mesero normal no debería poder cambiar precios ni borrar productos.
   const meseroActual = usuarioActual.nombre;
-  const esAdminMesero = tieneRol(usuarioActual, "admin");
 
   // Aviso sonoro para el mesero: cuando cocina marca "listo" un pedido de
   // alguna de SUS mesas todavía abiertas, suena y aparece un mensaje — así
@@ -68,8 +62,6 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
   const [draft, setDraft] = useState({}); // { itemId: { qty, nota } }
   const [verPedidos, setVerPedidos] = useState(false); // lista de pedidos de la mesa: compacta por defecto
   const [note, setNote] = useState("");
-  const [showMenuEditor, setShowMenuEditor] = useState(false);
-  const [showMesasEditor, setShowMesasEditor] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [confirmCancelId, setConfirmCancelId] = useState(null);
   const [justSent, setJustSent] = useState(false);
@@ -261,14 +253,6 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
     setSelectedMesa(cuentaDestino.mesa);
   };
 
-  if (showMenuEditor && esAdminMesero) {
-    return <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={meseroActual} insumos={insumos} onClose={() => setShowMenuEditor(false)} />;
-  }
-
-  if (showMesasEditor && esAdminMesero) {
-    return <MesasEditor mesas={mesas} persistMesas={persistMesas} cuentas={cuentas} orders={orders} config={config} persistConfig={persistConfig} actor={meseroActual} onClose={() => setShowMesasEditor(false)} />;
-  }
-
   if (selectedMesa) {
     const categories = [...new Set(menu.map((m) => m.cat))];
     const cuenta = cuentaAbiertaDe(selectedMesa);
@@ -431,7 +415,13 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
         )}
 
         <div style={styles.catPillsWrap}>
-          <input style={styles.searchInput} placeholder="🔍 Buscar producto…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div style={{ position: "relative" }}>
+            <Search size={17} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--c-8a8272-t)", pointerEvents: "none" }} />
+            <input style={{ ...styles.searchInput, width: "100%", boxSizing: "border-box", paddingLeft: 40, paddingRight: search ? 38 : 12 }} placeholder="Buscar producto…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            {search && (
+              <button aria-label="Borrar búsqueda" onClick={() => setSearch("")} style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", color: "var(--c-8a8272-t)", cursor: "pointer" }}><X size={15} /></button>
+            )}
+          </div>
           {!search.trim() && (
             <div style={styles.catPills}>
               {categories.map((cat) => {
@@ -554,17 +544,6 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
         <div>
           <div style={styles.pageEyebrow}>SALÓN</div>
           <div style={styles.pageTitle}>Mesas</div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {esAdminMesero ? (
-            <>
-              <button style={styles.editMenuBtn} onClick={() => setShowMesasEditor(true)}><Settings2 size={15} /> Mesas</button>
-              <button style={styles.editMenuBtn} onClick={() => setShowMenuEditor(true)}><Settings2 size={15} /> Menú</button>
-              <button style={styles.editMenuBtn} onClick={onAbrirAjustes}><SlidersHorizontal size={15} /> Ajustes</button>
-            </>
-          ) : (
-            <span style={styles.lockedNote}><Lock size={11} /> Menú y mesas los administra el admin</span>
-          )}
         </div>
       </div>
       <div className="ancho" style={styles.vistaMesasSwitch}>

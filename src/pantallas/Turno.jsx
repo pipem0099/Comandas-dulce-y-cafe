@@ -1,50 +1,65 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  AlertTriangle, Lock, Download, PlayCircle, StopCircle,
+  AlertTriangle, Lock, Download, PlayCircle, StopCircle, ArrowDownToLine, ArrowUpFromLine, RotateCcw, ChevronDown, ChevronUp, ArrowRightLeft, HandHelping,
 } from "lucide-react";
 import { uid, money } from "../logica.js";
-import { saveShared, getRecord, saveCollectionArray } from "../firebase.js";
+import { saveShared, getRecord, saveCollectionArray, updateRecord } from "../firebase.js";
+import { FormularioMovimiento, ListaMovimientos } from "./MovimientosCaja.jsx";
+import { FlujoEntrega, TarjetaRelevoPendiente } from "./RelevoCaja.jsx";
+import { ResumenDia } from "./ResumenDia.jsx";
+import { responsableDe, statsTramo, tramoVigente, tramosDe } from "../relevoCaja.js";
 import { CampoMonto } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { descargarRespaldo } from "../exportar.js";
-import { GestionUsuarios } from "../pantallas/Usuarios.jsx";
-import { dateTimeLabel, dayKey, mesaNombre, pagosDe, tieneRol, timeLabel } from "../utilidades.js";
+import { arqueosDe, dateTimeLabel, dayKey, duracionLabel, mesaNombre, movimientosDe, propinasEnRango, tieneRol, timeLabel, totalesMovimientos, ventasDelTurno } from "../utilidades.js";
 
 /* ---------------- Turno / arqueo de caja ---------------- */
 
-export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, config, persistConfig, usuarioActual, menu, mesas, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto }) {
+export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, config, persistConfig, usuarioActual, menu, mesas, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, equipo }) {
   const [base, setBase] = useState("");
   const [contado, setContado] = useState("");
   const [contadoTarjeta, setContadoTarjeta] = useState("");
   const [contadoTransf, setContadoTransf] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [confirmandoCierre, setConfirmandoCierre] = useState(false);
-  // Cierre "a ciegas": los montos esperados solo se muestran DESPUÉS de que el
-  // cajero escribió lo que contó. Si cancela y vuelve a empezar, queda anotado.
+  // Cierre "a ciegas": lo esperado solo se muestra DESPUÉS de escribir lo contado. Si no cuadra se puede
+  // corregir el conteo sin empezar de cero; cada cálculo queda guardado en el turno como un intento.
   const [calculado, setCalculado] = useState(false);
-  const [intentos, setIntentos] = useState(0);
+  const [movForm, setMovForm] = useState(null); // 'entrada' | 'salida' | null
+  const [errorMov, setErrorMov] = useState("");
+  const [detalleAbierto, setDetalleAbierto] = useState(null);
+  const [flujoEntrega, setFlujoEntrega] = useState(null); // 'entregar' | 'asumir' | null
 
   const mesasAbiertas = cuentas.filter((c) => c.estado === "abierta");
   const esAdmin = tieneRol(usuarioActual, "admin");
 
   const abrirTurno = async () => {
     const baseNum = parseFloat(base) || 0;
-    const turno = { id: uid(), aperturaTs: Date.now(), baseEfectivo: baseNum, estado: "abierto", abiertoPor: usuarioActual.nombre };
+    const ahora = Date.now(), tramoId = uid();
+    const turno = {
+      id: uid(), aperturaTs: ahora, baseEfectivo: baseNum, estado: "abierto", abiertoPor: usuarioActual.nombre, abiertoPorUid: usuarioActual.uid,
+      // La caja queda a cargo de quien abre; si hay relevos, cada persona responde solo por su tramo.
+      responsableActual: { uid: usuarioActual.uid, nombre: usuarioActual.nombre, desdeTs: ahora },
+      tramos: { [tramoId]: { id: tramoId, uid: usuarioActual.uid, nombre: usuarioActual.nombre, inicioTs: ahora, base: baseNum, estado: "activo" } },
+    };
     await saveTurno(turno);
     setBase("");
   };
 
-  // Efectivo, tarjeta y transferencia recibidos en este turno (según lo registrado en la app).
-  const totalesPorMetodo = () => {
-    const totales = { efectivo: turnoAbierto ? turnoAbierto.baseEfectivo : 0, tarjeta: 0, transferencia: 0 };
-    if (!turnoAbierto) return totales;
-    cuentas.filter((c) => c.estado === "pagada" && c.pagadaTs >= turnoAbierto.aperturaTs).forEach((c) => {
-      pagosDe(c).forEach((p) => { if (totales[p.metodoPago] !== undefined) totales[p.metodoPago] += p.monto; });
-    });
-    return totales;
-  };
-
-  const { efectivo: esperado, tarjeta: tarjetaEsperada, transferencia: transferenciaEsperada } = totalesPorMetodo();
+  // Tarjeta y transferencia se cuadran UNA vez, al cerrar (total del día). El efectivo se cuadra por tramo:
+  // esperado = lo que recibió quien tiene la caja + ventas en efectivo + entradas − salidas desde entonces.
+  const ventas = ventasDelTurno(cuentas, turnoAbierto);
+  const mov = totalesMovimientos(turnoAbierto);
+  const movimientos = movimientosDe(turnoAbierto);
+  const tramo = turnoAbierto ? tramoVigente(turnoAbierto) : null;
+  const stTramo = tramo ? statsTramo(turnoAbierto, cuentas, tramo) : null;
+  const baseTurno = tramo ? tramo.base : 0;
+  const esperado = stTramo ? stTramo.esperado : 0;
+  const tarjetaEsperada = ventas.tarjeta;
+  const transferenciaEsperada = ventas.transferencia;
+  const responsable = turnoAbierto ? responsableDe(turnoAbierto) : null;
+  const esResponsable = !!responsable && (!responsable.uid || responsable.uid === usuarioActual.uid);
+  const relevoPendiente = !!(turnoAbierto && turnoAbierto.relevo);
   const contadoNum = parseFloat(contado) || 0;
   const diferencia = contadoNum - esperado;
   const tarjetaNum = parseFloat(contadoTarjeta) || 0;
@@ -53,25 +68,54 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
   const difTransf = transfNum - transferenciaEsperada;
   const todoCuadra = diferencia === 0 && difTarjeta === 0 && difTransf === 0;
   const camposCompletos = contado !== "" && contadoTarjeta !== "" && contadoTransf !== "";
-  const textoDif = (d) => (d === 0 ? "Cuadra exacto ✓" : d > 0 ? `Sobran ${money(d)}` : `Faltan ${money(Math.abs(d))}`);
-  const colorDif = (d) => (d === 0 ? "var(--c-e4eee1-b)" : d > 0 ? "var(--c-fbefd9-b)" : "var(--c-fbe2dc-b)");
+  const arqueos = arqueosDe(turnoAbierto).filter((a) => !tramo || !a.tramoId || a.tramoId === tramo.id);
   const reiniciarCierre = () => {
     setContado(""); setContadoTarjeta(""); setContadoTransf(""); setObservaciones("");
     setCalculado(false); setConfirmandoCierre(false);
   };
 
-  const cerrarTurno = async () => {
-    await saveTurno({
-      ...turnoAbierto, estado: "cerrado", cierreTs: Date.now(),
-      esperado, contado: contadoNum, diferencia,
-      tarjetaEsperada, transferenciaEsperada,
-      tarjetaContada: tarjetaNum, transferenciaContada: transfNum,
+  const registrarMovimiento = async ({ tipo, categoria, monto, nota }) => {
+    const id = uid();
+    const ok = await updateRecord("turnos", turnoAbierto.id, { [`movimientos/${id}`]: { id, ts: Date.now(), tipo, categoria, monto, nota, por: usuarioActual.nombre } });
+    if (ok) { setMovForm(null); setErrorMov(""); }
+    return ok;
+  };
+  const anularMovimiento = async (m) => {
+    const ok = await updateRecord("turnos", turnoAbierto.id, {
+      [`movimientos/${m.id}/anulado`]: true, [`movimientos/${m.id}/anuladoPor`]: usuarioActual.nombre, [`movimientos/${m.id}/anuladoTs`]: Date.now(),
+    });
+    setErrorMov(ok ? "" : "No se pudo anular. Revisa tu conexión.");
+  };
+
+  // Cada vez que se calcula, el intento se guarda (aunque después se corrija o se cancele).
+  const calcular = async () => {
+    const aid = uid();
+    await updateRecord("turnos", turnoAbierto.id, {
+      [`arqueos/${aid}`]: { id: aid, ts: Date.now(), por: usuarioActual.nombre, tipo: "cierre", tramoId: tramo.id, contado: contadoNum, tarjeta: tarjetaNum, transferencia: transfNum, difEfectivo: diferencia, difTarjeta, difTransferencia: difTransf },
+    });
+    setCalculado(true);
+  };
+
+  // Turno como quedaría si se cerrara ahora: sirve para mostrar el "Resumen del día" antes de confirmar.
+  const armarCierre = (ahora) => {
+    const tramoFinal = { ...tramo, finTs: ahora, ...stTramo, contado: contadoNum, diferencia, estado: "cerrado", cerradoPor: usuarioActual.nombre };
+    const tramos = { ...(turnoAbierto.tramos || {}), [tramo.id]: tramoFinal };
+    const difEfectivoDia = Object.values(tramos).reduce((a, t2) => a + (t2.diferencia || 0), 0);
+    return {
+      ...turnoAbierto, tramos, relevo: null, estado: "cerrado", cierreTs: ahora,
+      ventasEfectivo: ventas.efectivo, entradas: mov.entradas, salidas: mov.salidas,
+      propinas: propinasEnRango(cuentas, turnoAbierto.aperturaTs, ahora + 1),
+      esperado, contado: contadoNum, diferencia: difEfectivoDia,   // diferencia = suma de lo que dejó cada tramo
+      tarjetaEsperada, transferenciaEsperada, tarjetaContada: tarjetaNum, transferenciaContada: transfNum,
       difTarjeta, difTransferencia: difTransf,
-      intentosCierre: intentos + 1,
+      intentosCierre: Math.max(1, arqueos.length),
       observaciones: observaciones.trim() || null,
       cerradoPor: usuarioActual.nombre,
-    });
-    reiniciarCierre(); setIntentos(0);
+    };
+  };
+  const cerrarTurno = async () => {
+    await saveTurno(armarCierre(Date.now()));
+    reiniciarCierre();
   };
 
   const cerrados = turnos.filter((t) => t.estado === "cerrado").sort((a, b) => b.cierreTs - a.cierreTs);
@@ -81,14 +125,48 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
       {!turnoAbierto ? (
         <div style={styles.turnoBox}>
           <div style={styles.pageEyebrow}>TURNO CERRADO</div>
-          <div style={styles.closeConfirmText}>Registra cuánto efectivo hay en caja para empezar el turno.</div>
+          <div style={styles.closeConfirmText}>Registra cuánto efectivo hay en caja para empezar el turno. Quedará anotado que lo abre <b>{usuarioActual.nombre}</b>.</div>
           <CampoMonto placeholder="Base de efectivo inicial" value={base} onChange={setBase} />
           <button style={{ ...styles.addItemBtn, marginTop: 8 }} onClick={abrirTurno}><PlayCircle size={15} /> Abrir turno</button>
         </div>
       ) : (
         <div style={styles.turnoBox}>
           <div style={styles.pageEyebrow}>TURNO ABIERTO</div>
-          <div style={styles.closeConfirmText}>Abierto {dateTimeLabel(turnoAbierto.aperturaTs)} · base {money(turnoAbierto.baseEfectivo)}</div>
+          <div style={t.responsable}>
+            <span style={t.avatar}>{(responsable.nombre || "?").trim().charAt(0).toUpperCase()}</span>
+            <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>Caja a cargo de {responsable.nombre || "—"}{esResponsable ? " (tú)" : ""}</span>
+              <span style={t.meta}>
+                {responsable.desdeTs ? `desde ${timeLabel(responsable.desdeTs)}` : `desde ${timeLabel(turnoAbierto.aperturaTs)}`} · recibió {money(baseTurno)}
+              </span>
+              <span style={t.meta}>Turno abierto por {turnoAbierto.abiertoPor || "—"} · {dateTimeLabel(turnoAbierto.aperturaTs)} · lleva {duracionLabel(Date.now() - turnoAbierto.aperturaTs)}</span>
+            </span>
+          </div>
+
+          <TarjetaRelevoPendiente turno={turnoAbierto} usuarioActual={usuarioActual} esAdmin={esAdmin} />
+
+          {!calculado && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={t.btnMov} onClick={() => setMovForm("entrada")}><ArrowDownToLine size={16} color="#2f8f68" /> Entrada</button>
+              <button style={t.btnMov} onClick={() => setMovForm("salida")}><ArrowUpFromLine size={16} color="#d64545" /> Salida</button>
+            </div>
+          )}
+
+          {movimientos.length > 0 && (
+            <div style={t.movBox}>
+              <div style={t.movHead}>
+                <span style={t.etiqueta}>MOVIMIENTOS DE CAJA</span>
+                <span style={t.meta}>
+                  {mov.entradas > 0 && <span style={{ color: "var(--c-5b7553-t)", fontWeight: 700 }}>+{money(mov.entradas)}</span>}
+                  {mov.entradas > 0 && mov.salidas > 0 && "  ·  "}
+                  {mov.salidas > 0 && <span style={{ color: "var(--c-c1442d-t)", fontWeight: 700 }}>−{money(mov.salidas)}</span>}
+                </span>
+              </div>
+              <ListaMovimientos movimientos={movimientos} onAnular={calculado ? null : anularMovimiento} puedeAnular={(m) => !tramo || m.ts >= tramo.inicioTs} />
+            </div>
+          )}
+          {errorMov && <div style={{ fontSize: 12.5, color: "var(--c-c1442d-t)", fontWeight: 600 }}>{errorMov}</div>}
+
           <div style={styles.closeConfirmText}>El total esperado en caja, tarjeta y transferencia se muestra al cerrar el turno, después de que registres lo que contaste.</div>
 
           {!confirmandoCierre ? (
@@ -98,16 +176,36 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                   <AlertTriangle size={14} /> {mesasAbiertas.length} {mesasAbiertas.length === 1 ? "mesa tiene" : "mesas tienen"} cuenta abierta sin cobrar todavía.
                 </div>
               )}
-              <button style={styles.closeCajaBtn} onClick={() => setConfirmandoCierre(true)}><StopCircle size={15} /> Cerrar turno (arqueo)</button>
+              {relevoPendiente ? (
+                <div style={styles.closeConfirmText}>Mientras haya una entrega pendiente no se puede cerrar el turno: primero hay que recibirla o deshacerla.</div>
+              ) : (
+                <>
+                  {esResponsable && (
+                    <button style={t.btnEntregar} onClick={() => setFlujoEntrega("entregar")}><ArrowRightLeft size={15} /> Entregar la caja a otra persona</button>
+                  )}
+                  {!esResponsable && (
+                    <>
+                      <div style={styles.closeConfirmText}>La caja está a cargo de <b>{responsable.nombre}</b>. Si ya se fue y no la entregó, puedes asumirla: cuentas el efectivo y desde ese momento eres el responsable.</div>
+                      <button style={t.btnEntregar} onClick={() => setFlujoEntrega("asumir")}><HandHelping size={15} /> Asumir la caja de {responsable.nombre}</button>
+                    </>
+                  )}
+                  {(esResponsable || esAdmin) && (
+                    <button style={styles.closeCajaBtn} onClick={() => setConfirmandoCierre(true)}><StopCircle size={15} /> Cerrar turno (arqueo)</button>
+                  )}
+                </>
+              )}
             </>
           ) : (
             <div style={styles.closeConfirmBox}>
               {mesasAbiertas.length > 0 && (
                 <div style={styles.closeConfirmText}>
-                  <b>Ojo:</b> {mesasAbiertas.length} {mesasAbiertas.length === 1 ? "mesa sigue" : "mesas siguen"} sin cobrar ({mesasAbiertas.map((c) => mesaNombre(mesas, c.mesa)).join(", ")}). Si cierras ahora, ese dinero no quedará contado en este turno.
+                  <b>Ojo:</b> {mesasAbiertas.length} {mesasAbiertas.length === 1 ? "mesa sigue" : "mesas siguen"} sin cobrar ({mesasAbiertas.map((c) => mesaNombre(mesas, c.mesa)).join(", ")}). Si cierras ahora, ese dinero no queda
                 </div>
               )}
-              <div style={styles.closeConfirmText}>Registra lo que contaste. El sistema no te muestra lo esperado hasta que calcules.</div>
+              <div style={styles.closeConfirmText}>
+                {calculado ? "Resultado del arqueo. Si algo no cuadra, puedes corregir el conteo y volver a calcular." : "Registra lo que contaste. El sistema no te muestra lo esperado hasta que calcules."}
+                {arqueos.length > 0 && <span style={t.meta}> · {arqueos.length} {arqueos.length === 1 ? "cálculo" : "cálculos"} en este cierre (todos quedan registrados)</span>}
+              </div>
               <div style={styles.closeConfirmText}><b>Efectivo físico en caja</b></div>
               <CampoMonto placeholder="Efectivo contado" value={contado} onChange={(v) => !calculado && setContado(v)} />
               <div style={styles.closeConfirmText}><b>Tarjeta</b> — total del cierre de lote del datáfono</div>
@@ -117,33 +215,23 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
 
               {!calculado ? (
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button style={styles.cancelEditBtn} onClick={() => { if (camposCompletos || contado !== "" || contadoTarjeta !== "" || contadoTransf !== "") setIntentos((n) => n + 1); reiniciarCierre(); }}>Cancelar</button>
+                  <button style={styles.cancelEditBtn} onClick={reiniciarCierre}>Cancelar</button>
                   <button
                     style={{ ...styles.sendBtn, flex: 1, opacity: camposCompletos ? 1 : 0.4 }}
                     disabled={!camposCompletos}
-                    onClick={() => setCalculado(true)}
+                    onClick={calcular}
                   >
                     Calcular resultado
                   </button>
                 </div>
               ) : (
                 <>
-                  <div style={{ ...styles.diferenciaBox, background: colorDif(diferencia), textAlign: "left" }}>
-                    <b>Efectivo:</b> {textoDif(diferencia)}<br />
-                    <span style={{ fontWeight: 500, fontSize: 12 }}>Esperado en caja: {money(esperado)} · contaste {money(contadoNum)}</span>
-                  </div>
-                  <div style={{ ...styles.diferenciaBox, background: colorDif(difTarjeta), textAlign: "left" }}>
-                    <b>Tarjeta:</b> {textoDif(difTarjeta)}<br />
-                    <span style={{ fontWeight: 500, fontSize: 12 }}>Esperado: {money(tarjetaEsperada)} · registraste {money(tarjetaNum)}</span>
-                  </div>
-                  <div style={{ ...styles.diferenciaBox, background: colorDif(difTransf), textAlign: "left" }}>
-                    <b>Transferencia:</b> {textoDif(difTransf)}<br />
-                    <span style={{ fontWeight: 500, fontSize: 12 }}>Esperado: {money(transferenciaEsperada)} · registraste {money(transfNum)}</span>
-                  </div>
+                  <ResumenDia turno={armarCierre(Date.now())} cuentas={cuentas} />
                   {!todoCuadra ? (
                     <>
-                      <div style={styles.closeConfirmText}><b>Algo no cuadró — cuéntanos por qué (obligatorio):</b></div>
-                      <input autoFocus style={styles.editInput} placeholder="Ej: se dio mal un vuelto, faltó registrar un pago…" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+                      <button style={t.btnCorregir} onClick={() => setCalculado(false)}><RotateCcw size={15} /> Corregir conteo y volver a calcular</button>
+                      <div style={styles.closeConfirmText}>¿No hay nada que corregir? Para cerrar con la diferencia, <b>cuéntanos por qué (obligatorio):</b></div>
+                      <input style={styles.editInput} placeholder="Ej: se dio mal un vuelto, faltó registrar un pago…" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
                     </>
                   ) : (
                     <input style={styles.editInput} placeholder="Observaciones (opcional)" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
@@ -162,44 +250,60 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
         </div>
       )}
 
+      {flujoEntrega && turnoAbierto && <FlujoEntrega modo={flujoEntrega} turno={turnoAbierto} cuentas={cuentas} usuarioActual={usuarioActual} equipo={equipo || []} onCerrar={() => setFlujoEntrega(null)} />}
+      {movForm && <FormularioMovimiento tipoInicial={movForm} onCancelar={() => setMovForm(null)} onGuardar={registrarMovimiento} />}
+
       {cerrados.length > 0 && (
         <>
           <div style={{ ...styles.catLabel, marginTop: 20 }}>TURNOS ANTERIORES</div>
-          {cerrados.map((t) => (
-            <div key={t.id} style={styles.turnoRowCol}>
-              <div style={{ ...styles.turnoRow, border: "none", padding: 0 }}>
-                <span style={styles.cierreDate}>{dateTimeLabel(t.aperturaTs)} → {timeLabel(t.cierreTs)}</span>
-                <span style={{ ...styles.turnoDiff, color: t.diferencia === 0 ? "var(--c-5b7553-t)" : "var(--c-c1442d-t)" }}>
-                  {t.diferencia === 0 ? "Cuadró" : t.diferencia > 0 ? `+${money(t.diferencia)}` : money(t.diferencia)}
-                </span>
+          {cerrados.map((tr) => {
+            const abierto = detalleAbierto === tr.id;
+            return (
+              <div key={tr.id} style={styles.turnoRowCol}>
+                <button style={t.cierreCabecera} onClick={() => setDetalleAbierto(abierto ? null : tr.id)} aria-expanded={abierto}>
+                  <span style={{ display: "flex", flexDirection: "column", gap: 2, textAlign: "left" }}>
+                    <span style={styles.cierreDate}>{dateTimeLabel(tr.aperturaTs)} → {timeLabel(tr.cierreTs)}</span>
+                    <span style={t.meta}>Abrió {tr.abiertoPor || "—"} · cerró {tr.cerradoPor || "—"}{Object.keys(tr.relevos || {}).length > 0 ? ` · ${Object.keys(tr.relevos).length} entrega(s) de caja` : ""}</span>
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ ...styles.turnoDiff, color: tr.diferencia === 0 ? "var(--c-5b7553-t)" : "var(--c-c1442d-t)" }}>
+                      {tr.diferencia === 0 ? "Cuadró" : tr.diferencia > 0 ? `+${money(tr.diferencia)}` : money(tr.diferencia)}
+                    </span>
+                    {abierto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </span>
+                </button>
+                {abierto && (
+                  <div style={{ marginTop: 10 }} className="anim-in">
+                    <ResumenDia turno={tr} cuentas={cuentasParaHistorial || cuentas} />
+                  </div>
+                )}
               </div>
-              {(t.tarjetaEsperada > 0 || t.transferenciaEsperada > 0) && (
-                <div style={styles.turnoSubRow}>
-                  Tarjeta {money(t.tarjetaEsperada || 0)}{typeof t.difTarjeta === "number" && t.difTarjeta !== 0 ? ` (${t.difTarjeta > 0 ? "+" : ""}${money(t.difTarjeta)})` : ""} · Transferencia {money(t.transferenciaEsperada || 0)}{typeof t.difTransferencia === "number" && t.difTransferencia !== 0 ? ` (${t.difTransferencia > 0 ? "+" : ""}${money(t.difTransferencia)})` : ""}
-                  {t.intentosCierre > 1 ? ` · cierre iniciado ${t.intentosCierre} veces` : ""}
-                </div>
-              )}
-              {t.observaciones && <div style={styles.turnoObsRow}>"{t.observaciones}"</div>}
-            </div>
-          ))}
+            );
+          })}
         </>
-      )}
-
-      {esAdmin && (
-        <RespaldoBox menu={menu} orders={orders} cuentas={cuentas} config={config} turnos={turnos} mesas={mesas} persistConfig={persistConfig} usuarioActual={usuarioActual} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} />
       )}
 
       {esAdmin && <PanelSenalesAlerta cuentas={cuentasParaHistorial} turnos={turnos} />}
 
-      <div style={{ ...styles.catLabel, marginTop: 24 }}>USUARIOS Y SEGURIDAD</div>
-      {esAdmin ? (
-        <GestionUsuarios config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} />
-      ) : (
-        <div style={styles.lockedNote}><Lock size={11} /> Solo un administrador puede gestionar usuarios y ver el registro de seguridad.</div>
-      )}
     </div>
   );
 }
+
+// Estilos propios de esta pantalla (usan las variables de color de la paleta)
+const t = {
+  meta: { fontSize: 11.5, color: "var(--c-8a8272-t)" },
+  etiqueta: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1.3, color: "#9BA4B0", fontWeight: 700 },
+  responsable: { display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", background: "var(--c-f1ecdd-b)", borderRadius: 12, color: "var(--c-242019-t)" },
+  avatar: { width: 38, height: 38, borderRadius: 19, background: "var(--accent)", color: "#F4F6F8", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, flexShrink: 0 },
+  btnMov: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 10px", background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 11, fontSize: 14, fontWeight: 700, color: "var(--c-242019-t)", cursor: "pointer" },
+  movBox: { background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 12, padding: "10px 12px" },
+  movHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 2 },
+  libro: { fontWeight: 500, marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(128,138,150,.3)" },
+  btnEntregar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 14px", background: "var(--c-fffdf8-b)", border: "1px solid var(--c-d9cfae-o)", borderRadius: 11, fontSize: 14, fontWeight: 700, color: "var(--c-242019-t)", cursor: "pointer" },
+  btnCorregir: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 14px", background: "transparent", border: "1.5px solid var(--accent)", borderRadius: 11, fontSize: 14, fontWeight: 700, color: "var(--accent-t)", cursor: "pointer" },
+  cierreCabecera: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", color: "var(--c-242019-t)" },
+  detalle: { display: "flex", flexDirection: "column", gap: 2, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--c-e4dfce-o)", fontSize: 12.5, color: "var(--c-5c5648-t)" },
+};
 
 export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, persistConfig, usuarioActual, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto }) {
   const [restaurando, setRestaurando] = useState(false);
@@ -365,10 +469,13 @@ export function PanelSenalesAlerta({ cuentas, turnos }) {
     p.descuentos += 1;
     p.montoDescontado += c.descuento.monto || 0;
   });
-  turnos.filter((t) => t.estado === "cerrado" && t.diferencia < 0 && t.cerradoPor).forEach((t) => {
-    const p = tocar(t.cerradoPor);
-    p.turnosConFaltante += 1;
-    p.montoFaltante += Math.abs(t.diferencia);
+  // El faltante es de quien tenía la caja en ese tramo (no necesariamente de quien cerró el turno)
+  turnos.filter((t) => t.estado === "cerrado").forEach((t) => {
+    tramosDe(t).filter((tr) => (tr.diferencia || 0) < 0 && tr.nombre).forEach((tr) => {
+      const p = tocar(tr.nombre);
+      p.turnosConFaltante += 1;
+      p.montoFaltante += Math.abs(tr.diferencia);
+    });
   });
 
   const filas = Object.entries(porPersona)
