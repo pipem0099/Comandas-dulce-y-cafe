@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { CabeceraAdmin } from "./componentes/CabeceraAdmin.jsx";
 import { Plus, Minus, Trash2, Check, X, Upload, Boxes, AlertTriangle, Pencil, ShoppingBag, Bike, Image as ImageIcon } from "lucide-react";
 import { ACENTOS, FUENTES, MARCA_POR_DEFECTO, reducirLogo, vibrar } from "./theme.js";
 import {
@@ -12,7 +13,7 @@ import {
 const K = {
   bg: "var(--c-f7f4ec-b)", surface: "var(--c-fffdf8-b)", soft: "var(--c-ede7d8-b)", border: "var(--c-e4dfce-o)",
   ink: "var(--c-242019-t)", inkBg: "var(--c-242019-b)", inkBorder: "var(--c-242019-o)",
-  muted: "var(--c-8a8272-t)", sub: "var(--c-5c5648-t)", faint: "#B3A891", cream: "#F7F4EC",
+  muted: "var(--c-8a8272-t)", sub: "var(--c-5c5648-t)", faint: "#9BA4B0", cream: "#F4F6F8",
   red: "var(--c-c1442d-t)", green: "var(--c-5b7553-t)", amber: "var(--c-b98a2e-t)", blue: "var(--c-2f6690-t)",
   warnBg: "var(--c-fbefd9-b)", warnTx: "var(--c-8a611a-t)", dangerBg: "var(--c-fbe2dc-b)", okBg: "var(--c-e4eee1-b)",
 };
@@ -30,7 +31,7 @@ const x = {
   btnGhost: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 14px", background: "transparent", color: K.sub, border: `1px solid ${K.border}`, borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
   btnSmall: { display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 11px", background: K.surface, color: K.ink, border: `1px solid ${K.border}`, borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
   btnIcon: { width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.surface, color: K.sub, border: `1px solid ${K.border}`, borderRadius: 8, cursor: "pointer", flexShrink: 0 },
-  btnDanger: { width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.surface, color: "#C1442D", border: `1px solid ${K.border}`, borderRadius: 8, cursor: "pointer", flexShrink: 0 },
+  btnDanger: { width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.surface, color: "#D64545", border: `1px solid ${K.border}`, borderRadius: 8, cursor: "pointer", flexShrink: 0 },
   row: { display: "flex", alignItems: "center", gap: 8 },
   stepper: { display: "flex", alignItems: "center", gap: 10 },
   stepBtn: { width: 34, height: 34, borderRadius: 9, border: `1px solid ${K.border}`, background: K.surface, color: K.ink, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
@@ -365,27 +366,20 @@ export function AjustesPanel({ config, persistConfig, menu, onClose }) {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", color: K.ink }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: `1px solid ${K.border}`, gap: 8, flexShrink: 0 }}>
-        <button style={{ background: "transparent", border: "none", color: K.muted, fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "6px 0" }} onClick={onClose}>← Mesas</button>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1.5, color: K.faint, fontWeight: 600 }}>AJUSTES</span>
-          <span style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: K.ink }}>Tu negocio</span>
-        </div>
-        <div style={{ width: 70 }} />
-      </div>
+      <CabeceraAdmin titulo="Ajustes del negocio" onClose={onClose} />
 
       <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Marca */}
         <div style={x.card}>
           <div style={x.eyebrow}>Marca</div>
           <div style={x.row}>
-            <div style={{ minWidth: 64, maxWidth: 150, height: 64, padding: marca.logo ? "0 10px" : 0, borderRadius: 14, background: "#14110D", border: `1px solid ${K.border}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-              {marca.logo ? <img src={marca.logo} alt="Logo" style={{ height: 40, width: "auto", maxWidth: 130, objectFit: "contain" }} /> : <ImageIcon size={24} color="#B3A891" strokeWidth={1.5} />}
+            <div style={{ minWidth: 64, maxWidth: 150, height: 64, padding: marca.logo ? "0 10px" : 0, borderRadius: 14, background: "#0E1013", border: `1px solid ${K.border}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+              {marca.logo ? <img src={marca.logo} alt="Logo" style={{ height: 40, width: "auto", maxWidth: 130, objectFit: "contain" }} /> : <ImageIcon size={24} color="#9BA4B0" strokeWidth={1.5} />}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
               <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={subirLogo} />
               <button style={x.btnSmall} onClick={() => fileRef.current && fileRef.current.click()}><Upload size={13} /> {marca.logo ? "Cambiar logo" : "Subir logo"}</button>
-              {marca.logo && <button style={{ ...x.btnSmall, color: "#C1442D" }} onClick={() => setMarca({ logo: null })}><Trash2 size={13} /> Quitar logo</button>}
+              {marca.logo && <button style={{ ...x.btnSmall, color: "#D64545" }} onClick={() => setMarca({ logo: null })}><Trash2 size={13} /> Quitar logo</button>}
             </div>
           </div>
           {errorLogo && <div style={{ fontSize: 12.5, color: K.red, fontWeight: 600 }}>{errorLogo}</div>}
@@ -395,7 +389,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose }) {
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {Object.entries(ACENTOS).map(([k, a]) => (
               <button key={k} title={a.nombre} aria-label={a.nombre} onClick={() => setMarca({ color: k })}
-                style={{ width: 38, height: 38, borderRadius: 19, background: a.c, border: marca.color === k ? `3px solid ${K.ink}` : `3px solid transparent`, outline: `1px solid ${K.border}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#F7F4EC" }}>
+                style={{ width: 38, height: 38, borderRadius: 19, background: a.c, border: marca.color === k ? `3px solid ${K.ink}` : `3px solid transparent`, outline: `1px solid ${K.border}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#F4F6F8" }}>
                 {marca.color === k && <Check size={16} strokeWidth={3} />}
               </button>
             ))}
@@ -534,7 +528,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
 
       {lista.map((ins) => {
         const est = estadoStock(ins);
-        const meta = { agotado: { t: "AGOTADO", bg: "var(--c-fbe2dc-b)", c: "var(--c-8a3a2b-t)", bar: "#C1442D" }, bajo: { t: "POR AGOTARSE", bg: "var(--c-fbefd9-b)", c: "var(--c-8a611a-t)", bar: "#B98A2E" }, ok: { t: "OK", bg: "var(--c-e4eee1-b)", c: "var(--c-5b7553-t)", bar: "#5B7553" } }[est];
+        const meta = { agotado: { t: "AGOTADO", bg: "var(--c-fbe2dc-b)", c: "var(--c-8a3a2b-t)", bar: "#D64545" }, bajo: { t: "POR AGOTARSE", bg: "var(--c-fbefd9-b)", c: "var(--c-8a611a-t)", bar: "#C58B1B" }, ok: { t: "OK", bg: "var(--c-e4eee1-b)", c: "var(--c-5b7553-t)", bar: "#1F8A62" } }[est];
         const techo = Math.max((Number(ins.minimo) || 0) * 3, Number(ins.stock) || 0, 1);
         const pct = Math.max(0, Math.min(100, ((Number(ins.stock) || 0) / techo) * 100));
         const a = accion && accion.id === ins.id ? accion : null;
@@ -565,7 +559,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
                 <span style={{ fontSize: 13, color: K.red, fontWeight: 600 }}>¿Eliminar este insumo?</span>
                 <div style={x.row}>
                   <button style={x.btnSmall} onClick={() => setConfirmDel(null)}>No</button>
-                  <button style={{ ...x.btnSmall, background: "#C1442D", color: "#F7F4EC", border: "none" }} onClick={async () => { await deleteInsumo(ins.id); registrar(`Inventario: eliminó "${ins.nombre}"`); setConfirmDel(null); }}>Sí, eliminar</button>
+                  <button style={{ ...x.btnSmall, background: "#D64545", color: "#F4F6F8", border: "none" }} onClick={async () => { await deleteInsumo(ins.id); registrar(`Inventario: eliminó "${ins.nombre}"`); setConfirmDel(null); }}>Sí, eliminar</button>
                 </div>
               </div>
             )}

@@ -56,9 +56,9 @@ export function estadoVisualMesa(cuenta, ordersDeLaCuenta) {
   // Lo que ya salió de cocina y falta llevar a la mesa pesa más que lo que sigue en cocina:
   // si salen de a una de 10 bebidas, la mesa avisa cuántas hay para servir YA.
   const paraServir = vivos.reduce((a, o) => a + porServir(o), 0);
-  if (paraServir > 0) return { tag: `${paraServir} para servir`, bg: "#2F6690", color: "#F7F4EC", extra: enCocina ? "El resto sigue en cocina" : null };
-  if (enCocina) return { tag: "En cocina", bg: "#C1442D", color: "#F7F4EC" };
-  return { tag: "Cuenta abierta", bg: "#5B7553", color: "#F7F4EC" };
+  if (paraServir > 0) return { tag: `${paraServir} para servir`, bg: "#2E6FD6", color: "#F4F6F8", extra: enCocina ? "El resto sigue en cocina" : null };
+  if (enCocina) return { tag: "En cocina", bg: "#D64545", color: "#F4F6F8" };
+  return { tag: "Cuenta abierta", bg: "#1F8A62", color: "#F4F6F8" };
 }
 
 /* ---------------- helpers ---------------- */
@@ -237,4 +237,53 @@ export function buildHistory(cuentas, orders) {
     years[yk].monthKeys.push(m.key);
   });
   return { days, months, years };
+}
+
+/* ---------------- Turno de caja: movimientos, arqueos y ventas del turno ---------------- */
+
+// Entradas y salidas de efectivo registradas en un turno (se guardan como mapa { id: movimiento }).
+export function movimientosDe(turno) {
+  const m = turno && turno.movimientos;
+  return m ? Object.values(m).sort((a, b) => a.ts - b.ts) : [];
+}
+// Totales de movimientos vigentes (los anulados no cuentan)
+export function totalesMovimientos(turno) {
+  let entradas = 0, salidas = 0;
+  movimientosDe(turno).forEach((m) => {
+    if (m.anulado) return;
+    if (m.tipo === "entrada") entradas += m.monto || 0; else salidas += m.monto || 0;
+  });
+  return { entradas, salidas };
+}
+// Cada vez que se calcula el arqueo queda guardado un intento (nadie puede "borrar" un conteo malo).
+export function arqueosDe(turno) {
+  const a = turno && turno.arqueos;
+  return a ? Object.values(a).sort((x, y) => x.ts - y.ts) : [];
+}
+// Lo cobrado por método entre dos momentos (desde incluido, hasta excluido). Se suman los pagos hechos
+// en ese lapso, incluidos los pagos parciales de cuentas que siguen abiertas.
+export function ventasEnRango(cuentas, desde, hasta = Infinity) {
+  const t = { efectivo: 0, tarjeta: 0, transferencia: 0 };
+  cuentas.filter((c) => c.estado !== "cancelada").forEach((c) => {
+    pagosDe(c).forEach((p) => {
+      const ts = p.ts || c.pagadaTs || 0;
+      if (ts >= desde && ts < hasta && t[p.metodoPago] !== undefined) t[p.metodoPago] += p.monto;
+    });
+  });
+  return t;
+}
+export function ventasDelTurno(cuentas, turno) {
+  if (!turno) return { efectivo: 0, tarjeta: 0, transferencia: 0 };
+  return ventasEnRango(cuentas, turno.aperturaTs, turno.cierreTs ? turno.cierreTs + 1 : Infinity);
+}
+// Propinas de las cuentas cobradas por completo en ese lapso
+export function propinasEnRango(cuentas, desde, hasta = Infinity) {
+  return cuentas
+    .filter((c) => c.estado === "pagada" && c.pagadaTs >= desde && c.pagadaTs < hasta)
+    .reduce((a, c) => a + ((c.propina && c.propina.monto) || 0), 0);
+}
+export function duracionLabel(ms) {
+  const min = Math.max(0, Math.floor(ms / 60000));
+  const h = Math.floor(min / 60), m = min % 60;
+  return h > 0 ? `${h} h ${m} min` : `${m} min`;
 }

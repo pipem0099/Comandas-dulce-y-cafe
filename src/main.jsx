@@ -17,6 +17,8 @@ window.addEventListener("beforeinstallprompt", (e) => {
 });
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+// La pantalla de carga ya cubre todo con el mismo color; recién entonces se suelta el color de arranque.
+requestAnimationFrame(() => requestAnimationFrame(() => { const a = document.getElementById("arranque"); if (a) a.remove(); }));
 
 // Registra el service worker para que la app se pueda "instalar" en el
 // celular (ícono propio, se abre en su ventana). No cachea datos.

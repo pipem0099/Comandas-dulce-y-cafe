@@ -10,38 +10,39 @@
 
 // variable → [modo claro, modo oscuro]
 const PALETA = {
-  "--c-242019-b": ["#242019", "#2f291f"],
-  "--c-242019-o": ["#242019", "#6b6150"],
-  "--c-242019-t": ["#242019", "#f3eee3"],
-  "--c-2f6690-t": ["#2f6690", "#72a8d3"],
-  "--c-3b372e-t": ["#3b372e", "#e4ddcb"],
-  "--c-5b7553-t": ["#5b7553", "#8fb487"],
-  "--c-5c5648-t": ["#5c5648", "#cfc7b4"],
-  "--c-8a3a2b-t": ["#8a3a2b", "#eba595"],
-  "--c-8a611a-t": ["#8a611a", "#d9ae63"],
-  "--c-8a8272-t": ["#8a8272", "#a59d8a"],
-  "--c-9a9382-t": ["#9a9382", "#8c8472"],
-  "--c-b98a2e-t": ["#b98a2e", "#d9ae4f"],
-  "--c-c1442d-t": ["#c1442d", "#e5735b"],
-  "--c-c7bfa0-o": ["#c7bfa0", "#4a4236"],
-  "--c-d9cfae-o": ["#d9cfae", "#4a4236"],
-  "--c-e4dfce-b": ["#e4dfce", "#373026"],
-  "--c-e4dfce-o": ["#e4dfce", "#373026"],
-  "--c-e4eee1-b": ["#e4eee1", "#1f2d1d"],
-  "--c-e8bbaf-o": ["#e8bbaf", "#5a3028"],
-  "--c-ede7d8-b": ["#ede7d8", "#28231b"],
-  "--c-ede7d8-o": ["#ede7d8", "#2b261e"],
-  "--c-f1ecdd-b": ["#f1ecdd", "#211d16"],
-  "--c-f1ecdd-o": ["#f1ecdd", "#211d16"],
-  "--c-f2eee2-b": ["#f2eee2", "#211d16"],
-  "--c-f7f4ec-b": ["#f7f4ec", "#14110d"],
-  "--c-fbe2dc-b": ["#fbe2dc", "#3d211b"],
-  "--c-fbefd9-b": ["#fbefd9", "#3a2f1a"],
-  "--c-fbf8f0-b": ["#fbf8f0", "#211d16"],
-  "--c-fffdf8-b": ["#fffdf8", "#1d1913"]
+  "--c-242019-b": ["#1e2227", "#262c33"],
+  "--c-242019-o": ["#1e2227", "#586270"],
+  "--c-242019-t": ["#14181d", "#eceff3"],
+  "--c-2f6690-t": ["#2e6fd6", "#7ab0ff"],
+  "--c-3b372e-t": ["#2b3139", "#dce1e7"],
+  "--c-5b7553-t": ["#1f8a62", "#5fcaa0"],
+  "--c-5c5648-t": ["#4a525c", "#bac2cc"],
+  "--c-8a3a2b-t": ["#a33a32", "#f0a3a0"],
+  "--c-8a611a-t": ["#8a6414", "#e6bb62"],
+  "--c-8a8272-t": ["#6b7480", "#8f99a6"],
+  "--c-9a9382-t": ["#7c8591", "#7e8895"],
+  "--c-b98a2e-t": ["#b9801a", "#e8b450"],
+  "--c-c1442d-t": ["#d64545", "#f27a79"],
+  "--c-c7bfa0-o": ["#bfc6cf", "#3a4048"],
+  "--c-d9cfae-o": ["#cdd3da", "#3a4048"],
+  "--c-e4dfce-b": ["#e2e6eb", "#2a2f36"],
+  "--c-e4dfce-o": ["#e2e6eb", "#2a2f36"],
+  "--c-e4eee1-b": ["#dff3ea", "#13271f"],
+  "--c-e8bbaf-o": ["#f2b8b5", "#5a2f31"],
+  "--c-ede7d8-b": ["#e9edf1", "#20252b"],
+  "--c-ede7d8-o": ["#e9ecf0", "#23282e"],
+  "--c-f1ecdd-b": ["#eef1f4", "#1a1d22"],
+  "--c-f1ecdd-o": ["#eef1f4", "#1a1d22"],
+  "--c-f2eee2-b": ["#eef1f4", "#1a1d22"],
+  "--c-f7f4ec-b": ["#f4f6f8", "#0e1013"],
+  "--c-fbe2dc-b": ["#fde4e2", "#35191b"],
+  "--c-fbefd9-b": ["#fff3d6", "#2e2610"],
+  "--c-fbf8f0-b": ["#f8f9fb", "#1a1d22"],
+  "--c-fffdf8-b": ["#ffffff", "#16191e"]
 };
 
 export const ACENTOS = {
+  cobalto: { nombre: "Cobalto", c: "#2b64e8", t: "#7fa6ff" },
   terracota: { nombre: "Terracota", c: "#C1442D", t: "#E5735B" },
   bosque: { nombre: "Verde bosque", c: "#2F6B4F", t: "#6FBF93" },
   marino: { nombre: "Azul marino", c: "#2F5D8C", t: "#7DB0E0" },
@@ -58,13 +59,13 @@ export const FUENTES = {
   amable: { nombre: "Amable", muestra: "Fredoka + Nunito", display: "'Fredoka', system-ui, sans-serif", body: "'Nunito', system-ui, sans-serif", google: "family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700" },
 };
 
-export const MARCA_POR_DEFECTO = { color: "terracota", fuente: "clasica", logo: null };
+export const MARCA_POR_DEFECTO = { color: "cobalto", fuente: "clasica", logo: null };
 
 /* ---------- CSS de la paleta (se inyecta una sola vez) ---------- */
 function cssPaleta() {
   const claro = Object.entries(PALETA).map(([k, v]) => `${k}:${v[0]};`).join("");
   const oscuro = Object.entries(PALETA).map(([k, v]) => `${k}:${v[1]};`).join("");
-  return `:root{${claro}--accent:#C1442D;--accent-t:#C1442D;--font-display:${FUENTES.clasica.display};--font-body:${FUENTES.clasica.body};}`
+  return `:root{${claro}--accent:#2b64e8;--accent-t:#2b64e8;--font-display:${FUENTES.clasica.display};--font-body:${FUENTES.clasica.body};}`
     + `:root[data-theme="dark"]{color-scheme:dark;${oscuro}}`
     // al imprimir (resumen del día, etc.) siempre en claro, aunque la pantalla esté en oscuro
     + `@media print{:root[data-theme="dark"]{color-scheme:light;${claro}}}`;
@@ -89,7 +90,7 @@ export function aplicarTema(modo) {
   const oscuro = modo === "oscuro" || (modo === "auto" && prefiereOscuro());
   document.documentElement.dataset.theme = oscuro ? "dark" : "light";
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", oscuro ? "#2f291f" : "#242019");
+  if (meta) meta.setAttribute("content", oscuro ? "#262c33" : "#1e2227");
 }
 export function guardarTema(modo) {
   try { localStorage.setItem(CLAVE_TEMA, modo); } catch (e) {}
@@ -107,7 +108,7 @@ if (typeof window !== "undefined" && window.matchMedia) {
 export function aplicarMarca(marca) {
   if (typeof document === "undefined") return;
   const m = { ...MARCA_POR_DEFECTO, ...(marca || {}) };
-  const ac = ACENTOS[m.color] || ACENTOS.terracota;
+  const ac = ACENTOS[m.color] || ACENTOS.cobalto;
   const fu = FUENTES[m.fuente] || FUENTES.clasica;
   const root = document.documentElement;
   root.style.setProperty("--accent", ac.c);

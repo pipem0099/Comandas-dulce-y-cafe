@@ -35,7 +35,7 @@ export const DEFAULT_MENU = [
   { id: "m15", name: "Latte Machiato", price: 7000, cat: "Bebidas Calientes" },
   { id: "m16", name: "Colada de Café", price: 7000, cat: "Bebidas Calientes" },
   { id: "m17", name: "Colada Tradicional", price: 6000, cat: "Bebidas Calientes" },
-  { id: "m18", name: "Affogato ⭐", price: 9000, cat: "Bebidas Calientes" },
+  { id: "m18", name: "Affogato", price: 9000, cat: "Bebidas Calientes" },
   { id: "m19", name: "Migote (con licor)", price: 14000, cat: "Bebidas Calientes" },
   { id: "m20", name: "Milo", price: 5000, cat: "Bebidas Calientes" },
   { id: "m21", name: "Milo con Masmelo", price: 6000, cat: "Bebidas Calientes" },

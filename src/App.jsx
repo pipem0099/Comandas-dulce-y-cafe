@@ -7,7 +7,12 @@ import { esExterna, etiquetaExterna } from "./logica.js";
 import { subscribeShared, saveShared, subscribeCollection, subscribeCollectionSince, getCollectionAll, getCollectionRange, getRecord, saveRecord, saveRecords, deleteRecord, updateRecord, ajustarStock, observarSesion, cerrarSesion, updateShared } from "./firebase.js";
 import { TopBar } from "./componentes/BarraSuperior.jsx";
 import { PantallaCarga } from "./componentes/PantallaCarga.jsx";
+import { AvisoRelevo } from "./pantallas/RelevoCaja.jsx";
 import { AjustesPanel } from "./extras.jsx";
+import { MenuEditor } from "./pantallas/Menu.jsx";
+import { MesasEditor } from "./pantallas/Mesas.jsx";
+import { Equipo } from "./pantallas/Equipo.jsx";
+import { Respaldos } from "./pantallas/Respaldos.jsx";
 import { guardarMarcaCache } from "./marcaCache.js";
 import { DEFAULT_CONFIG, DEFAULT_MENU, DEFAULT_MESAS, VENTANA_MS } from "./constantes.js";
 import { styles } from "./estilos.js";
@@ -26,8 +31,8 @@ export default function App() {
   const [turnos, setTurnos] = useState([]);
   const [mesas, setMesas] = useState(DEFAULT_MESAS);
   const [insumos, setInsumos] = useState([]);
-  const [verAjustes, setVerAjustes] = useState(false);
-  const [tabCajaSolicitada, setTabCajaSolicitada] = useState(null);
+  const [equipo, setEquipo] = useState([]); // directorio del equipo (nombre, roles, activo): lo leen todos para elegir a quién entregar la caja
+  const [vista, setVista] = useState(null); // pantalla de administración abierta: menu | mesas | equipo | respaldos | ajustes
   const ultimaMarcaPublica = useRef("");
   const [sesion, setSesion] = useState(undefined); // undefined = comprobando · null = sin iniciar sesión
   const [perfil, setPerfil] = useState(undefined); // undefined = cargando · null = esta cuenta no tiene perfil
@@ -100,6 +105,7 @@ export default function App() {
     return subscribeShared(`perfiles/${sesion.uid}`, null, setPerfil);
   }, [sesion]);
   const accesoOk = !!(sesion && perfil && perfil.activo === true);
+  useEffect(() => { if (accesoOk) return subscribeCollection("equipo", setEquipo); }, [accesoOk]);
   const usuarioActual = useMemo(
     () => (accesoOk ? { uid: sesion.uid, nombre: perfil.nombre, correo: perfil.correo || sesion.email, roles: rolesDe(perfil), propietario: perfil.propietario === true } : null),
     [accesoOk, sesion, perfil]
@@ -273,6 +279,18 @@ export default function App() {
     ultimaMarcaPublica.current = huella;
     updateShared("sistema", { marca: publica });
   }, [loaded, esAdminApp, config.businessName, config.marca]);
+  // Directorio del equipo: los perfiles solo los lee un administrador, así que él mantiene una copia
+  // (solo nombre, roles y si está activo) para que cada cajero pueda elegir a quién entregarle la caja.
+  const ultimoEquipo = useRef("");
+  useEffect(() => {
+    if (!loaded || !esAdminApp) return;
+    return subscribeCollection("perfiles", (lista) => {
+      const mapa = {};
+      lista.forEach((p) => { mapa[p.uid] = { uid: p.uid, nombre: p.nombre, roles: p.roles || {}, activo: p.activo === true }; });
+      const huella = JSON.stringify(mapa);
+      if (huella !== ultimoEquipo.current) { ultimoEquipo.current = huella; updateShared("equipo", mapa); }
+    });
+  }, [loaded, esAdminApp]);
   // Aviso público de que el negocio ya tiene propietario (oculta la opción de "primer ingreso").
   useEffect(() => {
     if (!loaded || !usuarioActual || !usuarioActual.propietario) return;
@@ -295,11 +313,11 @@ export default function App() {
   return (
     <div style={styles.app}>
       <TopBar
-        role={role} setRole={(r) => { setVerAjustes(false); setRole(r); }} config={config} usuarioActual={usuarioActual} online={online}
-        onAjustes={() => setVerAjustes(true)}
-        onEquipo={() => { setVerAjustes(false); setRole("caja"); setTabCajaSolicitada("turno"); }}
+        role={role} setRole={(r) => { setVista(null); setRole(r); }} config={config} usuarioActual={usuarioActual} online={online}
+        onIr={setVista}
         onSalir={cerrarSesionYRecargar}
       />
+      <AvisoRelevo turno={turnoAbierto} usuarioActual={usuarioActual} />
       {errorGuardado && (
         <div style={styles.errorGuardadoBanner}>
           <AlertTriangle size={14} />
@@ -307,10 +325,24 @@ export default function App() {
           <button style={styles.errorGuardadoCerrar} onClick={() => setErrorGuardado(null)}>✕</button>
         </div>
       )}
-      {verAjustes && esAdminApp && (
-        <div style={styles.screen}><AjustesPanel config={config} persistConfig={persistConfig} menu={menu} onClose={() => setVerAjustes(false)} /></div>
+      {vista && esAdminApp && (
+        <>
+          {vista === "menu" && <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} insumos={insumos} onClose={() => setVista(null)} />}
+          {vista === "mesas" && <MesasEditor mesas={mesas} persistMesas={persistMesas} cuentas={cuentas} orders={orders} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} onClose={() => setVista(null)} />}
+          {vista === "ajustes" && <div style={styles.screen}><AjustesPanel config={config} persistConfig={persistConfig} menu={menu} onClose={() => setVista(null)} /></div>}
+          {vista === "equipo" && <div style={styles.screen}><Equipo config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} onClose={() => setVista(null)} /></div>}
+          {vista === "respaldos" && (
+            <div style={styles.screen}>
+              <Respaldos
+                onClose={() => setVista(null)} menu={menu} orders={orders} cuentas={cuentas} config={config} turnos={turnos} mesas={mesas}
+                persistConfig={persistConfig} usuarioActual={usuarioActual} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial}
+                historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto}
+              />
+            </div>
+          )}
+        </>
       )}
-      {!verAjustes && role === "mesero" && (
+      {!vista && role === "mesero" && (
         !tieneRol(usuarioActual, "mesero") && !tieneRol(usuarioActual, "admin") ? (
           <AccesoDenegado mensaje="Tu usuario no tiene el rol de Mesero — esto es Mesero." accion="Ir a Caja" onAccion={() => setRole("caja")} onCambiarUsuario={cerrarSesionYRecargar} />
         ) : (
@@ -320,12 +352,11 @@ export default function App() {
             saveOrder={saveOrder} saveOrdersMap={saveOrdersMap} saveCuenta={saveCuenta}
             persistMenu={persistMenu} persistConfig={persistConfig}
             insumos={insumos} ajustarInventario={ajustarInventario}
-            onAbrirAjustes={() => setVerAjustes(true)}
           />
         )
       )}
-      {!verAjustes && role === "cocina" && <CocinaView orders={orders} saveOrder={saveOrder} mesas={mesas} config={config} />}
-      {!verAjustes && role === "caja" && (
+      {!vista && role === "cocina" && <CocinaView orders={orders} saveOrder={saveOrder} mesas={mesas} config={config} />}
+      {!vista && role === "caja" && (
         !tieneRol(usuarioActual, "cajero") && !tieneRol(usuarioActual, "admin") ? (
           <AccesoDenegado mensaje="Tu usuario no tiene el rol de Cajero — esto es Caja." accion="Ir a Mesero" onAccion={() => setRole("mesero")} onCambiarUsuario={cerrarSesionYRecargar} />
         ) : (
@@ -334,10 +365,9 @@ export default function App() {
             turnos={turnos} turnoAbierto={turnoAbierto} saveTurno={saveTurno}
             config={config} persistConfig={persistConfig} usuarioActual={usuarioActual}
             mesas={mesas} persistMesas={persistMesas}
-            insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario}
+            equipo={equipo} insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario}
             ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial}
             historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto}
-            tabSolicitada={tabCajaSolicitada} onTabAplicada={() => setTabCajaSolicitada(null)}
           />
         )
       )}
