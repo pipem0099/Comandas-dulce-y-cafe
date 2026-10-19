@@ -7,6 +7,20 @@ html, body, #root {
   margin: 0;
   padding: 0;
 }
+/* La app es un "marco" fijo del tamaño de la pantalla: lo único que se desplaza es el contenido
+   interno (como en iOS). El documento nunca se mueve, así la barra superior no se va con el scroll. */
+@supports (height: 100dvh) {
+  html, body, #root { height: 100dvh; }
+}
+:root { --pago-ok: #0b8a5f; }
+:root[data-theme="dark"] { --pago-ok: #34d399; }
+html, body { overflow: hidden; overscroll-behavior: none; }
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+}
 
 body {
   background: var(--c-f7f4ec-b, #F4F6F8);
@@ -55,8 +69,14 @@ body {
 @keyframes popIn { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
 .anim-in { animation: popIn .24s cubic-bezier(.2, .8, .2, 1) both; }
 
-button { transition: transform .12s ease, background-color .18s ease, opacity .18s ease, border-color .18s ease, color .18s ease; }
-button:active:not(:disabled) { transform: scale(.97); }
+/* Tacto tipo iPhone: al tocar se hunde rápido y al soltar rebota suave. */
+button {
+  transition: transform .42s cubic-bezier(.34, 1.56, .64, 1), background-color .2s ease, opacity .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+  touch-action: manipulation;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+button:active:not(:disabled) { transform: scale(.965); transition-duration: .08s, .2s, .2s, .2s, .2s, .2s; }
 button:disabled { cursor: not-allowed; }
 
 input, select, textarea { transition: border-color .18s ease, box-shadow .18s ease; }
@@ -89,3 +109,36 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Pantalla de carga con marca */
 @keyframes respirar { 0%, 100% { opacity: .6; transform: scale(.985); } 50% { opacity: 1; transform: scale(1); } }
 @keyframes barra { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+
+/* ───────── Fluidez tipo iOS ───────── */
+/* Desplazamiento con inercia y sin "rebote" que arrastre la pantalla entera. */
+[style*="overflow-y: auto"], [style*="overflow: auto"] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+[style*="overflow-x: auto"] { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+
+/* Cambio de pantalla (Mesero / Cocina / Caja / ajustes): entrada suave con la curva de iOS. */
+@keyframes vistaIn { from { opacity: 0; transform: translateY(10px) scale(.992); } to { opacity: 1; transform: none; } }
+.vista-anim { animation: vistaIn .34s cubic-bezier(.32, .72, 0, 1) both; }
+.anim-in { animation-duration: .34s; animation-timing-function: cubic-bezier(.32, .72, 0, 1); }
+
+/* Bloques que se despliegan (cuentas, turnos, meses): aparecen sin saltos. */
+@keyframes despliega { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.despliega { animation: despliega .28s cubic-bezier(.32, .72, 0, 1) both; }
+
+/* Hojas que suben desde abajo en el celular: en tablet y computador se muestran como ventana centrada. */
+@media (min-width: 700px) {
+  .hoja-overlay { align-items: center !important; }
+  .hoja-overlay > div { border-radius: 22px !important; max-height: 88dvh !important; }
+}
+
+/* Escritorio: con el menú lateral hay espacio de sobra, el contenido puede ser más ancho. */
+@media (min-width: 1280px) {
+  .ancho {
+    padding-left: max(24px, calc((100% - 1080px) / 2)) !important;
+    padding-right: max(24px, calc((100% - 1080px) / 2)) !important;
+  }
+}

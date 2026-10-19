@@ -20,7 +20,7 @@ const K = {
 
 const x = {
   overlay: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(10,8,5,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center", animation: "fadeIn .18s ease" },
-  sheet: { width: "100%", maxWidth: 560, maxHeight: "90dvh", overflowY: "auto", background: K.bg, borderRadius: "20px 20px 0 0", padding: "18px 16px calc(18px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 12, animation: "sheetUp .24s cubic-bezier(.2,.8,.2,1)", color: K.ink },
+  sheet: { width: "100%", maxWidth: 560, maxHeight: "90dvh", overflowY: "auto", background: K.bg, borderRadius: "20px 20px 0 0", padding: "18px 16px calc(18px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 12, animation: "sheetUp .38s cubic-bezier(.32,.72,0,1)", color: K.ink },
   sheetTitle: { fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: K.ink, lineHeight: 1.15 },
   sheetSub: { fontSize: 12.5, color: K.muted },
   eyebrow: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1.3, color: K.faint, fontWeight: 700, textTransform: "uppercase" },
@@ -147,7 +147,7 @@ export function ModalOpciones({ item, onClose, onAdd }) {
   const unit = precioUnitario(item, mods);
 
   return (
-    <div style={x.overlay} onClick={onClose}>
+    <div className="hoja-overlay" style={x.overlay} onClick={onClose}>
       <div style={x.sheet} onClick={(e) => e.stopPropagation()}>
         <div style={x.row}>
           <div style={{ flex: 1 }}>
@@ -459,7 +459,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
   const [accion, setAccion] = useState(null); // { id, tipo: 'entrada' | 'conteo' | 'editar', valor, ... }
   const [confirmDel, setConfirmDel] = useState(null);
 
-  const registrar = (txt) => persistConfig({ ...config, auditLog: [{ ts: Date.now(), accion: txt, actor: usuarioActual.nombre }, ...(config.auditLog || [])].slice(0, 50) });
+  const registrar = (txt) => persistConfig({ ...config, auditLog: [{ ts: Date.now(), accion: txt, actor: usuarioActual.nombre }, ...(config.auditLog || [])].slice(0, 500) });
 
   const orden = { agotado: 0, bajo: 1, ok: 2 };
   const lista = insumos.slice().sort((a, b) => orden[estadoStock(a)] - orden[estadoStock(b)] || a.nombre.localeCompare(b.nombre));
@@ -607,7 +607,7 @@ export function NuevoPedidoExterno({ tipo, onCancel, onCrear }) {
   const Icono = esDom ? Bike : ShoppingBag;
 
   return (
-    <div style={x.overlay} onClick={onCancel}>
+    <div className="hoja-overlay" style={x.overlay} onClick={onCancel}>
       <div style={x.sheet} onClick={(e) => e.stopPropagation()}>
         <div style={x.row}>
           <div style={{ ...x.emptyIcon, width: 44, height: 44, color: "var(--accent-t)" }}><Icono size={22} strokeWidth={1.8} /></div>

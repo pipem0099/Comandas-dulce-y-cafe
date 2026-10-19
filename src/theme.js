@@ -10,38 +10,39 @@
 
 // variable → [modo claro, modo oscuro]
 const PALETA = {
-  "--c-242019-b": ["#1e2227", "#262c33"],
-  "--c-242019-o": ["#1e2227", "#586270"],
-  "--c-242019-t": ["#14181d", "#eceff3"],
-  "--c-2f6690-t": ["#2e6fd6", "#7ab0ff"],
-  "--c-3b372e-t": ["#2b3139", "#dce1e7"],
-  "--c-5b7553-t": ["#1f8a62", "#5fcaa0"],
-  "--c-5c5648-t": ["#4a525c", "#bac2cc"],
-  "--c-8a3a2b-t": ["#a33a32", "#f0a3a0"],
-  "--c-8a611a-t": ["#8a6414", "#e6bb62"],
-  "--c-8a8272-t": ["#6b7480", "#8f99a6"],
-  "--c-9a9382-t": ["#7c8591", "#7e8895"],
-  "--c-b98a2e-t": ["#b9801a", "#e8b450"],
-  "--c-c1442d-t": ["#d64545", "#f27a79"],
-  "--c-c7bfa0-o": ["#bfc6cf", "#3a4048"],
-  "--c-d9cfae-o": ["#cdd3da", "#3a4048"],
-  "--c-e4dfce-b": ["#e2e6eb", "#2a2f36"],
-  "--c-e4dfce-o": ["#e2e6eb", "#2a2f36"],
-  "--c-e4eee1-b": ["#dff3ea", "#13271f"],
-  "--c-e8bbaf-o": ["#f2b8b5", "#5a2f31"],
-  "--c-ede7d8-b": ["#e9edf1", "#20252b"],
-  "--c-ede7d8-o": ["#e9ecf0", "#23282e"],
-  "--c-f1ecdd-b": ["#eef1f4", "#1a1d22"],
-  "--c-f1ecdd-o": ["#eef1f4", "#1a1d22"],
-  "--c-f2eee2-b": ["#eef1f4", "#1a1d22"],
-  "--c-f7f4ec-b": ["#f4f6f8", "#0e1013"],
-  "--c-fbe2dc-b": ["#fde4e2", "#35191b"],
-  "--c-fbefd9-b": ["#fff3d6", "#2e2610"],
-  "--c-fbf8f0-b": ["#f8f9fb", "#1a1d22"],
-  "--c-fffdf8-b": ["#ffffff", "#16191e"]
+  "--c-242019-b": ["#0f1729", "#1a2133"],
+  "--c-242019-o": ["#0f1729", "#3a465c"],
+  "--c-242019-t": ["#0f172a", "#f1f5f9"],
+  "--c-2f6690-t": ["#2563eb", "#7cb0ff"],
+  "--c-3b372e-t": ["#1e293b", "#e2e8f0"],
+  "--c-5b7553-t": ["#0b8a5f", "#34d399"],
+  "--c-5c5648-t": ["#475569", "#b4bdcc"],
+  "--c-8a3a2b-t": ["#b42323", "#fca5a5"],
+  "--c-8a611a-t": ["#92620f", "#f5c451"],
+  "--c-8a8272-t": ["#64748b", "#8b96a9"],
+  "--c-9a9382-t": ["#7a8699", "#78849a"],
+  "--c-b98a2e-t": ["#b7791f", "#fbbf24"],
+  "--c-c1442d-t": ["#dc3545", "#f87171"],
+  "--c-c7bfa0-o": ["#b8c3d4", "#2a3348"],
+  "--c-d9cfae-o": ["#cbd5e3", "#273044"],
+  "--c-e4dfce-b": ["#dde4ef", "#1d2535"],
+  "--c-e4dfce-o": ["#dde4ef", "#1d2535"],
+  "--c-e4eee1-b": ["#d9f4e8", "#0c2a21"],
+  "--c-e8bbaf-o": ["#f5b5b5", "#5b2a30"],
+  "--c-ede7d8-b": ["#dbe3ef", "#161c2a"],
+  "--c-ede7d8-o": ["#e3e9f2", "#1a2132"],
+  "--c-f1ecdd-b": ["#eef2f8", "#121827"],
+  "--c-f1ecdd-o": ["#eef2f8", "#121827"],
+  "--c-f2eee2-b": ["#eef2f8", "#121827"],
+  "--c-f7f4ec-b": ["#e8edf5", "#070b14"],
+  "--c-fbe2dc-b": ["#fde8e8", "#2b1519"],
+  "--c-fbefd9-b": ["#fef3d3", "#2b2410"],
+  "--c-fbf8f0-b": ["#f4f7fb", "#0f141f"],
+  "--c-fffdf8-b": ["#ffffff", "#0f141f"]
 };
 
 export const ACENTOS = {
+  esmeralda: { nombre: "Esmeralda", c: "#0e9f6e", t: "#34d399" },
   cobalto: { nombre: "Cobalto", c: "#2b64e8", t: "#7fa6ff" },
   terracota: { nombre: "Terracota", c: "#C1442D", t: "#E5735B" },
   bosque: { nombre: "Verde bosque", c: "#2F6B4F", t: "#6FBF93" },
@@ -59,13 +60,13 @@ export const FUENTES = {
   amable: { nombre: "Amable", muestra: "Fredoka + Nunito", display: "'Fredoka', system-ui, sans-serif", body: "'Nunito', system-ui, sans-serif", google: "family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700" },
 };
 
-export const MARCA_POR_DEFECTO = { color: "cobalto", fuente: "clasica", logo: null };
+export const MARCA_POR_DEFECTO = { color: "esmeralda", fuente: "clasica", logo: null };
 
 /* ---------- CSS de la paleta (se inyecta una sola vez) ---------- */
 function cssPaleta() {
   const claro = Object.entries(PALETA).map(([k, v]) => `${k}:${v[0]};`).join("");
   const oscuro = Object.entries(PALETA).map(([k, v]) => `${k}:${v[1]};`).join("");
-  return `:root{${claro}--accent:#2b64e8;--accent-t:#2b64e8;--font-display:${FUENTES.clasica.display};--font-body:${FUENTES.clasica.body};}`
+  return `:root{${claro}--accent:#0e9f6e;--accent-t:#0e9f6e;--font-display:${FUENTES.clasica.display};--font-body:${FUENTES.clasica.body};}`
     + `:root[data-theme="dark"]{color-scheme:dark;${oscuro}}`
     // al imprimir (resumen del día, etc.) siempre en claro, aunque la pantalla esté en oscuro
     + `@media print{:root[data-theme="dark"]{color-scheme:light;${claro}}}`;
@@ -80,17 +81,17 @@ if (typeof document !== "undefined" && !document.getElementById("tema-css")) {
 /* ---------- Modo claro / oscuro (por dispositivo) ---------- */
 const CLAVE_TEMA = "comandas_tema";
 export function temaGuardado() {
-  try { const v = localStorage.getItem(CLAVE_TEMA); return v === "claro" || v === "oscuro" ? v : "auto"; } catch (e) { return "auto"; }
+  try { const v = localStorage.getItem(CLAVE_TEMA); return v === "claro" || v === "oscuro" ? v : (prefiereOscuro() ? "oscuro" : "claro"); } catch (e) { return "claro"; }
 }
 function prefiereOscuro() {
   return typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 export function aplicarTema(modo) {
   if (typeof document === "undefined") return;
-  const oscuro = modo === "oscuro" || (modo === "auto" && prefiereOscuro());
+  const oscuro = modo === "oscuro" || (modo !== "claro" && prefiereOscuro()); // sin guardado, se parte del tema del equipo una sola vez
   document.documentElement.dataset.theme = oscuro ? "dark" : "light";
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", oscuro ? "#262c33" : "#1e2227");
+  if (meta) meta.setAttribute("content", oscuro ? "#1a2133" : "#0f1729");
 }
 export function guardarTema(modo) {
   try { localStorage.setItem(CLAVE_TEMA, modo); } catch (e) {}
@@ -98,17 +99,12 @@ export function guardarTema(modo) {
 }
 // Se aplica apenas carga el archivo, para que no haya un destello blanco al abrir en oscuro.
 aplicarTema(temaGuardado());
-if (typeof window !== "undefined" && window.matchMedia) {
-  const mq = window.matchMedia("(prefers-color-scheme: dark)");
-  const alCambiar = () => { if (temaGuardado() === "auto") aplicarTema("auto"); };
-  if (mq.addEventListener) mq.addEventListener("change", alCambiar);
-}
 
 /* ---------- Marca: color de acento, tipografía y logo ---------- */
 export function aplicarMarca(marca) {
   if (typeof document === "undefined") return;
   const m = { ...MARCA_POR_DEFECTO, ...(marca || {}) };
-  const ac = ACENTOS[m.color] || ACENTOS.cobalto;
+  const ac = ACENTOS[m.color] || ACENTOS.esmeralda;
   const fu = FUENTES[m.fuente] || FUENTES.clasica;
   const root = document.documentElement;
   root.style.setProperty("--accent", ac.c);

@@ -32,7 +32,7 @@ export function exportarExcel(cuentas, orders, config, mesas) {
         Método: METODO_META[p.metodoPago]?.label || p.metodoPago,
         Monto: p.monto,
         "Cobrado por": p.procesadoPor || "",
-        Ítems: p.items ? p.items.map((it) => `${it.qty}x ${it.name}`).join(", ") : "",
+        Ítems: p.items && p.items.length ? p.items.map((it) => `${it.qty}x ${it.name}`).join(", ") : "",
       });
     });
   });

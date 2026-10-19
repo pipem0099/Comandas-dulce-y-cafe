@@ -287,3 +287,20 @@ export function duracionLabel(ms) {
   const h = Math.floor(min / 60), m = min % 60;
   return h > 0 ? `${h} h ${m} min` : `${m} min`;
 }
+
+/** Agrupa una lista (ya ordenada de más nuevo a más viejo) por mes: [{ key, titulo, items }]. */
+export function agruparPorMes(lista, getTs) {
+  const grupos = [];
+  const idx = {};
+  lista.forEach((x) => {
+    const d = new Date(getTs(x));
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (!(key in idx)) {
+      const nombre = d.toLocaleDateString("es-CO", { month: "long", year: "numeric" });
+      idx[key] = grupos.length;
+      grupos.push({ key, titulo: nombre.charAt(0).toUpperCase() + nombre.slice(1), items: [] });
+    }
+    grupos[idx[key]].items.push(x);
+  });
+  return grupos.sort((a, b) => b.key.localeCompare(a.key));
+}

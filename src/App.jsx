@@ -5,7 +5,8 @@ import {
 import { aplicarMarca } from "./theme.js";
 import { esExterna, etiquetaExterna } from "./logica.js";
 import { subscribeShared, saveShared, subscribeCollection, subscribeCollectionSince, getCollectionAll, getCollectionRange, getRecord, saveRecord, saveRecords, deleteRecord, updateRecord, ajustarStock, observarSesion, cerrarSesion, updateShared } from "./firebase.js";
-import { TopBar } from "./componentes/BarraSuperior.jsx";
+import { TopBar, BarraInferior, Lateral, itemsNavegacion } from "./componentes/BarraSuperior.jsx";
+import { useDispositivo } from "./useAncho.js";
 import { PantallaCarga } from "./componentes/PantallaCarga.jsx";
 import { AvisoRelevo } from "./pantallas/RelevoCaja.jsx";
 import { AjustesPanel } from "./extras.jsx";
@@ -25,12 +26,18 @@ import { NOMBRES_EXTERNOS, dayKey, rolesDe, tieneRol } from "./utilidades.js";
 export default function App() {
   const [role, setRole] = useState("mesero");
   const [menu, setMenu] = useState(DEFAULT_MENU);
+  const dispositivo = useDispositivo(); // (los hooks van arriba, antes de cualquier "return" anticipado)
+  const fantasmasRef = useRef([]);   // ids de registros de inventario sin nombre (restos de insumos borrados)
+  const insumosRef = useRef([]);
   const [orders, setOrders] = useState([]);
   const [cuentas, setCuentas] = useState([]);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [turnos, setTurnos] = useState([]);
   const [mesas, setMesas] = useState(DEFAULT_MESAS);
   const [insumos, setInsumos] = useState([]);
+  const menuRef = useRef(DEFAULT_MENU);
+  menuRef.current = menu;
+  insumosRef.current = insumos;
   const [equipo, setEquipo] = useState([]); // directorio del equipo (nombre, roles, activo): lo leen todos para elegir a quién entregar la caja
   const [vista, setVista] = useState(null); // pantalla de administración abierta: menu | mesas | equipo | respaldos | ajustes
   const ultimaMarcaPublica = useRef("");
@@ -138,12 +145,27 @@ export default function App() {
       subscribeCollectionSince("cuentas", "ts", desde, (v) => { setCuentas(v); markLoaded("cuentas"); }),
       subscribeShared("config", DEFAULT_CONFIG, (v) => { setConfig({ ...DEFAULT_CONFIG, ...v }); markLoaded("config"); }),
       subscribeCollection("turnos", (v) => { setTurnos(v); markLoaded("turnos"); }),
-      subscribeCollection("inventario", (v) => { setInsumos(v); markLoaded("inventario"); }),
+      subscribeCollection("inventario", (v) => {
+        // Un registro SIN nombre es un "fantasma": lo crea un descuento de stock sobre un insumo ya borrado.
+        const reales = (v || []).filter((i) => i && i.nombre);
+        fantasmasRef.current = (v || []).filter((i) => i && !i.nombre).map((i) => i.id);
+        setInsumos(reales); markLoaded("inventario");
+      }),
       subscribeShared("mesas", DEFAULT_MESAS, (v) => { setMesas(v && v.length > 0 ? v : DEFAULT_MESAS); markLoaded("mesas"); }),
     ];
     const clock = setInterval(() => forceTick((t) => t + 1), 1000);
     return () => { unsubs.forEach((unsub) => unsub && unsub()); clearInterval(clock); };
   }, [ventanaEpoch, accesoOk]);
+
+  // Limpieza automática (solo la hace un administrador): borra los registros de inventario sin nombre
+  // que dejaron insumos eliminados antes de este arreglo.
+  useEffect(() => {
+    if (!loaded || !usuarioActual || !usuarioActual.roles.includes("admin")) return;
+    const ids = fantasmasRef.current || [];
+    if (ids.length === 0) return;
+    fantasmasRef.current = [];
+    ids.forEach((id) => deleteRecord("inventario", id));
+  }, [loaded, insumos, usuarioActual]);
 
   // Historial completo bajo demanda: null hasta que alguien entra a Historial
   // o pide exportar/respaldar. Se pide UNA VEZ (no en vivo) y se combina con
@@ -251,11 +273,18 @@ export default function App() {
     setInsumos((prev) => prev.filter((i) => i.id !== id));
     const ok = await deleteRecord("inventario", id);
     if (!ok) avisarErrorGuardado(MSG_SIN_CONEXION);
-  }, [avisarErrorGuardado]);
+    // Quita el insumo de las recetas: si no, cada pedido lo seguiría descontando y lo "resucitaría".
+    const m = menuRef.current || [];
+    if (m.some((p) => (p.receta || []).some((r) => r.insumoId === id))) {
+      persistMenu(m.map((p) => ((p.receta || []).some((r) => r.insumoId === id) ? { ...p, receta: p.receta.filter((r) => r.insumoId !== id) } : p)));
+    }
+  }, [avisarErrorGuardado, persistMenu]);
   // Suma o resta stock: { insumoId: +cantidad | -cantidad }. Usa increment en Firebase,
   // así dos pedidos simultáneos descuentan bien sin pisarse.
   const ajustarInventario = useCallback(async (mapa) => {
-    const entradas = Object.entries(mapa || {}).filter(([, d]) => d);
+    // Solo se descuenta de insumos que existen (así uno borrado no reaparece).
+    const existentes = new Set((insumosRef.current || []).map((i) => i.id));
+    const entradas = Object.entries(mapa || {}).filter(([id, d]) => d && existentes.has(id));
     if (entradas.length === 0) return;
     setInsumos((prev) => prev.map((i) => (mapa[i.id] ? { ...i, stock: (Number(i.stock) || 0) + mapa[i.id] } : i)));
     const res = await Promise.all(entradas.map(([id, d]) => ajustarStock(id, d)));
@@ -310,13 +339,16 @@ export default function App() {
     return <PantallaCarga />;
   }
 
+  const movil = dispositivo === "movil";
+  const items = itemsNavegacion(usuarioActual);
+  const cambiarRol = (r) => { setVista(null); setRole(r); };
+
   return (
     <div style={styles.app}>
-      <TopBar
-        role={role} setRole={(r) => { setVista(null); setRole(r); }} config={config} usuarioActual={usuarioActual} online={online}
-        onIr={setVista}
-        onSalir={cerrarSesionYRecargar}
-      />
+      {movil && <TopBar config={config} usuarioActual={usuarioActual} online={online} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: movil ? "column" : "row" }}>
+        {!movil && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online} ancho={dispositivo === "escritorio"} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <AvisoRelevo turno={turnoAbierto} usuarioActual={usuarioActual} />
       {errorGuardado && (
         <div style={styles.errorGuardadoBanner}>
@@ -325,6 +357,7 @@ export default function App() {
           <button style={styles.errorGuardadoCerrar} onClick={() => setErrorGuardado(null)}>✕</button>
         </div>
       )}
+      <div key={vista ? `v-${vista}` : `r-${role}`} className="vista-anim" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {vista && esAdminApp && (
         <>
           {vista === "menu" && <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} insumos={insumos} onClose={() => setVista(null)} />}
@@ -371,6 +404,10 @@ export default function App() {
           />
         )
       )}
+      </div>
+        </div>
+      </div>
+      {movil && <BarraInferior items={items} role={role} setRole={cambiarRol} />}
     </div>
   );
 }
