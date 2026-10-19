@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { X, Sun, Moon, MonitorSmartphone, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup } from "lucide-react";
+import { X, Sun, Moon, Palette, UserRound, Settings, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup } from "lucide-react";
 import { guardarTema, temaGuardado, vibrar } from "../theme.js";
 import { enviarCorreoCambioClave } from "../firebase.js";
 import { rolesLabel } from "../utilidades.js";
 import { VERSION } from "../constantes.js";
+import { useAncho } from "../useAncho.js";
 
 /*
  * Menú de la persona que inició sesión: se abre al tocar su nombre en la barra de arriba.
@@ -14,7 +15,6 @@ const K = {
   ink: "var(--c-242019-t)", muted: "var(--c-8a8272-t)", sub: "var(--c-5c5648-t)", faint: "#9BA4B0", cream: "#F4F6F8",
 };
 const TEMAS = [
-  { id: "auto", label: "Automático", icon: MonitorSmartphone },
   { id: "claro", label: "Claro", icon: Sun },
   { id: "oscuro", label: "Oscuro", icon: Moon },
 ];
@@ -23,6 +23,11 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   const [tema, setTema] = useState(temaGuardado());
   const [confirmSalir, setConfirmSalir] = useState(false);
   const [aviso, setAviso] = useState("");
+  const esAdminU = usuarioActual.roles.includes("admin");
+  const [seccion, setSeccion] = useState(esAdminU ? "admin" : "cuenta"); // pastilla activa
+  const [confirmClave, setConfirmClave] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const ancho = useAncho();
   const [puedeInstalar, setPuedeInstalar] = useState(!!window.__instalarApp);
   const esAdmin = usuarioActual.roles.includes("admin");
 
@@ -34,9 +39,10 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
 
   const elegirTema = (id) => { vibrar(); guardarTema(id); setTema(id); };
   const cambiarClave = async () => {
-    setAviso("");
+    setAviso(""); setEnviando(true);
     const r = await enviarCorreoCambioClave(usuarioActual.correo);
-    setAviso(r.ok ? `Te enviamos un correo a ${usuarioActual.correo} para crear una clave nueva.` : "No se pudo enviar el correo. Revisa tu conexión.");
+    setEnviando(false); setConfirmClave(false);
+    setAviso(r.ok ? `Listo: te enviamos un correo a ${usuarioActual.correo} para crear una clave nueva.` : "No se pudo enviar el correo. Revisa tu conexión.");
   };
   const instalar = async () => {
     const ev = window.__instalarApp;
@@ -60,8 +66,8 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   );
 
   return (
-    <div style={s.overlay} onClick={onCerrar}>
-      <div style={s.hoja} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Mi cuenta">
+    <div style={{ ...s.overlay, ...(ancho >= 700 ? { alignItems: "center" } : {}) }} onClick={onCerrar}>
+      <div style={{ ...s.hoja, ...(ancho >= 700 ? { borderRadius: 22, maxWidth: 460, padding: 20 } : {}) }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Mi cuenta">
         <div style={s.cabecera}>
           <div style={s.avatar}>{(usuarioActual.nombre || "?").trim().charAt(0).toUpperCase()}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -72,37 +78,57 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
           <button style={s.cerrarBtn} onClick={onCerrar} aria-label="Cerrar"><X size={16} /></button>
         </div>
 
-        <div style={s.etiqueta}>APARIENCIA</div>
+        {/* Pastillas: cada una muestra solo su sección */}
         <div style={s.segmentado}>
-          {TEMAS.map((t) => {
-            const Icon = t.icon;
-            return (
-              <button key={t.id} style={{ ...s.segBtn, ...(tema === t.id ? s.segBtnOn : {}) }} onClick={() => elegirTema(t.id)}>
-                <Icon size={14} /> {t.label}
-              </button>
-            );
-          })}
+          {esAdmin && <button style={{ ...s.segBtn, ...(seccion === "admin" ? s.segBtnOn : {}) }} onClick={() => setSeccion("admin")}><Settings size={14} /> Administración</button>}
+          <button style={{ ...s.segBtn, ...(seccion === "cuenta" ? s.segBtnOn : {}) }} onClick={() => setSeccion("cuenta")}><UserRound size={14} /> Mi cuenta</button>
+          <button style={{ ...s.segBtn, ...(seccion === "tema" ? s.segBtnOn : {}) }} onClick={() => setSeccion("tema")}><Palette size={14} /> Apariencia</button>
         </div>
 
-        {esAdmin && (
-          <>
-            <div style={s.etiqueta}>ADMINISTRACIÓN</div>
-            <div style={s.grupo}>
-              <Fila icon={UtensilsCrossed} titulo="Menú y precios" sub="Productos, categorías y agotados" onClick={ir(() => onIr("menu"))} />
-              <Fila icon={LayoutGrid} titulo="Mesas y plano" sub="Mesas, espacios y su distribución" onClick={ir(() => onIr("mesas"))} />
-              <Fila icon={Users} titulo="Equipo y usuarios" sub="Cuentas, roles y propiedad" onClick={ir(() => onIr("equipo"))} />
-              <Fila icon={DatabaseBackup} titulo="Respaldos y datos" sub="Copias de seguridad y restauración" onClick={ir(() => onIr("respaldos"))} />
-              <Fila icon={SlidersHorizontal} titulo="Ajustes del negocio" sub="Marca, estaciones e inventario" onClick={ir(() => onIr("ajustes"))} />
-            </div>
-          </>
+        {seccion === "admin" && esAdmin && (
+          <div className="despliega" style={s.grupo}>
+            <Fila icon={UtensilsCrossed} titulo="Menú y precios" sub="Productos, categorías y agotados" onClick={ir(() => onIr("menu"))} />
+            <Fila icon={LayoutGrid} titulo="Mesas y plano" sub="Mesas, espacios y su distribución" onClick={ir(() => onIr("mesas"))} />
+            <Fila icon={Users} titulo="Equipo y usuarios" sub="Cuentas, roles y propiedad" onClick={ir(() => onIr("equipo"))} />
+            <Fila icon={DatabaseBackup} titulo="Respaldos y datos" sub="Copias de seguridad y restauración" onClick={ir(() => onIr("respaldos"))} />
+            <Fila icon={SlidersHorizontal} titulo="Ajustes del negocio" sub="Marca, estaciones e inventario" onClick={ir(() => onIr("ajustes"))} />
+          </div>
         )}
 
-        <div style={s.etiqueta}>MI CUENTA</div>
-        <div style={s.grupo}>
-          <Fila icon={KeyRound} titulo="Cambiar mi clave" sub="Te llega un correo para crear una nueva" onClick={cambiarClave} />
-          {puedeInstalar && <Fila icon={Download} titulo="Instalar la app" sub="Ábrela desde tu pantalla de inicio" onClick={instalar} />}
-          <Fila icon={LogOut} titulo="Cerrar sesión" peligro onClick={() => { setConfirmSalir(true); setAviso(""); }} />
-        </div>
+        {seccion === "cuenta" && (
+          <div className="despliega" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={s.grupo}>
+              <Fila icon={KeyRound} titulo="Cambiar mi clave" sub="Te enviamos un enlace a tu correo" onClick={() => { setConfirmClave(true); setAviso(""); setConfirmSalir(false); }} />
+              {puedeInstalar && <Fila icon={Download} titulo="Instalar la app" sub="Ábrela desde tu pantalla de inicio" onClick={instalar} />}
+              <Fila icon={LogOut} titulo="Cerrar sesión" peligro onClick={() => { setConfirmSalir(true); setAviso(""); setConfirmClave(false); }} />
+            </div>
+            {confirmClave && (
+              <div style={s.confirmar} className="anim-in">
+                <div style={{ fontSize: 14, fontWeight: 600, color: K.ink }}>¿Enviar correo para cambiar tu clave?</div>
+                <div style={{ fontSize: 12.5, color: K.muted, lineHeight: 1.45 }}>Te llegará un enlace a <b style={{ color: K.sub }}>{usuarioActual.correo}</b>. Desde ahí creas la clave nueva; la actual sigue funcionando hasta que la cambies.</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button style={s.btnGhost} onClick={() => setConfirmClave(false)}>Cancelar</button>
+                  <button style={{ ...s.btnSalir, background: "var(--accent)", opacity: enviando ? 0.6 : 1 }} disabled={enviando} onClick={cambiarClave}>{enviando ? "Enviando…" : "Enviar correo"}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {seccion === "tema" && (
+          <div className="despliega" style={{ display: "flex", gap: 10 }}>
+            {TEMAS.map((t) => {
+              const Icon = t.icon; const on = tema === t.id;
+              return (
+                <button key={t.id} style={{ ...s.temaCard, ...(on ? s.temaCardOn : {}) }} onClick={() => elegirTema(t.id)}>
+                  <span style={{ ...s.temaMuestra, background: t.id === "claro" ? "#F4F6F8" : "#0E1013", color: t.id === "claro" ? "#14181D" : "#F4F6F8" }}><Icon size={22} /></span>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{t.label}</span>
+                  {on && <Check size={14} color="var(--accent)" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
         {aviso && <div style={s.aviso}><Check size={14} /> {aviso}</div>}
         {confirmSalir && (
           <div style={s.confirmar} className="anim-in">
@@ -143,5 +169,8 @@ const s = {
   confirmar: { background: K.surface, border: `1px solid ${K.border}`, borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 10 },
   btnGhost: { flex: 1, padding: "11px 12px", background: "transparent", color: K.sub, border: `1px solid ${K.border}`, borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
   btnSalir: { flex: 1, padding: "11px 12px", background: "#D64545", color: K.cream, border: "none", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
+  temaCard: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 14, borderRadius: 16, border: `1.5px solid ${K.border}`, background: K.surface, color: K.ink, cursor: "pointer" },
+  temaCardOn: { borderColor: "var(--accent)" },
+  temaMuestra: { width: "100%", height: 56, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${K.border}` },
   pie: { textAlign: "center", fontSize: 11, color: K.faint, letterSpacing: 0.5, marginTop: 4 },
 };

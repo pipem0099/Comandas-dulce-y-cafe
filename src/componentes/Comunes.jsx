@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 
@@ -60,6 +61,24 @@ export function MetodoPills({ selected, onSelect }) {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** Bloque desplegable (un mes, una sección): la cabecera siempre se ve, el contenido se abre al tocar.
+ * `abierto` puede ser controlado desde fuera; si no, empieza según `inicialAbierto`. */
+export function Acordeon({ titulo, resumen, inicialAbierto = false, children }) {
+  const [abierto, setAbierto] = useState(inicialAbierto);
+  return (
+    <div style={styles.acordeon}>
+      <button style={styles.acordeonHead} onClick={() => setAbierto((v) => !v)} aria-expanded={abierto}>
+        <span style={{ display: "flex", flexDirection: "column", gap: 2, textAlign: "left", minWidth: 0 }}>
+          <span style={styles.acordeonTitulo}>{titulo}</span>
+          {resumen && <span style={styles.acordeonResumen}>{resumen}</span>}
+        </span>
+        <ChevronDown size={18} style={{ flexShrink: 0, transition: "transform .32s cubic-bezier(.32,.72,0,1)", transform: abierto ? "rotate(180deg)" : "none" }} />
+      </button>
+      {abierto && <div className="despliega" style={styles.acordeonBody}>{children}</div>}
     </div>
   );
 }
