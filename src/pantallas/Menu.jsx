@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
-import { Plus, Check, Trash2, Pencil, PauseCircle, Settings2 } from "lucide-react";
+import { Plus, Check, Trash2, Settings2, Search, X, ChevronDown } from "lucide-react";
 import { tieneOpciones, getEstaciones, costoReceta, uid, money } from "../logica.js";
 import { ProductoConfig } from "../extras.jsx";
-import { CampoMonto } from "../componentes/Comunes.jsx";
+import { CampoMonto, Acordeon } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 
 export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, insumos, onClose }) {
@@ -18,18 +18,24 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
   const [editPriceValue, setEditPriceValue] = useState("");
   const [editCostValue, setEditCostValue] = useState("");
   const [configId, setConfigId] = useState(null); // producto cuyo panel de opciones / receta está abierto
+  const [filtro, setFiltro] = useState("__todas__"); // categoría activa en la lista
+  const [busqueda, setBusqueda] = useState("");
+  const [abierto, setAbierto] = useState(null);     // producto desplegado
+  const [nuevoAbierto, setNuevoAbierto] = useState(false);
+  const [catNueva, setCatNueva] = useState(false);  // escribir una categoría que aún no existe
 
   const registrar = (accion) => {
     const auditLog = config.auditLog || [];
-    persistConfig({ ...config, auditLog: [{ ts: Date.now(), accion, actor: actor || "desconocido" }, ...auditLog].slice(0, 50) });
+    persistConfig({ ...config, auditLog: [{ ts: Date.now(), accion, actor: actor || "desconocido" }, ...auditLog].slice(0, 500) });
   };
 
   const addItem = () => {
-    if (!name.trim() || !price) return;
-    const item = { id: uid(), name: name.trim(), price: parseFloat(price) || 0, cost: parseFloat(cost) || 0, cat: cat.trim() || "Otros" };
+    if (!name.trim() || !price || !cat.trim()) return;
+    const item = { id: uid(), name: name.trim(), price: parseFloat(price) || 0, cost: parseFloat(cost) || 0, cat: cat.trim() };
     persistMenu([...menu, item]);
     registrar(`Agregó "${item.name}" al menú (${money(item.price)})`);
-    setName(""); setPrice(""); setCost(""); setCat("");
+    setName(""); setPrice(""); setCost(""); setCatNueva(false); setNuevoAbierto(false);
+    setFiltro(item.cat); // lleva a la categoría donde quedó el producto nuevo
   };
   const removeItem = (id) => {
     const item = menu.find((m) => m.id === id);
@@ -71,88 +77,146 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
     setTimeout(() => setSavedFlash(false), 1800);
   };
 
+  const categorias = [...new Set(menu.map((m) => m.cat))];
+  const q = busqueda.trim().toLowerCase();
+  const visibles = menu.filter((m) => (filtro === "__todas__" || m.cat === filtro) && (!q || m.name.toLowerCase().includes(q)));
+  const catsVisibles = categorias.filter((c) => visibles.some((m) => m.cat === c));
+  const desplegar = (item) => {
+    if (abierto === item.id) { setAbierto(null); setEditingItemId(null); return; }
+    setAbierto(item.id); setConfigId(null); setConfirmDeleteId(null);
+    setEditingItemId(item.id); setEditPriceValue(item.price ? String(item.price) : ""); setEditCostValue(item.cost ? String(item.cost) : "");
+  };
+
   return (
     <div style={styles.screen}>
       <CabeceraAdmin titulo="Menú y precios" onClose={onClose} />
       <div className="ancho" style={styles.menuScroll}>
-        <div style={styles.addItemCard}>
-          <div style={styles.catLabel}>NOMBRE DEL NEGOCIO</div>
-          <input style={styles.editInput} placeholder="Nombre del negocio" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
-          <button style={styles.addItemBtn} onClick={guardarNombre}>
-            {savedFlash ? <><Check size={15} /> Guardado</> : "Guardar nombre"}
-          </button>
-        </div>
 
-        <div style={styles.addItemCard}>
-          <input style={styles.editInput} placeholder="Nombre del plato" value={name} onChange={(e) => setName(e.target.value)} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <CampoMonto style={{ ...styles.editInput, flex: 1 }} placeholder="Precio de venta" value={price} onChange={setPrice} />
-            <CampoMonto style={{ ...styles.editInput, flex: 1 }} placeholder="Costo (opcional)" value={cost} onChange={setCost} />
+        {/* Barra fija de navegación: buscador + categorías en pastillas */}
+        <div style={m.sticky}>
+          <div style={m.buscador}>
+            <Search size={16} color="var(--c-8a8272-t)" />
+            <input style={m.buscadorInput} placeholder="Buscar producto…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+            {busqueda && <button style={m.limpiar} onClick={() => setBusqueda("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
           </div>
-          <input style={{ ...styles.editInput, flex: 1 }} placeholder="Categoría" value={cat} onChange={(e) => setCat(e.target.value)} />
-          <button style={styles.addItemBtn} onClick={addItem}><Plus size={15} /> Agregar al menú</button>
+          <div style={m.fila1}>
+            <button style={{ ...m.pastilla, ...(filtro === "__todas__" ? m.pastillaOn : {}) }} onClick={() => setFiltro("__todas__")}>Todas <span style={m.cuenta}>{menu.length}</span></button>
+            {categorias.map((c) => (
+              <button key={c} style={{ ...m.pastilla, ...(filtro === c ? m.pastillaOn : {}) }} onClick={() => setFiltro(c)}>
+                {c} <span style={m.cuenta}>{menu.filter((x) => x.cat === c).length}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {[...new Set(menu.map((m) => m.cat))].map((c) => (
+        {/* Agregar producto: cerrado por defecto para no estorbar */}
+        {!nuevoAbierto ? (
+          <button style={{ ...styles.addItemBtn, marginBottom: 14 }} onClick={() => { setNuevoAbierto(true); setCat(filtro !== "__todas__" ? filtro : ""); }}>
+            <Plus size={16} /> Nuevo producto
+          </button>
+        ) : (
+          <div className="despliega" style={{ ...styles.addItemCard, marginBottom: 14 }}>
+            <div style={m.formTitulo}><span>Nuevo producto</span><button style={m.limpiar} onClick={() => setNuevoAbierto(false)} aria-label="Cerrar"><X size={15} /></button></div>
+            <input style={styles.editInput} placeholder="Nombre del producto" value={name} onChange={(e) => setName(e.target.value)} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <CampoMonto style={{ ...styles.editInput, flex: 1 }} placeholder="Precio de venta" value={price} onChange={setPrice} />
+              <CampoMonto style={{ ...styles.editInput, flex: 1 }} placeholder="Costo (opcional)" value={cost} onChange={setCost} />
+            </div>
+            <div style={m.etiqueta}>Categoría</div>
+            <div style={m.pastillas}>
+              {categorias.map((c) => (
+                <button key={c} style={{ ...m.pastilla, ...(cat === c && !catNueva ? m.pastillaOn : {}) }} onClick={() => { setCat(c); setCatNueva(false); }}>{c}</button>
+              ))}
+              <button style={{ ...m.pastilla, borderStyle: "dashed", ...(catNueva ? m.pastillaOn : {}) }} onClick={() => { setCatNueva(true); setCat(""); }}><Plus size={13} /> Nueva</button>
+            </div>
+            {catNueva && <input style={styles.editInput} placeholder="Nombre de la nueva categoría" value={cat} onChange={(e) => setCat(e.target.value)} autoFocus />}
+            <button style={{ ...styles.sendBtn, opacity: name.trim() && price && cat.trim() ? 1 : 0.4 }} disabled={!(name.trim() && price && cat.trim())} onClick={addItem}><Plus size={15} /> Agregar al menú</button>
+          </div>
+        )}
+
+        {/* Lista */}
+        {visibles.length === 0 && <div style={m.vacio}>{q ? `No hay productos que coincidan con "${busqueda}".` : "No hay productos en esta categoría."}</div>}
+        {catsVisibles.map((c) => (
           <div key={c} style={{ marginBottom: 18 }}>
-            <div style={styles.catLabel}>{c}</div>
-            {menu.filter((m) => m.cat === c).map((item) => {
-              const margen = item.price - (item.cost || 0);
-              const margenPct = item.price > 0 ? Math.round((margen / item.price) * 100) : 0;
-              return (
-                <div key={item.id} style={styles.menuEditItemBlock}>
-                  <div style={{ ...styles.editRow, borderBottom: "none" }}>
-                    <button
-                      style={{ ...styles.agotadoToggle, ...(item.agotado ? styles.agotadoToggleActive : {}) }}
-                      onClick={() => toggleAgotado(item.id)}
-                      title={item.agotado ? "Marcar disponible" : "Marcar agotado"}
-                    >
-                      <PauseCircle size={14} />
+            {filtro === "__todas__" && <div style={styles.catLabel}>{c}</div>}
+            <div style={m.grupo}>
+              {visibles.filter((x) => x.cat === c).map((item, idx, arr) => {
+                const margen = item.price - (item.cost || 0);
+                const margenPct = item.price > 0 ? Math.round((margen / item.price) * 100) : 0;
+                const abiertoAhora = abierto === item.id;
+                return (
+                  <div key={item.id} style={{ ...m.fila, ...(idx === arr.length - 1 ? { borderBottom: "none" } : {}) }}>
+                    <button style={m.filaMain} onClick={() => desplegar(item)} aria-expanded={abiertoAhora}>
+                      <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, textAlign: "left", flex: 1 }}>
+                        <span style={{ ...m.nombre, ...(item.agotado ? { textDecoration: "line-through", opacity: 0.55 } : {}) }}>{item.name}</span>
+                        <span style={m.meta}>{item.agotado ? "Agotado" : item.cost ? `Margen ${margenPct}%` : "Sin costo registrado"}{item.receta && item.receta.length > 0 ? " · con receta" : ""}{tieneOpciones(item) ? ` · ${item.grupos.length} ${item.grupos.length > 1 ? "grupos" : "grupo"}` : ""}</span>
+                      </span>
+                      <span style={m.precio}>{money(item.price)}</span>
+                      <ChevronDown size={16} style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: abiertoAhora ? "rotate(180deg)" : "none" }} />
                     </button>
-                    <span style={{ ...styles.menuItemName, ...(item.agotado ? { textDecoration: "line-through", color: "var(--c-9a9382-t)" } : {}) }}>{item.name}</span>
-                    {editingItemId !== item.id && (
-                      <button style={styles.precioEditableBtn} onClick={() => empezarEdicionItem(item)}>{money(item.price)} <Pencil size={10} /></button>
-                    )}
-                    {confirmDeleteId === item.id ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <button style={styles.confirmYes} onClick={() => removeItem(item.id)}>Sí</button>
-                        <button style={styles.confirmNo} onClick={() => setConfirmDeleteId(null)}>No</button>
+                    {abiertoAhora && (
+                      <div className="despliega" style={m.detalle}>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <div style={{ flex: 1 }}><div style={m.etiqueta}>Precio</div><CampoMonto style={{ ...styles.editInput, width: "100%" }} placeholder="Precio" value={editPriceValue} onChange={setEditPriceValue} /></div>
+                          <div style={{ flex: 1 }}><div style={m.etiqueta}>Costo</div><CampoMonto style={{ ...styles.editInput, width: "100%" }} placeholder="Costo" value={editCostValue} onChange={setEditCostValue} /></div>
+                        </div>
+                        <button style={styles.sendBtn} onClick={() => guardarEdicionItem(item)}><Check size={15} /> Guardar precio y costo</button>
+                        <button style={styles.modoChoiceBtn} onClick={() => toggleAgotado(item.id)}>{item.agotado ? "Marcar como disponible" : "Marcar como agotado"}</button>
+                        <button style={styles.modoChoiceBtn} onClick={() => setConfigId(configId === item.id ? null : item.id)}>
+                          <Settings2 size={16} /> Opciones{getEstaciones(config).length > 1 ? ", estación" : ""} y receta
+                        </button>
+                        {configId === item.id && (
+                          <ProductoConfig item={item} config={config} insumos={insumos || []} onSave={(patch) => guardarConfigItem(item, patch)} onClose={() => setConfigId(null)} />
+                        )}
+                        {confirmDeleteId === item.id ? (
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <span style={{ flex: 1, fontSize: 13, color: "var(--c-5c5648-t)" }}>¿Eliminar "{item.name}"?</span>
+                            <button style={styles.confirmYes} onClick={() => removeItem(item.id)}>Sí, eliminar</button>
+                            <button style={styles.confirmNo} onClick={() => setConfirmDeleteId(null)}>No</button>
+                          </div>
+                        ) : (
+                          <button style={m.eliminar} onClick={() => setConfirmDeleteId(item.id)}><Trash2 size={15} /> Eliminar producto</button>
+                        )}
                       </div>
-                    ) : (
-                      <button style={styles.deleteBtn} onClick={() => setConfirmDeleteId(item.id)}><Trash2 size={14} /></button>
                     )}
                   </div>
-                  {editingItemId === item.id ? (
-                    <div style={styles.costoEditRow}>
-                      <CampoMonto style={{ ...styles.editInput, flex: 1 }} placeholder="Precio de venta" value={editPriceValue} onChange={setEditPriceValue} autoFocus />
-                      <CampoMonto style={{ ...styles.editInput, flex: 1 }} placeholder="Costo" value={editCostValue} onChange={setEditCostValue} />
-                      <button style={styles.confirmYes} onClick={() => guardarEdicionItem(item)}>Guardar</button>
-                      <button style={styles.confirmNo} onClick={() => setEditingItemId(null)}>Cancelar</button>
-                    </div>
-                  ) : (
-                    <button style={styles.costoPillBtn} onClick={() => empezarEdicionItem(item)}>
-                      {item.cost ? (
-                        <>Costo {money(item.cost)} · Margen {money(margen)} ({margenPct}%)</>
-                      ) : (
-                        <>+ Agregar costo de producción (para ver el margen)</>
-                      )}
-                    </button>
-                  )}
-                  <button style={styles.costoPillBtn} onClick={() => setConfigId(configId === item.id ? null : item.id)}>
-                    <Settings2 size={13} style={{ verticalAlign: -2, marginRight: 5 }} />Configurar: opciones{getEstaciones(config).length > 1 ? ", estación" : ""} y receta
-                    {(tieneOpciones(item) || (item.receta && item.receta.length > 0)) && (
-                      <> · {tieneOpciones(item) ? `${item.grupos.length} grupo${item.grupos.length > 1 ? "s" : ""}` : ""}{tieneOpciones(item) && item.receta && item.receta.length > 0 ? " · " : ""}{item.receta && item.receta.length > 0 ? "con receta" : ""}</>
-                    )}
-                  </button>
-                  {configId === item.id && (
-                    <ProductoConfig item={item} config={config} insumos={insumos || []} onSave={(patch) => guardarConfigItem(item, patch)} onClose={() => setConfigId(null)} />
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         ))}
+
+        <Acordeon titulo="Nombre del negocio" resumen={config.businessName || "Sin nombre"}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 0 6px" }}>
+            <input style={styles.editInput} placeholder="Nombre del negocio" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+            <button style={styles.addItemBtn} onClick={guardarNombre}>{savedFlash ? <><Check size={15} /> Guardado</> : "Guardar nombre"}</button>
+          </div>
+        </Acordeon>
       </div>
     </div>
   );
 }
+
+// estilos propios de esta pantalla
+const m = {
+  sticky: { position: "sticky", top: 0, zIndex: 6, background: "var(--c-f7f4ec-b)", paddingBottom: 10, marginBottom: 4 },
+  buscador: { display: "flex", alignItems: "center", gap: 8, padding: "0 12px", height: 44, borderRadius: 14, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", marginBottom: 10 },
+  buscadorInput: { flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontSize: 15, color: "var(--c-242019-t)" },
+  limpiar: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 13, border: "none", background: "rgba(128,138,150,.18)", color: "var(--c-8a8272-t)", cursor: "pointer" },
+  pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
+  fila1: { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" },
+  pastilla: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
+  pastillaOn: { background: "var(--accent)", borderColor: "transparent", color: "#F4F6F8" },
+  cuenta: { fontSize: 11.5, opacity: 0.7, fontWeight: 700 },
+  formTitulo: { display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)" },
+  etiqueta: { fontSize: 11.5, color: "var(--c-8a8272-t)", fontWeight: 600, marginBottom: 4 },
+  vacio: { padding: "26px 8px", textAlign: "center", color: "var(--c-8a8272-t)", fontSize: 14 },
+  grupo: { background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 16, overflow: "hidden" },
+  fila: { borderBottom: "1px solid var(--c-ede7d8-o)" },
+  filaMain: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 14px", background: "transparent", border: "none", cursor: "pointer", color: "var(--c-242019-t)" },
+  nombre: { fontSize: 15, fontWeight: 600, color: "var(--c-242019-t)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  meta: { fontSize: 11.5, color: "var(--c-8a8272-t)" },
+  precio: { fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)", flexShrink: 0 },
+  detalle: { display: "flex", flexDirection: "column", gap: 10, padding: "4px 14px 14px" },
+  eliminar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px", background: "transparent", border: "none", color: "#D64545", fontSize: 14, fontWeight: 600, cursor: "pointer" },
+};

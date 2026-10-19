@@ -1,92 +1,14 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
+import { PlanoSalon, ZONA_TIPOS, ALTOS_PLANO } from "../componentes/Plano.jsx";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import {
-  Plus, Trash2, Pencil, Lock, Check, GripVertical, X,
+  Plus, Trash2, Pencil, Lock, Check, X,
 } from "lucide-react";
 import { uid } from "../logica.js";
 import { styles } from "../estilos.js";
-import { estadoVisualMesa, mesaMatch } from "../utilidades.js";
+import { mesaMatch } from "../utilidades.js";
 
-/** Plano visual del salón: cada mesa se dibuja en su posición real (x%, y%)
- * en vez de una cuadrícula pareja. En modo "editable" se puede arrastrar
- * cada mesa a su lugar (con el dedo o el mouse); si no, solo se puede tocar
- * para entrar a ella — igual que las tarjetas de la cuadrícula. */
-export function PlanoSalon({ mesas, cuentas, orders, editable, onTapMesa, onMoverMesa }) {
-  const containerRef = useRef(null);
-  const [arrastrando, setArrastrando] = useState(null);
-  const [posLive, setPosLive] = useState(null);
-
-  const posDefault = (idx) => {
-    const cols = 4;
-    const col = idx % cols;
-    const row = Math.floor(idx / cols);
-    return { x: 15 + col * 24, y: 20 + row * 26 };
-  };
-  const posDe = (m, idx) => (typeof m.x === "number" && typeof m.y === "number") ? { x: m.x, y: m.y } : posDefault(idx);
-
-  const inicio = useRef(null); // dónde empezó el dedo: hasta que se mueve unos píxeles, no se arrastra nada
-  const onPointerDown = (e, m) => {
-    if (!editable) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    inicio.current = { id: m.id, x: e.clientX, y: e.clientY, moviendo: false };
-    setArrastrando(m.id);
-  };
-  const onPointerMove = (e) => {
-    if (!arrastrando || !containerRef.current) return;
-    const ini = inicio.current;
-    if (ini && !ini.moviendo) {
-      if (Math.hypot(e.clientX - ini.x, e.clientY - ini.y) < 8) return;
-      ini.moviendo = true;
-    }
-    const rect = containerRef.current.getBoundingClientRect();
-    let x = ((e.clientX - rect.left) / rect.width) * 100;
-    let y = ((e.clientY - rect.top) / rect.height) * 100;
-    x = Math.max(4, Math.min(96, x));
-    y = Math.max(6, Math.min(94, y));
-    setPosLive({ x, y });
-  };
-  const onPointerUp = () => {
-    if (arrastrando && posLive) onMoverMesa(arrastrando, posLive.x, posLive.y);
-    setArrastrando(null);
-    setPosLive(null);
-  };
-
-  return (
-    <div
-      ref={containerRef}
-      style={{ ...styles.planoContainer, ...(editable ? { border: "2px dashed var(--accent)", backgroundImage: "radial-gradient(var(--c-d9cfae-o) 1px, transparent 1px)", backgroundSize: "20px 20px" } : {}) }}
-      onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
-    >
-      {mesas.length === 0 && <div style={styles.planoVacio}>Agrega mesas para verlas aquí.</div>}
-      {mesas.map((m, idx) => {
-        const cuenta = cuentas.find((c) => mesaMatch(c.mesa, m.id) && c.estado === "abierta");
-        const visual = estadoVisualMesa(cuenta, cuenta ? orders.filter((o) => o.cuentaId === cuenta.id) : []);
-        const bg = cuenta ? visual.bg : "var(--c-fffdf8-b)";
-        const color = cuenta ? visual.color : "var(--c-242019-t)";
-        const pos = arrastrando === m.id && posLive ? posLive : posDe(m, idx);
-        return (
-          <button
-            key={m.id}
-            onPointerDown={(e) => onPointerDown(e, m)}
-            onClick={() => { if (!editable) onTapMesa(m.id); }}
-            style={{
-              ...styles.planoMesaTile,
-              left: `${pos.x}%`, top: `${pos.y}%`,
-              background: bg, color,
-              borderColor: cuenta ? bg : "var(--c-e4dfce-b)",
-              cursor: editable ? "grab" : "pointer",
-              touchAction: editable ? "none" : "auto",
-              zIndex: arrastrando === m.id ? 2 : 1,
-            }}
-          >
-            {editable && <GripVertical size={12} style={{ position: "absolute", top: 4, right: 3, opacity: 0.45 }} />}
-            {m.nombre}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+export { PlanoSalon } from "../componentes/Plano.jsx";
 
 export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, persistConfig, actor, onClose }) {
   const [nombre, setNombre] = useState("");
@@ -100,7 +22,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
   const registrar = (accion) => {
     if (!config || !persistConfig) return;
     const auditLog = config.auditLog || [];
-    persistConfig({ ...config, auditLog: [{ ts: Date.now(), accion, actor: actor || "desconocido" }, ...auditLog].slice(0, 50) });
+    persistConfig({ ...config, auditLog: [{ ts: Date.now(), accion, actor: actor || "desconocido" }, ...auditLog].slice(0, 500) });
   };
 
   const agregarMesa = () => {
@@ -126,18 +48,42 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
     setConfirmDeleteId(null);
   };
 
-  // El plano está BLOQUEADO por defecto (un roce al hacer scroll no mueve mesas). Al tocar "Editar
-  // posiciones" los cambios quedan en un borrador y solo se guardan con "Guardar posiciones".
+  // El plano está BLOQUEADO por defecto (un roce al hacer scroll no mueve nada). Al tocar "Editar plano"
+  // los cambios quedan en un borrador y solo se guardan con "Guardar plano".
+  const zonasBase = (config && config.plano && config.plano.zonas) || [];
+  const altoBase = (config && config.plano && config.plano.alto) || 100;
   const [editandoPlano, setEditandoPlano] = useState(false);
-  const [borrador, setBorrador] = useState({});
-  const mesasVista = mesas.map((m) => (borrador[m.id] ? { ...m, ...borrador[m.id] } : m));
-  const hayCambios = Object.keys(borrador).length > 0;
-  const moverEnPlano = (id, x, y) => setBorrador((b) => ({ ...b, [id]: { x, y } }));
-  const guardarPlano = () => {
-    if (hayCambios) { persistMesas(mesasVista); registrar("Reubicó las mesas en el plano"); }
-    setBorrador({}); setEditandoPlano(false);
+  const [bMesas, setBMesas] = useState({});      // cambios a mesas: { id: {x,y,tam,forma} }
+  const [bZonas, setBZonas] = useState(null);    // copia de las zonas mientras se edita
+  const [bAlto, setBAlto] = useState(null);
+  const [sel, setSel] = useState(null);          // { kind: "mesa"|"zona", id }
+  const zonasVista = editandoPlano && bZonas ? bZonas : zonasBase;
+  const altoVista = editandoPlano && bAlto ? bAlto : altoBase;
+  const mesasVista = mesas.map((m) => (bMesas[m.id] ? { ...m, ...bMesas[m.id] } : m));
+  const hayCambios = Object.keys(bMesas).length > 0 || (bZonas && JSON.stringify(bZonas) !== JSON.stringify(zonasBase)) || (bAlto && bAlto !== altoBase);
+
+  const empezarPlano = () => { setBZonas(zonasBase.map((z) => ({ ...z }))); setBAlto(altoBase); setBMesas({}); setSel(null); setEditandoPlano(true); };
+  const cambiarEnPlano = (kind, id, patch) => {
+    if (kind === "mesa") setBMesas((b) => ({ ...b, [id]: { ...(b[id] || {}), ...patch } }));
+    else setBZonas((zs) => zs.map((z) => (z.id === id ? { ...z, ...patch } : z)));
   };
-  const cancelarPlano = () => { setBorrador({}); setEditandoPlano(false); };
+  const agregarZona = (tipo) => {
+    const t = ZONA_TIPOS[tipo];
+    const z = { id: uid(), tipo, nombre: t.label, x: 6, y: 6, w: 34, h: 26 };
+    setBZonas((zs) => [...(zs || []), z]); setSel({ kind: "zona", id: z.id });
+  };
+  const quitarZona = (id) => { setBZonas((zs) => zs.filter((z) => z.id !== id)); setSel(null); };
+  const guardarPlano = () => {
+    if (Object.keys(bMesas).length > 0) persistMesas(mesasVista);
+    if ((bZonas && JSON.stringify(bZonas) !== JSON.stringify(zonasBase)) || (bAlto && bAlto !== altoBase)) {
+      persistConfig({ ...config, plano: { zonas: bZonas || zonasBase, alto: bAlto || altoBase } });
+    }
+    if (hayCambios) registrar("Modificó el plano del negocio");
+    setBMesas({}); setBZonas(null); setBAlto(null); setSel(null); setEditandoPlano(false);
+  };
+  const cancelarPlano = () => { setBMesas({}); setBZonas(null); setBAlto(null); setSel(null); setEditandoPlano(false); };
+  const mesaSel = sel && sel.kind === "mesa" ? mesasVista.find((m) => m.id === sel.id) : null;
+  const zonaSel = sel && sel.kind === "zona" ? zonasVista.find((z) => z.id === sel.id) : null;
 
   const mover = (idx, dir) => {
     const next = [...mesas];
@@ -160,24 +106,71 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
 
         {error && <div style={styles.pinError}>{error}</div>}
 
-        <div style={styles.catLabel}>UBICACIÓN EN EL PLANO</div>
+        <div style={{ ...styles.catLabel, marginTop: 22 }}>PLANO DEL NEGOCIO</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8, marginBottom: 6 }}>
         {!editandoPlano ? (
           <>
             <div style={{ ...styles.closeConfirmText, display: "flex", alignItems: "center", gap: 6 }}><Lock size={13} /> Plano bloqueado: así se ve en Mesero con la vista "Plano".</div>
-            <button style={styles.addItemBtn} onClick={() => setEditandoPlano(true)}><Pencil size={15} /> Editar posiciones</button>
+            <button style={styles.addItemBtn} onClick={empezarPlano}><Pencil size={15} /> Editar plano</button>
           </>
         ) : (
           <>
-            <div style={styles.closeConfirmText}>Modo edición: arrastra cada mesa a su lugar real del salón. Los cambios se aplican al tocar <b>Guardar posiciones</b>.</div>
+            <div style={styles.closeConfirmText}>Arrastra mesas y zonas a su lugar. Toca una para ajustarla; en las zonas, arrastra la esquina para cambiar su tamaño.</div>
+
             <div style={{ display: "flex", gap: 8 }}>
               <button style={styles.cancelEditBtn} onClick={cancelarPlano}><X size={14} /> Cancelar</button>
-              <button style={{ ...styles.addItemBtn, flex: 1 }} onClick={guardarPlano}><Check size={15} /> {hayCambios ? "Guardar posiciones" : "Listo"}</button>
+              <button style={{ ...styles.sendBtn, flex: 1 }} onClick={guardarPlano}><Check size={15} /> {hayCambios ? "Guardar plano" : "Listo"}</button>
             </div>
           </>
         )}
-        <PlanoSalon mesas={mesasVista} cuentas={cuentas} orders={orders} editable={editandoPlano} onMoverMesa={moverEnPlano} />
 
-        <div style={{ ...styles.catLabel, marginTop: 18 }}>TUS MESAS Y ESPACIOS</div>
+        <PlanoSalon mesas={mesasVista} zonas={zonasVista} alto={altoVista} cuentas={cuentas} orders={orders} editable={editandoPlano} seleccion={sel} onSeleccionar={setSel} onCambiar={cambiarEnPlano} />
+
+        {editandoPlano && mesaSel && (
+          <div className="despliega" style={pl.panel}>
+            <div style={pl.panelTitulo}>{mesaSel.nombre}</div>
+            <div style={pl.etiqueta}>Tamaño</div>
+            <div style={pl.pastillas}>
+              {[["s", "Pequeña"], ["m", "Mediana"], ["l", "Grande"]].map(([k, l]) => <button key={k} style={{ ...pl.pastilla, ...((mesaSel.tam || "m") === k ? pl.on : {}) }} onClick={() => cambiarEnPlano("mesa", mesaSel.id, { tam: k })}>{l}</button>)}
+            </div>
+            <div style={pl.etiqueta}>Forma</div>
+            <div style={pl.pastillas}>
+              {[["cuadrada", "Cuadrada"], ["redonda", "Redonda"], ["larga", "Larga"]].map(([k, l]) => <button key={k} style={{ ...pl.pastilla, ...((mesaSel.forma || "cuadrada") === k ? pl.on : {}) }} onClick={() => cambiarEnPlano("mesa", mesaSel.id, { forma: k })}>{l}</button>)}
+            </div>
+          </div>
+        )}
+        {editandoPlano && zonaSel && (
+          <div className="despliega" style={pl.panel}>
+            <div style={pl.etiqueta}>Nombre de la zona</div>
+            <input style={styles.editInput} value={zonaSel.nombre} onChange={(e) => cambiarEnPlano("zona", zonaSel.id, { nombre: e.target.value })} />
+            <div style={pl.etiqueta}>Tipo</div>
+            <div style={pl.pastillas}>
+              {Object.entries(ZONA_TIPOS).map(([k, t]) => { const Icon = t.icon; return (
+                <button key={k} style={{ ...pl.pastilla, ...(zonaSel.tipo === k ? pl.on : {}) }} onClick={() => cambiarEnPlano("zona", zonaSel.id, { tipo: k, ...(zonaSel.nombre === (ZONA_TIPOS[zonaSel.tipo] || {}).label ? { nombre: t.label } : {}) })}><Icon size={14} color={zonaSel.tipo === k ? "#F4F6F8" : t.color} /> {t.label}</button>
+              ); })}
+            </div>
+            <button style={pl.eliminar} onClick={() => quitarZona(zonaSel.id)}><Trash2 size={15} /> Eliminar zona</button>
+          </div>
+        )}
+        {editandoPlano && (
+          <div style={pl.panel}>
+            <div style={pl.etiqueta}>Agregar zona</div>
+            <div style={pl.pastillas}>
+              {Object.entries(ZONA_TIPOS).map(([k, t]) => { const Icon = t.icon; return (
+                <button key={k} style={pl.pastilla} onClick={() => agregarZona(k)}><Icon size={14} color={t.color} /> {t.label}</button>
+              ); })}
+            </div>
+
+            <div style={pl.etiqueta}>Tamaño del plano</div>
+            <div style={pl.pastillas}>
+              {ALTOS_PLANO.map((a) => <button key={a.id} style={{ ...pl.pastilla, ...(altoVista === a.id ? pl.on : {}) }} onClick={() => setBAlto(a.id)}>{a.label}</button>)}
+            </div>
+
+          </div>
+        )}
+        </div>
+
+        <div style={{ ...styles.catLabel, marginTop: 26 }}>TUS MESAS Y ESPACIOS</div>
         {mesas.length === 0 && <div style={styles.cajaEmptyText}>Todavía no has agregado ninguna.</div>}
         {mesas.map((m, idx) => (
           <div key={m.id} style={styles.editRow}>
@@ -212,3 +205,13 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
     </div>
   );
 }
+
+const pl = {
+  etiqueta: { fontSize: 11.5, color: "var(--c-8a8272-t)", fontWeight: 600 },
+  pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
+  pastilla: { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
+  on: { background: "var(--accent)", borderColor: "transparent", color: "#F4F6F8" },
+  panel: { display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 16, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)" },
+  panelTitulo: { fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)" },
+  eliminar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 10, background: "transparent", border: "none", color: "#D64545", fontSize: 14, fontWeight: 600, cursor: "pointer" },
+};

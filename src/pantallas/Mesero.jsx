@@ -569,7 +569,7 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
         )}
       {vistaMesas === "plano" ? (
         <div style={{ padding: "0 16px 16px" }}>
-          <PlanoSalon mesas={mesas} cuentas={cuentas} orders={orders} editable={false} onTapMesa={enterMesa} />
+          <PlanoSalon mesas={mesas} zonas={(config.plano && config.plano.zonas) || []} alto={(config.plano && config.plano.alto) || 100} cuentas={cuentas} orders={orders} editable={false} onTapMesa={enterMesa} />
         </div>
       ) : (
         <div className="ancho" style={styles.mesaGrid}>

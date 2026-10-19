@@ -5,7 +5,8 @@ import { subscribeCollection, saveRecord, updateRecord, updateShared, enviarCorr
 import { ROLES_ORDEN } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { msgAuth } from "../pantallas/Acceso.jsx";
-import { dateTimeLabel, rolLabel, rolesAMapa, rolesDe, rolesLabel, tieneRol } from "../utilidades.js";
+import { Acordeon } from "../componentes/Comunes.jsx";
+import { agruparPorMes, dateTimeLabel, rolLabel, rolesAMapa, rolesDe, rolesLabel, tieneRol } from "../utilidades.js";
 
 export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
   const auditLog = config.auditLog || [];
@@ -26,7 +27,7 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
   useEffect(() => subscribeCollection("perfiles", (v) => setPerfiles(v)), []);
 
   const registrar = (accion) => ({ ts: Date.now(), accion, actor: usuarioActual.nombre });
-  const log = (accion) => persistConfig({ ...config, auditLog: [registrar(accion), ...auditLog].slice(0, 50) });
+  const log = (accion) => persistConfig({ ...config, auditLog: [registrar(accion), ...auditLog].slice(0, 500) });
   const lista = (perfiles || []).slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
   const adminsActivos = lista.filter((u) => u.activo === true && rolesDe(u).includes("admin"));
 
@@ -178,7 +179,7 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
           <div style={{ ...styles.catLabel, marginTop: 16 }}>PIN ANTIGUOS</div>
           <div style={styles.turnoBox}>
             <div style={styles.closeConfirmText}>Todavía hay {config.usuarios.length} usuario(s) del sistema anterior con su PIN guardado en la base. Ya no se usan para entrar. Cuando termines de crear las cuentas nuevas, bórralos.</div>
-            <button style={styles.addItemBtn} onClick={async () => { await persistConfig({ ...config, usuarios: [], auditLog: [registrar("Borró los PIN del sistema anterior"), ...auditLog].slice(0, 50) }); }}>Borrar PIN antiguos</button>
+            <button style={styles.addItemBtn} onClick={async () => { await persistConfig({ ...config, usuarios: [], auditLog: [registrar("Borró los PIN del sistema anterior"), ...auditLog].slice(0, 500) }); }}>Borrar PIN antiguos</button>
           </div>
         </>
       )}
@@ -189,12 +190,20 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}><ShieldCheck size={15} /> Registro de seguridad <span style={styles.plegableCuenta}>{auditLog.length}</span></span>
             {logAbierto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
-          {logAbierto && auditLog.map((r, i) => (
-            <div key={i} className="anim-in" style={styles.turnoRow}>
-              <span style={styles.cierreDate}>{dateTimeLabel(r.ts)}</span>
-              <span style={styles.auditText}>{r.actor}: {r.accion}</span>
+          {logAbierto && (
+            <div className="despliega" style={{ marginTop: 10 }}>
+              {agruparPorMes(auditLog, (r) => r.ts).map((mes, i) => (
+                <Acordeon key={mes.key} titulo={mes.titulo} inicialAbierto={i === 0} resumen={`${mes.items.length} ${mes.items.length === 1 ? "movimiento" : "movimientos"}`}>
+                  {mes.items.map((r, j) => (
+                    <div key={j} style={styles.auditRow}>
+                      <span style={styles.cierreDate}>{dateTimeLabel(r.ts)}</span>
+                      <span style={styles.auditText}>{r.actor}: {r.accion}</span>
+                    </div>
+                  ))}
+                </Acordeon>
+              ))}
             </div>
-          ))}
+          )}
         </>
       )}
     </div>

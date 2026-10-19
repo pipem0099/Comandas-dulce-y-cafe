@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  AlertTriangle, Lock, Download, PlayCircle, StopCircle, ArrowDownToLine, ArrowUpFromLine, RotateCcw, ChevronDown, ChevronUp, ArrowRightLeft, HandHelping,
+  AlertTriangle, Lock, Download, PlayCircle, DoorClosed, ArrowDownToLine, ArrowUpFromLine, RotateCcw, ChevronDown, ChevronUp, ArrowRightLeft, HandHelping,
 } from "lucide-react";
 import { uid, money } from "../logica.js";
 import { saveShared, getRecord, saveCollectionArray, updateRecord } from "../firebase.js";
@@ -8,10 +8,10 @@ import { FormularioMovimiento, ListaMovimientos } from "./MovimientosCaja.jsx";
 import { FlujoEntrega, TarjetaRelevoPendiente } from "./RelevoCaja.jsx";
 import { ResumenDia } from "./ResumenDia.jsx";
 import { responsableDe, statsTramo, tramoVigente, tramosDe } from "../relevoCaja.js";
-import { CampoMonto } from "../componentes/Comunes.jsx";
+import { CampoMonto, Acordeon } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { descargarRespaldo } from "../exportar.js";
-import { arqueosDe, dateTimeLabel, dayKey, duracionLabel, mesaNombre, movimientosDe, propinasEnRango, tieneRol, timeLabel, totalesMovimientos, ventasDelTurno } from "../utilidades.js";
+import { agruparPorMes, arqueosDe, dateTimeLabel, dayKey, duracionLabel, mesaNombre, movimientosDe, propinasEnRango, tieneRol, timeLabel, totalesMovimientos, ventasDelTurno } from "../utilidades.js";
 
 /* ---------------- Turno / arqueo de caja ---------------- */
 
@@ -123,50 +123,68 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
   return (
     <div className="ancho" style={styles.menuScroll}>
       {!turnoAbierto ? (
-        <div style={styles.turnoBox}>
-          <div style={styles.pageEyebrow}>TURNO CERRADO</div>
-          <div style={styles.closeConfirmText}>Registra cuánto efectivo hay en caja para empezar el turno. Quedará anotado que lo abre <b>{usuarioActual.nombre}</b>.</div>
-          <CampoMonto placeholder="Base de efectivo inicial" value={base} onChange={setBase} />
-          <button style={{ ...styles.addItemBtn, marginTop: 8 }} onClick={abrirTurno}><PlayCircle size={15} /> Abrir turno</button>
+        <div className="despliega" style={t.puerta}>
+          <div style={t.puertaIcono}><Lock size={26} /></div>
+          <div style={t.puertaTitulo}>Abre la caja para empezar</div>
+          <div style={t.puertaTexto}>Cuenta el efectivo que hay en el cajón. Hasta que abras el turno no se pueden cobrar mesas. Quedará registrado que lo abre <b>{usuarioActual.nombre}</b>.</div>
+          <div style={{ width: "100%", maxWidth: 360 }}>
+            <CampoMonto placeholder="Efectivo inicial en caja" value={base} onChange={setBase} />
+          </div>
+          <button style={{ ...styles.sendBtn, width: "100%", maxWidth: 360, minHeight: 50, fontSize: 16 }} onClick={abrirTurno}><PlayCircle size={18} /> Abrir caja</button>
         </div>
       ) : (
-        <div style={styles.turnoBox}>
-          <div style={styles.pageEyebrow}>TURNO ABIERTO</div>
-          <div style={t.responsable}>
-            <span style={t.avatar}>{(responsable.nombre || "?").trim().charAt(0).toUpperCase()}</span>
-            <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>Caja a cargo de {responsable.nombre || "—"}{esResponsable ? " (tú)" : ""}</span>
-              <span style={t.meta}>
-                {responsable.desdeTs ? `desde ${timeLabel(responsable.desdeTs)}` : `desde ${timeLabel(turnoAbierto.aperturaTs)}`} · recibió {money(baseTurno)}
-              </span>
-              <span style={t.meta}>Turno abierto por {turnoAbierto.abiertoPor || "—"} · {dateTimeLabel(turnoAbierto.aperturaTs)} · lleva {duracionLabel(Date.now() - turnoAbierto.aperturaTs)}</span>
+        <div style={t.pagina}>
+          {/* Estado de la caja */}
+          <div style={t.estado}>
+            <span style={t.estadoPunto} />
+            <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>Caja abierta <span style={t.estadoChip}>a cargo de {responsable.nombre || "—"}{esResponsable ? " (tú)" : ""}</span></span>
+              <span style={t.meta}>Desde {timeLabel(turnoAbierto.aperturaTs)} · apertura {money(turnoAbierto.baseEfectivo || 0)} · lleva {duracionLabel(Date.now() - turnoAbierto.aperturaTs)}</span>
             </span>
           </div>
 
           <TarjetaRelevoPendiente turno={turnoAbierto} usuarioActual={usuarioActual} esAdmin={esAdmin} />
 
-          {!calculado && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button style={t.btnMov} onClick={() => setMovForm("entrada")}><ArrowDownToLine size={16} color="#2f8f68" /> Entrada</button>
-              <button style={t.btnMov} onClick={() => setMovForm("salida")}><ArrowUpFromLine size={16} color="#d64545" /> Salida</button>
+          {/* Resumen del turno: solo el propietario (el cajero cierra "a ciegas", sin ver lo esperado) */}
+          {esAdmin && (
+            <div style={t.stats}>
+              <div style={{ ...t.stat, ...t.statVerde }}><span style={t.statEt}>EFECTIVO EN CAJA</span><span style={t.statVal}>{money(esperado)}</span><span style={t.statSub}>Lo que deberías contar al cerrar</span></div>
+              <div style={t.stat}><span style={t.statEt}>TOTAL VENDIDO</span><span style={t.statVal}>{money(ventas.efectivo + ventas.tarjeta + ventas.transferencia)}</span><span style={t.statSub}>Todos los métodos</span></div>
+              <div style={t.stat}><span style={t.statEt}>OTROS MÉTODOS</span><span style={t.statVal}>{money(ventas.tarjeta + ventas.transferencia)}</span><span style={t.statSub}>Tarjeta y transferencia</span></div>
+              <div style={t.stat}><span style={t.statEt}>PROPINAS</span><span style={t.statVal}>{money(propinasEnRango(cuentas, turnoAbierto.aperturaTs))}</span><span style={t.statSub}>No cuentan como venta</span></div>
             </div>
           )}
 
-          {movimientos.length > 0 && (
-            <div style={t.movBox}>
-              <div style={t.movHead}>
-                <span style={t.etiqueta}>MOVIMIENTOS DE CAJA</span>
-                <span style={t.meta}>
-                  {mov.entradas > 0 && <span style={{ color: "var(--c-5b7553-t)", fontWeight: 700 }}>+{money(mov.entradas)}</span>}
-                  {mov.entradas > 0 && mov.salidas > 0 && "  ·  "}
-                  {mov.salidas > 0 && <span style={{ color: "var(--c-c1442d-t)", fontWeight: 700 }}>−{money(mov.salidas)}</span>}
-                </span>
-              </div>
-              <ListaMovimientos movimientos={movimientos} onAnular={calculado ? null : anularMovimiento} puedeAnular={(m) => !tramo || m.ts >= tramo.inicioTs} />
+          <div style={t.rejilla}>
+            {/* Movimientos de caja */}
+            <div style={t.tarjeta}>
+              <div style={t.tarjetaTitulo}>Movimientos de caja</div>
+              <div style={t.meta}>Anota el dinero que entra o sale del cajón <b>fuera de las ventas</b>.</div>
+              {!calculado && (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button style={{ ...t.selMov, ...t.selEntrada }} onClick={() => setMovForm("entrada")}><ArrowDownToLine size={22} color="#2f8f68" /> Entrada</button>
+                  <button style={{ ...t.selMov, ...t.selSalida }} onClick={() => setMovForm("salida")}><ArrowUpFromLine size={22} color="#d64545" /> Salida</button>
+                </div>
+              )}
+              {movimientos.length > 0 ? (
+                <div style={t.movBox}>
+                  <div style={t.movHead}>
+                    <span style={t.etiqueta}>EN ESTE TURNO</span>
+                    <span style={t.meta}>
+                      {mov.entradas > 0 && <span style={{ color: "var(--c-5b7553-t)", fontWeight: 700 }}>+{money(mov.entradas)}</span>}
+                      {mov.entradas > 0 && mov.salidas > 0 && "  ·  "}
+                      {mov.salidas > 0 && <span style={{ color: "var(--c-c1442d-t)", fontWeight: 700 }}>−{money(mov.salidas)}</span>}
+                    </span>
+                  </div>
+                  <ListaMovimientos movimientos={movimientos} onAnular={calculado ? null : anularMovimiento} puedeAnular={(m) => !tramo || m.ts >= tramo.inicioTs} />
+                </div>
+              ) : <div style={t.vacio}>Todavía no hay movimientos en este turno.</div>}
+              {errorMov && <div style={{ fontSize: 12.5, color: "var(--c-c1442d-t)", fontWeight: 600 }}>{errorMov}</div>}
             </div>
-          )}
-          {errorMov && <div style={{ fontSize: 12.5, color: "var(--c-c1442d-t)", fontWeight: 600 }}>{errorMov}</div>}
 
+            {/* Entrega y cierre */}
+            <div style={t.tarjeta}>
+              <div style={t.tarjetaTitulo}>Entrega y cierre</div>
           <div style={styles.closeConfirmText}>El total esperado en caja, tarjeta y transferencia se muestra al cerrar el turno, después de que registres lo que contaste.</div>
 
           {!confirmandoCierre ? (
@@ -190,7 +208,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                     </>
                   )}
                   {(esResponsable || esAdmin) && (
-                    <button style={styles.closeCajaBtn} onClick={() => setConfirmandoCierre(true)}><StopCircle size={15} /> Cerrar turno (arqueo)</button>
+                    <button style={styles.closeCajaBtn} onClick={() => setConfirmandoCierre(true)}><DoorClosed size={18} /> Cerrar turno (arqueo)</button>
                   )}
                 </>
               )}
@@ -247,37 +265,49 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
               )}
             </div>
           )}
+            </div>
+          </div>
         </div>
       )}
 
       {flujoEntrega && turnoAbierto && <FlujoEntrega modo={flujoEntrega} turno={turnoAbierto} cuentas={cuentas} usuarioActual={usuarioActual} equipo={equipo || []} onCerrar={() => setFlujoEntrega(null)} />}
       {movForm && <FormularioMovimiento tipoInicial={movForm} onCancelar={() => setMovForm(null)} onGuardar={registrarMovimiento} />}
 
-      {cerrados.length > 0 && (
+      {esAdmin && cerrados.length > 0 && (
         <>
           <div style={{ ...styles.catLabel, marginTop: 20 }}>TURNOS ANTERIORES</div>
-          {cerrados.map((tr) => {
-            const abierto = detalleAbierto === tr.id;
+          {agruparPorMes(cerrados, (tr) => tr.cierreTs).map((mes, i) => {
+            const conDif = mes.items.filter((tr) => tr.diferencia !== 0).length;
             return (
-              <div key={tr.id} style={styles.turnoRowCol}>
-                <button style={t.cierreCabecera} onClick={() => setDetalleAbierto(abierto ? null : tr.id)} aria-expanded={abierto}>
-                  <span style={{ display: "flex", flexDirection: "column", gap: 2, textAlign: "left" }}>
-                    <span style={styles.cierreDate}>{dateTimeLabel(tr.aperturaTs)} → {timeLabel(tr.cierreTs)}</span>
-                    <span style={t.meta}>Abrió {tr.abiertoPor || "—"} · cerró {tr.cerradoPor || "—"}{Object.keys(tr.relevos || {}).length > 0 ? ` · ${Object.keys(tr.relevos).length} entrega(s) de caja` : ""}</span>
-                  </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ ...styles.turnoDiff, color: tr.diferencia === 0 ? "var(--c-5b7553-t)" : "var(--c-c1442d-t)" }}>
-                      {tr.diferencia === 0 ? "Cuadró" : tr.diferencia > 0 ? `+${money(tr.diferencia)}` : money(tr.diferencia)}
-                    </span>
-                    {abierto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  </span>
-                </button>
-                {abierto && (
-                  <div style={{ marginTop: 10 }} className="anim-in">
-                    <ResumenDia turno={tr} cuentas={cuentasParaHistorial || cuentas} />
-                  </div>
-                )}
-              </div>
+              <Acordeon
+                key={mes.key} titulo={mes.titulo} inicialAbierto={i === 0}
+                resumen={`${mes.items.length} ${mes.items.length === 1 ? "turno" : "turnos"} · ${conDif === 0 ? "todos cuadraron" : `${conDif} con diferencia`}`}
+              >
+                {mes.items.map((tr) => {
+                  const abierto = detalleAbierto === tr.id;
+                  return (
+                    <div key={tr.id} style={styles.turnoRowCol}>
+                      <button style={t.cierreCabecera} onClick={() => setDetalleAbierto(abierto ? null : tr.id)} aria-expanded={abierto}>
+                        <span style={{ display: "flex", flexDirection: "column", gap: 2, textAlign: "left" }}>
+                          <span style={styles.cierreDate}>{dateTimeLabel(tr.aperturaTs)} → {timeLabel(tr.cierreTs)}</span>
+                          <span style={t.meta}>Abrió {tr.abiertoPor || "—"} · cerró {tr.cerradoPor || "—"}{Object.keys(tr.relevos || {}).length > 0 ? ` · ${Object.keys(tr.relevos).length} entrega(s) de caja` : ""}</span>
+                        </span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ ...styles.turnoDiff, color: tr.diferencia === 0 ? "var(--c-5b7553-t)" : "var(--c-c1442d-t)" }}>
+                            {tr.diferencia === 0 ? "Cuadró" : tr.diferencia > 0 ? `+${money(tr.diferencia)}` : money(tr.diferencia)}
+                          </span>
+                          {abierto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </span>
+                      </button>
+                      {abierto && (
+                        <div style={{ marginTop: 10 }} className="anim-in">
+                          <ResumenDia turno={tr} cuentas={cuentasParaHistorial || cuentas} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </Acordeon>
             );
           })}
         </>
@@ -291,16 +321,38 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
 
 // Estilos propios de esta pantalla (usan las variables de color de la paleta)
 const t = {
+  puerta: { display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 14, padding: "34px 18px", margin: "10px auto 0", maxWidth: 520, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 20 },
+  puertaIcono: { width: 60, height: 60, borderRadius: 30, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(52,199,142,.14)", color: "var(--pago-ok)", border: "1px solid rgba(52,199,142,.35)" },
+  puertaTitulo: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--c-242019-t)" },
+  puertaTexto: { fontSize: 13.5, lineHeight: 1.5, color: "var(--c-5c5648-t)", maxWidth: 380 },
+  pagina: { display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, margin: "0 auto", width: "100%" },
+  estado: { display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 16, background: "linear-gradient(135deg, rgba(52,199,142,.14), rgba(52,199,142,.04))", border: "1px solid rgba(52,199,142,.32)", color: "var(--c-242019-t)" },
+  estadoPunto: { width: 12, height: 12, borderRadius: 6, background: "var(--pago-ok)", boxShadow: "0 0 0 5px rgba(52,199,142,.2)", flexShrink: 0 },
+  estadoChip: { fontSize: 11.5, fontWeight: 600, padding: "2px 9px", borderRadius: 10, background: "rgba(128,138,150,.16)", color: "var(--c-5c5648-t)", marginLeft: 4 },
+  stats: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 },
+  stat: { display: "flex", flexDirection: "column", gap: 4, padding: "14px 14px", borderRadius: 16, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)" },
+  statVerde: { background: "linear-gradient(135deg, rgba(52,199,142,.16), rgba(52,199,142,.05))", borderColor: "rgba(52,199,142,.35)" },
+  statEt: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1, fontWeight: 700, color: "var(--c-8a8272-t)" },
+  statVal: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--c-242019-t)" },
+  statSub: { fontSize: 11.5, color: "var(--c-8a8272-t)" },
+  rejilla: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 14, alignItems: "start" },
+  tarjeta: { display: "flex", flexDirection: "column", gap: 12, padding: 16, borderRadius: 18, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)" },
+  tarjetaTitulo: { fontSize: 17, fontWeight: 700, color: "var(--c-242019-t)" },
+  selMov: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "16px 10px", borderRadius: 16, border: "1.5px solid var(--c-e4dfce-o)", background: "var(--c-f7f4ec-b)", color: "var(--c-242019-t)", fontSize: 15, fontWeight: 600, cursor: "pointer" },
+  selEntrada: { borderColor: "rgba(47,143,104,.45)", background: "rgba(47,143,104,.08)" },
+  selSalida: { borderColor: "rgba(214,69,69,.45)", background: "rgba(214,69,69,.08)" },
+  vacio: { fontSize: 13, color: "var(--c-8a8272-t)", padding: "6px 2px" },
+
   meta: { fontSize: 11.5, color: "var(--c-8a8272-t)" },
   etiqueta: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1.3, color: "#9BA4B0", fontWeight: 700 },
   responsable: { display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", background: "var(--c-f1ecdd-b)", borderRadius: 12, color: "var(--c-242019-t)" },
   avatar: { width: 38, height: 38, borderRadius: 19, background: "var(--accent)", color: "#F4F6F8", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, flexShrink: 0 },
-  btnMov: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 10px", background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 11, fontSize: 14, fontWeight: 700, color: "var(--c-242019-t)", cursor: "pointer" },
+  btnMov: { ...styles.modoChoiceBtn, flex: 1, width: "auto", fontSize: 14, fontWeight: 600 },
   movBox: { background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 12, padding: "10px 12px" },
   movHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 2 },
   libro: { fontWeight: 500, marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(128,138,150,.3)" },
-  btnEntregar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 14px", background: "var(--c-fffdf8-b)", border: "1px solid var(--c-d9cfae-o)", borderRadius: 11, fontSize: 14, fontWeight: 700, color: "var(--c-242019-t)", cursor: "pointer" },
-  btnCorregir: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 14px", background: "transparent", border: "1.5px solid var(--accent)", borderRadius: 11, fontSize: 14, fontWeight: 700, color: "var(--accent-t)", cursor: "pointer" },
+  btnEntregar: { ...styles.modoChoiceBtn, border: "1px solid var(--c-d9cfae-o)", fontSize: 14, fontWeight: 700 },
+  btnCorregir: { ...styles.addItemBtn, background: "transparent", fontSize: 14, fontWeight: 700, border: "1.5px solid var(--accent)", color: "var(--accent-t)" },
   cierreCabecera: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", color: "var(--c-242019-t)" },
   detalle: { display: "flex", flexDirection: "column", gap: 2, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--c-e4dfce-o)", fontSize: 12.5, color: "var(--c-5c5648-t)" },
 };
@@ -339,7 +391,7 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, pers
     if (archivo.mesas && archivo.mesas.length > 0) await saveShared("mesas", archivo.mesas);
     const nuevoConfig = {
       ...archivo.config,
-      auditLog: [{ ts: Date.now(), accion: "Restauró un respaldo desde archivo", actor: usuarioActual.nombre }, ...(archivo.config.auditLog || [])].slice(0, 50),
+      auditLog: [{ ts: Date.now(), accion: "Restauró un respaldo desde archivo", actor: usuarioActual.nombre }, ...(archivo.config.auditLog || [])].slice(0, 500),
     };
     await saveShared("config", nuevoConfig);
     window.location.reload();
@@ -363,35 +415,64 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, pers
   };
 
   return (
-    <div style={{ ...styles.catLabel, marginTop: 24 }}>
-      RESPALDO
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-        <button style={styles.modoChoiceBtn} onClick={onClickDescargar} disabled={cargandoHistorial}>
-          <Download size={15} /> {cargandoHistorial ? "Preparando respaldo completo…" : "Descargar copia de seguridad completa"}
-        </button>
-        {!restaurando ? (
-          <button style={styles.inlineAddLink} onClick={() => setRestaurando(true)}>Restaurar desde un archivo de respaldo</button>
-        ) : (
-          <div style={styles.turnoBox}>
-            <div style={styles.closeConfirmText}><b>Cuidado:</b> restaurar reemplaza todos los datos actuales (menú, pedidos, historial) por los del archivo. No se puede deshacer.</div>
-            <input ref={fileInputRef} type="file" accept="application/json" onChange={onArchivoElegido} />
-            {error && <div style={styles.pinError}>{error}</div>}
-            {confirmando && archivo && (
-              <div style={styles.closeConfirmBox}>
-                <div style={styles.closeConfirmText}>
-                  Este archivo es de "{archivo.config.businessName}", exportado el {dateTimeLabel(archivo.exportadoTs)}. ¿Restaurar y reemplazar todo lo actual?
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button style={styles.cancelEditBtn} onClick={() => { setConfirmando(false); setArchivo(null); }}>Cancelar</button>
-                  <button style={{ ...styles.sendBtn, flex: 1 }} onClick={confirmarRestauracion}><Lock size={15} /> Sí, restaurar</button>
-                </div>
-              </div>
-            )}
-            <button style={styles.cancelEditBtn} onClick={() => { setRestaurando(false); setArchivo(null); setConfirmando(false); setError(""); }}>Cerrar</button>
+    <div style={{ marginTop: 24 }}>
+      <div style={styles.catLabel}>RESPALDO</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
+
+        <div style={styles.respaldoCard}>
+          <div style={styles.respaldoTitulo}>Copia de seguridad completa</div>
+          <div style={styles.respaldoTexto}>
+            Guarda un archivo en este dispositivo con todo el historial del negocio:
+            <ul style={styles.respaldoLista}>
+              <li>Menú, productos y precios</li>
+              <li>Pedidos y cuentas, con sus pagos, propinas, descuentos y cancelaciones</li>
+              <li>Turnos, arqueos y movimientos de caja</li>
+              <li>Mesas y su ubicación en el plano</li>
+              <li>Ajustes del negocio: nombre, marca y registro de seguridad</li>
+            </ul>
+            No cambia nada en la app. <b>No incluye</b> el inventario ni las cuentas de usuario del equipo.
           </div>
-        )}
+          <button style={styles.modoChoiceBtn} onClick={onClickDescargar} disabled={cargandoHistorial}>
+            <Download size={15} /> {cargandoHistorial ? "Preparando respaldo completo…" : "Descargar copia de seguridad completa"}
+          </button>
+        </div>
+
+        <div style={styles.respaldoCard}>
+          <div style={styles.respaldoTitulo}>Restaurar desde un archivo</div>
+          <div style={styles.respaldoTexto}>
+            Vuelve la app al estado de un archivo de respaldo. <b>Reemplaza</b> lo que hay ahora de: menú, pedidos, cuentas, turnos, mesas y ajustes.
+            Todo lo registrado después de la fecha del archivo se pierde. No toca el inventario ni los usuarios. Recomendado: descarga una copia de lo actual antes de restaurar.
+          </div>
+          {!restaurando ? (
+            <button style={styles.inlineAddLink} onClick={() => setRestaurando(true)}>Restaurar desde un archivo de respaldo</button>
+          ) : (
+            <div className="despliega" style={styles.turnoBox}>
+              <div style={styles.closeConfirmText}><b>Cuidado:</b> esto no se puede deshacer. Elige el archivo .json del respaldo.</div>
+              <input ref={fileInputRef} type="file" accept="application/json" onChange={onArchivoElegido} />
+              {error && <div style={styles.pinError}>{error}</div>}
+              {confirmando && archivo && (
+                <div style={styles.closeConfirmBox}>
+                  <div style={styles.closeConfirmText}>
+                    Este archivo es de "{archivo.config.businessName}", exportado el {dateTimeLabel(archivo.exportadoTs)}. ¿Restaurar y reemplazar todo lo actual?
+                  </div>
+                  {archivo.automatica && (
+                    <div style={styles.pinError}>
+                      Es una copia automática de un solo día ({archivo.dia}). Si la restauras, el historial completo se reemplaza por las ventas de ese único día y los turnos quedan vacíos.
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={styles.cancelEditBtn} onClick={() => { setConfirmando(false); setArchivo(null); }}>Cancelar</button>
+                    <button style={{ ...styles.sendBtn, flex: 1 }} onClick={confirmarRestauracion}><Lock size={15} /> Sí, restaurar</button>
+                  </div>
+                </div>
+              )}
+              <button style={styles.cancelEditBtn} onClick={() => { setRestaurando(false); setArchivo(null); setConfirmando(false); setError(""); }}>Cerrar</button>
+            </div>
+          )}
+        </div>
+
+        <RespaldosAutomaticosBox />
       </div>
-      <RespaldosAutomaticosBox />
     </div>
   );
 }
@@ -414,7 +495,7 @@ export function RespaldosAutomaticosBox() {
   };
 
   const descargarDia = (r) => {
-    const data = { version: 2, exportadoTs: Date.now(), menu: r.menu, orders: r.orders, cuentas: r.cuentas, config: r.config, turnos: [], mesas: r.mesas };
+    const data = { version: 2, exportadoTs: Date.now(), automatica: true, dia: r.dia, menu: r.menu, orders: r.orders, cuentas: r.cuentas, config: r.config, turnos: [], mesas: r.mesas };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -424,7 +505,13 @@ export function RespaldosAutomaticosBox() {
   };
 
   return (
-    <div style={{ marginTop: 14 }}>
+    <div style={styles.respaldoCard}>
+      <div style={styles.respaldoTitulo}>Copias automáticas</div>
+      <div style={styles.respaldoTexto}>
+        Cada día, la primera vez que un administrador abre la app, se guarda sola una copia del <b>día anterior</b>: sus cuentas y pedidos, más el menú, las mesas y los ajustes.
+        Aquí puedes ver y descargar las de los últimos 14 días, útiles para consultar o recuperar lo de un día puntual.
+        Cada una trae <b>un solo día</b> de ventas y no incluye turnos, así que no sirven para restaurar todo el negocio (para eso usa la copia completa).
+      </div>
       {dias === null ? (
         <button style={styles.inlineAddLink} onClick={cargarLista} disabled={cargando}>
           {cargando ? "Buscando…" : "Ver copias automáticas de los últimos 14 días"}
@@ -432,15 +519,14 @@ export function RespaldosAutomaticosBox() {
       ) : dias.length === 0 ? (
         <div style={styles.cajaEmptyText}>Todavía no hay copias automáticas (se generan solas cada día que un admin abre la app — la de hoy se hace mañana).</div>
       ) : (
-        <>
-          <div style={styles.catLabel}>COPIAS AUTOMÁTICAS RECIENTES</div>
+        <div className="despliega">
           {dias.map((r) => (
             <div key={r.dia} style={styles.turnoRow}>
               <span style={styles.cierreDate}>{r.dia} · {r.cuentas.length} {r.cuentas.length === 1 ? "cuenta" : "cuentas"}</span>
               <button style={styles.inlineLink} onClick={() => descargarDia(r)}><Download size={11} style={{ verticalAlign: -1 }} /> descargar</button>
             </div>
           ))}
-        </>
+        </div>
       )}
     </div>
   );

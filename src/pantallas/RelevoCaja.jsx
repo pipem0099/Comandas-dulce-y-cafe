@@ -17,7 +17,7 @@ const K = {
 };
 const x = {
   overlay: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(10,12,15,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center", animation: "fadeIn .18s ease" },
-  hoja: { width: "100%", maxWidth: 520, maxHeight: "92dvh", overflowY: "auto", background: K.bg, borderRadius: "22px 22px 0 0", padding: "18px 16px calc(18px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 12, animation: "sheetUp .24s cubic-bezier(.2,.8,.2,1)", color: K.ink },
+  hoja: { width: "100%", maxWidth: 520, maxHeight: "92dvh", overflowY: "auto", background: K.bg, borderRadius: "22px 22px 0 0", padding: "18px 16px calc(18px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 12, animation: "sheetUp .38s cubic-bezier(.32,.72,0,1)", color: K.ink },
   titulo: { fontFamily: "var(--font-display)", fontSize: 21, fontWeight: 700 },
   texto: { fontSize: 13, color: K.sub, lineHeight: 1.5 },
   cerrar: { width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", background: K.surface, color: K.sub, border: `1px solid ${K.border}`, borderRadius: 16, cursor: "pointer", flexShrink: 0 },
@@ -68,7 +68,7 @@ export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCe
   };
 
   return (
-    <div style={x.overlay} onClick={onCerrar}>
+    <div className="hoja-overlay" style={x.overlay} onClick={onCerrar}>
       <div style={x.hoja} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={asumir ? "Asumir la caja" : "Entregar la caja"}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
           <div>

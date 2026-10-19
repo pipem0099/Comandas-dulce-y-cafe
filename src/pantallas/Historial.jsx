@@ -41,8 +41,14 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
     </div>
   );
 
-  const PanelCanceladas = esAdmin && todasCanceladas.length > 0 && (
-    <div style={styles.canceladasBox}>
+  // Si no hubo cancelaciones en los últimos 30 días, no se muestra el aviso rojo: solo una línea discreta
+  // (por si se quieren revisar las antiguas). El rojo aparece únicamente cuando hay algo reciente que mirar.
+  const PanelCanceladas = esAdmin && todasCanceladas.length > 0 && (canceladasRecientes.length === 0 && !verCanceladas ? (
+    <button style={styles.canceladasDiscreto} onClick={() => { setVerTodasCanceladas(true); setVerCanceladas(true); }}>
+      <Ban size={12} /> {todasCanceladas.length} {todasCanceladas.length === 1 ? "cancelación antigua" : "cancelaciones antiguas"} · ninguna en {CANCELADAS_RECIENTES_DIAS} días
+    </button>
+  ) : (
+    <div className="despliega" style={styles.canceladasBox}>
       <button style={styles.canceladasToggle} onClick={() => setVerCanceladas((v) => !v)}>
         <Ban size={13} color="var(--c-c1442d-t)" />
         <span>
@@ -76,7 +82,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
         </div>
       )}
     </div>
-  );
+  ));
 
   if (Object.keys(days).length === 0) {
     return (
@@ -212,10 +218,10 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
                   const pmeta = METODO_META[p.metodoPago]; const PIcon = pmeta.icon;
                   return (
                     <div key={p.id} style={styles.pagoRow}>
-                      <PIcon size={13} color={pmeta.color} />
+                      <span style={styles.pagoIcono}><PIcon size={14} color="var(--pago-ok)" /></span>
                       <div style={styles.pagoRowMid}>
                         <span style={styles.pagoRowEtiqueta}>{p.etiqueta || "Cuenta completa"}</span>
-                        {p.tipo === "por_producto" && <span style={styles.pagoRowItems}>{p.items.map((it) => `${it.qty}× ${it.name}`).join(", ")}</span>}
+                        {p.tipo === "por_producto" && (p.items || []).length > 0 && <span style={styles.pagoRowItems}>{p.items.map((it) => `${it.qty}× ${it.name}`).join(", ")}</span>}
                         <span style={styles.pagoRowTime}>{timeLabel(p.ts)} · {pmeta.label}{p.procesadoPor ? ` · cobró ${p.procesadoPor}` : ""}</span>
                         {p.propinaVuelta > 0 && <span style={styles.pagoRowItems}>Incluye {money(p.propinaVuelta)} de propina (la vuelta)</span>}
                       </div>
