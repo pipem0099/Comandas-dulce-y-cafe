@@ -75,10 +75,17 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
   const quitarZona = (id) => { setBZonas((zs) => zs.filter((z) => z.id !== id)); setSel(null); };
   const guardarPlano = () => {
     if (Object.keys(bMesas).length > 0) persistMesas(mesasVista);
-    if ((bZonas && JSON.stringify(bZonas) !== JSON.stringify(zonasBase)) || (bAlto && bAlto !== altoBase)) {
-      persistConfig({ ...config, plano: { zonas: bZonas || zonasBase, alto: bAlto || altoBase } });
-    }
-    if (hayCambios) registrar("Modificó el plano del negocio");
+    const cambioConfig = (bZonas && JSON.stringify(bZonas) !== JSON.stringify(zonasBase)) || (bAlto && bAlto !== altoBase);
+    if (cambioConfig) {
+      // UN solo guardado con el plano y el registro de seguridad juntos: dos guardados seguidos con una
+      // copia vieja de la configuración hacían que el segundo borrara las zonas del primero.
+      const auditLog = config.auditLog || [];
+      persistConfig({
+        ...config,
+        plano: { zonas: bZonas || zonasBase, alto: bAlto || altoBase },
+        auditLog: [{ ts: Date.now(), accion: "Modificó el plano del negocio", actor: actor || "desconocido" }, ...auditLog].slice(0, 500),
+      });
+    } else if (hayCambios) registrar("Modificó el plano del negocio");
     setBMesas({}); setBZonas(null); setBAlto(null); setSel(null); setEditandoPlano(false);
   };
   const cancelarPlano = () => { setBMesas({}); setBZonas(null); setBAlto(null); setSel(null); setEditandoPlano(false); };
@@ -210,8 +217,8 @@ const pl = {
   etiqueta: { fontSize: 11.5, color: "var(--c-8a8272-t)", fontWeight: 600 },
   pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
   pastilla: { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
-  on: { background: "var(--accent)", borderColor: "transparent", color: "#F4F6F8" },
+  on: { background: "var(--neon)", borderColor: "transparent", color: "var(--neon-text)", fontWeight: 800, boxShadow: "var(--neon-glow)" },
   panel: { display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 16, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)" },
   panelTitulo: { fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)" },
-  eliminar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 10, background: "transparent", border: "none", color: "#D64545", fontSize: 14, fontWeight: 600, cursor: "pointer" },
+  eliminar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 10, background: "transparent", border: "none", color: "var(--c-c1442d-t)", fontSize: 14, fontWeight: 600, cursor: "pointer" },
 };

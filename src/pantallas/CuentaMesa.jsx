@@ -9,7 +9,7 @@ import { METODO_META, PROPINA_OPCIONES } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { conProgreso, cuentaGranTotal, cuentaItemCount, cuentaOrders, cuentaSubtotal, dateTimeLabel, itemsAgregados, mesaNombre, orderTotal, pagosDe, pagosTotal, qtyAsignadaPorProducto, tieneRol, timeLabel } from "../utilidades.js";
 
-export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turnoAbierto, usuarioActual, mesas, ajustarInventario, expanded, onToggle }) {
+export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turnoAbierto, usuarioActual, mesas, ajustarInventario, expanded, onToggle, modoPanel }) {
   const subtotal = cuentaSubtotal(orders, cuenta.id);
   const total = cuentaGranTotal(orders, cuenta);
   const items = cuentaItemCount(orders, cuenta.id);
@@ -25,6 +25,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
   const [vueltaPropina, setVueltaPropina] = useState(false); // dejar la vuelta como propina
   const [montoMixto, setMontoMixto] = useState("");           // monto de este pago en "Pago mixto"
   const [numPartes, setNumPartes] = useState(2);
+  const [verAjustes, setVerAjustes] = useState(false); // propina y descuento son opcionales: van ocultos hasta que se necesiten
   // Pago combinado: una misma parte/persona se paga con varios métodos (ej. $5.000 efectivo + $8.000 transferencia).
   // Los abonos se anotan aquí y solo se guardan todos juntos cuando suman lo que esa parte debe.
   const [combinar, setCombinar] = useState(false);
@@ -109,7 +110,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
         }
       }
       const propina = vueltaTotal > 0 ? { pct: null, monto: ((cuenta.propina && cuenta.propina.monto) || 0) + vueltaTotal } : (cuenta.propina || null);
-      await saveCuenta({ ...cuenta, propina, pagos: nuevosPagos, splitMode: effectiveModo || cuenta.splitMode || null, estado: completo ? "pagada" : "abierta", pagadaTs: completo ? Date.now() : cuenta.pagadaTs });
+      await saveCuenta({ ...cuenta, propina, pagos: nuevosPagos, splitMode: effectiveModo || cuenta.splitMode || null, estado: completo ? "pagada" : "abierta", pagadaTs: completo ? Date.now() : cuenta.pagadaTs, ...(completo && !esExterna(cuenta) ? { liberada: false } : {}) });
       setMetodoSel(null); setEfectivoRecibido(""); setVueltaPropina(false); setMontoMixto(""); setCart({}); setEtiqueta(""); limpiarCombinado();
     } finally {
       cobrandoRef.current = false;
@@ -294,30 +295,61 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
 
   return (
     <div className="anim-in" style={styles.mesaCuentaCard}>
+      {modoPanel ? (
+        <div style={{ ...styles.mesaCuentaHead, cursor: "default" }}>
+          <div style={styles.mesaCuentaLeft}>
+            <span style={styles.mesaCuentaNum}>{mesaNombre(mesas, cuenta.mesa)}{esExterna(cuenta) && <span style={styles.extTag}>{TIPO_META[cuenta.tipo].corto}</span>}</span>
+            <span style={styles.mesaCuentaSince}>{ords.length} {ords.length === 1 ? "ronda" : "rondas"} · desde {timeLabel(cuenta.ts)}{cuenta.mesero ? ` · ${cuenta.mesero}` : ""}</span>
+          </div>
+          <button style={styles.cerrarPanelBtn} onClick={onToggle} aria-label="Cerrar detalle">✕</button>
+        </div>
+      ) : (
       <button style={styles.mesaCuentaHead} onClick={onToggle}>
         <div style={styles.mesaCuentaLeft}>
           <span style={styles.mesaCuentaNum}>{mesaNombre(mesas, cuenta.mesa)}{esExterna(cuenta) && <span style={styles.extTag}>{TIPO_META[cuenta.tipo].corto}</span>}</span>
-          <span style={styles.mesaCuentaSince}>Abierta desde {dateTimeLabel(cuenta.ts)}{cuenta.mesero ? ` · ${cuenta.mesero}` : ""}</span>
+          <span style={styles.mesaCuentaSince}>{ords.length} {ords.length === 1 ? "ronda" : "rondas"} · desde {timeLabel(cuenta.ts)}{cuenta.mesero ? ` · ${cuenta.mesero}` : ""}</span>
           {enCurso && <span style={styles.enCursoTag}>Cobro en curso · {money(cobrado)} de {money(total)}</span>}
         </div>
-        <div style={styles.mesaCuentaRight}><span style={styles.mesaCuentaItems}>{items} ítems</span><span style={styles.mesaCuentaTotal}>{money(total)}</span></div>
+        <div style={styles.mesaCuentaRight}><span style={styles.mesaCuentaItems}>{restante < total ? "Por cobrar" : `${items} ítems`}</span><span style={styles.mesaCuentaTotal}>{money(restante)}</span></div>
       </button>
+      )}
 
-      {expanded && (
+      {(expanded || modoPanel) && (
         <div style={styles.mesaCuentaBody}>
+          {/* Saldo pendiente: lo primero que se ve al cobrar */}
+          <div style={styles.saldoCard}>
+            <span style={styles.saldoEt}>SALDO PENDIENTE</span>
+            <span style={styles.saldoMonto}>{money(restante)}</span>
+            <div style={styles.saldoFila}><span>Total de la cuenta</span><b>{money(total)}</b></div>
+            {cobrado > 0 && <div style={styles.saldoFila}><span>Ya cobrado</span><b style={{ color: "var(--pago-ok)" }}>{money(cobrado)}</b></div>}
+          </div>
           {esExterna(cuenta) && cuenta.cliente && (cuenta.cliente.telefono || cuenta.cliente.direccion) && (
             <div style={styles.extInfoCaja}>
               {cuenta.cliente.telefono && <span style={styles.extInfoItem}><Phone size={12} /> {cuenta.cliente.telefono}</span>}
               {cuenta.cliente.direccion && <span style={styles.extInfoItem}><MapPin size={12} /> {cuenta.cliente.direccion}{cuenta.cliente.referencia ? ` · ${cuenta.cliente.referencia}` : ""}</span>}
             </div>
           )}
-          {ords.slice().sort((a, b) => a.ts - b.ts).map((o) => (
-            <div key={o.id} style={styles.mesaCuentaOrderRow}>
-              <span style={styles.mesaCuentaOrderTime}>{timeLabel(o.ts)}</span>
-              <span style={styles.mesaCuentaOrderItems}>{o.items.map((it) => `${it.qty}× ${itemNombre(it)}${it.nota ? ` (${it.nota})` : ""}`).join(", ")}</span>
-              <span style={styles.mesaCuentaOrderTotal}>{money(orderTotal(o))}</span>
-            </div>
-          ))}
+          {/* Cada pedido es una ronda, en su propia tarjeta */}
+          <div style={styles.rondasBox}>
+            {ords.slice().sort((a, b) => a.ts - b.ts).map((o, idx) => (
+              <div key={o.id} style={styles.rondaCard}>
+                <div style={styles.rondaHead}>
+                  <span style={styles.rondaTitulo}>Ronda {idx + 1}</span>
+                  <span style={styles.rondaMeta}>{timeLabel(o.ts)}{cuenta.mesero ? ` · ${cuenta.mesero}` : ""}</span>
+                  <span style={{ flex: 1 }} />
+                  <span style={styles.rondaTotal}>{money(orderTotal(o))}</span>
+                </div>
+                {o.items.map((it, i) => (
+                  <div key={i} style={styles.rondaItem}>
+                    <span style={styles.rondaQty}>{it.qty}×</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>{itemNombre(it)}{it.nota ? <span style={styles.rondaNota}> “{it.nota}”</span> : null}</span>
+                    <span style={styles.rondaPrecio}>{money((it.price || 0) * it.qty)}</span>
+                  </div>
+                ))}
+                {o.nota && <div style={styles.rondaNota}>Nota: {o.nota}</div>}
+              </div>
+            ))}
+          </div>
 
           <div style={styles.subtotalRow}>
             <span>Subtotal</span><span>{money(subtotal)}</span>
@@ -325,7 +357,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
           {cuenta.costoEnvio > 0 && (
             <div style={styles.subtotalRow}><span>Domicilio</span><span>+{money(cuenta.costoEnvio)}</span></div>
           )}
-          {cuenta.descuento ? (
+          {cuenta.descuento && (
             <div style={styles.subtotalRow}>
               <span>
                 Descuento ({cuenta.descuento.motivo}{cuenta.descuento.aplicadoPor ? ` · ${cuenta.descuento.aplicadoPor}` : ""})
@@ -333,24 +365,8 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
               </span>
               <span style={{ color: "var(--c-c1442d-t)" }}>−{money(cuenta.descuento.monto)}</span>
             </div>
-          ) : pagos.length === 0 ? (
-            !esAdmin ? (
-              <div style={styles.lockedNote}><Lock size={11} /> Solo un administrador puede aplicar descuentos o cortesías.</div>
-            ) : mostrarDescuento ? (
-              <div style={styles.descuentoBox}>
-                <CampoMonto placeholder="Monto del descuento" value={descMonto} onChange={setDescMonto} />
-                <input style={{ ...styles.editInput, marginTop: 6 }} placeholder="Motivo (ej: cortesía, cliente frecuente)" value={descMotivo} onChange={(e) => setDescMotivo(e.target.value)} />
-                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  <button style={styles.cancelEditBtn} onClick={() => setMostrarDescuento(false)}>Cancelar</button>
-                  <button style={{ ...styles.sendBtn, flex: 1 }} onClick={aplicarDescuento}><Gift size={14} /> Aplicar</button>
-                </div>
-              </div>
-            ) : (
-              <button style={styles.inlineAddLink} onClick={() => setMostrarDescuento(true)}><Gift size={16} /> Aplicar descuento o cortesía</button>
-            )
-          ) : null}
-
-          {cuenta.propina ? (
+          )}
+          {cuenta.propina && (
             <div style={styles.subtotalRow}>
               <span>
                 Propina {cuenta.propina.pct != null ? `(${cuenta.propina.pct}%)` : ""}
@@ -358,18 +374,47 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
               </span>
               <span>{money(cuenta.propina.monto)}</span>
             </div>
-          ) : pagos.length === 0 && !mostrarDescuento ? (
-            <div style={styles.propinaBox}>
-              <span style={styles.closeConfirmText}>Propina:</span>
-              <div style={styles.propinaPillsRow}>
-                {PROPINA_OPCIONES.map((p) => (
-                  <button key={p} style={styles.propinaPill} onClick={() => setPropina(p)}>{p}%</button>
-                ))}
-                <CampoMonto style={styles.propinaCustomInput} placeholder="$" value={propinaCustom} onChange={setPropinaCustom} />
-                <button style={styles.propinaCustomBtn} onClick={() => setPropina("custom")} disabled={!propinaCustom}>Ok</button>
+          )}
+          {pagos.length === 0 && (!cuenta.descuento || !cuenta.propina) && (
+            !verAjustes ? (
+              <button style={styles.propinaToggle} onClick={() => setVerAjustes(true)}>
+                <span>{!cuenta.descuento && !cuenta.propina ? "Propina y descuento" : !cuenta.propina ? "Propina" : "Descuento o cortesía"}</span>
+                <span style={{ color: "var(--c-8a8272-t)", fontWeight: 500 }}>Opcional ˅</span>
+              </button>
+            ) : (
+              <div className="despliega" style={styles.ajustesBox}>
+                {!cuenta.descuento && (
+                  !esAdmin ? (
+                    <div style={styles.lockedNote}><Lock size={11} /> Solo un administrador puede aplicar descuentos o cortesías.</div>
+                  ) : mostrarDescuento ? (
+                    <div style={styles.descuentoBox}>
+                      <CampoMonto placeholder="Monto del descuento" value={descMonto} onChange={setDescMonto} />
+                      <input style={{ ...styles.editInput, marginTop: 6 }} placeholder="Motivo (ej: cortesía, cliente frecuente)" value={descMotivo} onChange={(e) => setDescMotivo(e.target.value)} />
+                      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                        <button style={styles.cancelEditBtn} onClick={() => setMostrarDescuento(false)}>Cancelar</button>
+                        <button style={{ ...styles.sendBtn, flex: 1 }} onClick={aplicarDescuento}><Gift size={14} /> Aplicar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button style={styles.inlineAddLink} onClick={() => setMostrarDescuento(true)}><Gift size={16} /> Aplicar descuento o cortesía</button>
+                  )
+                )}
+                {!cuenta.propina && !mostrarDescuento && (
+                  <div style={styles.propinaBox}>
+                    <span style={styles.closeConfirmText}>Propina:</span>
+                    <div style={styles.propinaPillsRow}>
+                      {PROPINA_OPCIONES.map((p) => (
+                        <button key={p} style={styles.propinaPill} onClick={() => setPropina(p)}>{p}%</button>
+                      ))}
+                      <CampoMonto style={styles.propinaCustomInput} placeholder="$" value={propinaCustom} onChange={setPropinaCustom} />
+                      <button style={styles.propinaCustomBtn} onClick={() => setPropina("custom")} disabled={!propinaCustom}>Ok</button>
+                    </div>
+                  </div>
+                )}
+                <button style={styles.inlineLink} onClick={() => { setVerAjustes(false); setMostrarDescuento(false); }}>Ocultar ˄</button>
               </div>
-            </div>
-          ) : null}
+            )
+          )}
 
           <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Total a cobrar</span><span>{money(total)}</span></div>
 
@@ -418,9 +463,9 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
               {!effectiveModo ? (
                 <>
                   <div style={styles.closeConfirmText}>¿Cómo quieren pagar?</div>
-                  <div style={styles.modoChoiceRow}>
+                  <div style={styles.modoGrid}>
                     <button style={styles.modoChoiceBtn} onClick={() => setModoLocal("unico")}><Wallet size={16} /> Pago único</button>
-                    <button style={styles.modoChoiceBtn} onClick={() => setModoLocal("mixto")}><Shuffle size={16} /> Pago mixto (varios métodos)</button>
+                    <button style={styles.modoChoiceBtn} onClick={() => setModoLocal("mixto")}><Shuffle size={16} /> Pago mixto</button>
                     <button style={styles.modoChoiceBtn} onClick={() => setModoLocal("igual")}><Users size={16} /> Partes iguales</button>
                     <button style={styles.modoChoiceBtn} onClick={() => setModoLocal("producto")}><Receipt size={16} /> Por producto</button>
                   </div>
@@ -536,7 +581,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                   <div style={{ display: "flex", gap: 8 }}>
                     <button style={styles.cancelEditBtn} onClick={() => { setConfirmCancelarCuenta(false); setMotivoCancelacion(""); }}>Volver</button>
                     <button
-                      style={{ ...styles.sendBtn, flex: 1, background: "#D64545", opacity: motivoCancelacion.trim() ? 1 : 0.4 }}
+                      style={{ ...styles.sendBtn, flex: 1, background: "var(--danger-solid)", opacity: motivoCancelacion.trim() ? 1 : 0.4 }}
                       disabled={!motivoCancelacion.trim()} onClick={cancelarCuenta}
                     >
                       <Ban size={14} /> Confirmar cancelación

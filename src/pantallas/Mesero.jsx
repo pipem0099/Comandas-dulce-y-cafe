@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, ShoppingBag, Bike, Phone, MapPin, Search, X } from "lucide-react";
+import { Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, PencilLine, ShoppingBag, Bike, Phone, MapPin, Search, X } from "lucide-react";
 import { vibrar } from "../theme.js";
 import { claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
 import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
@@ -8,11 +8,27 @@ import { AvisoActivarNotificaciones } from "../componentes/Comunes.jsx";
 import { STATE_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { PlanoSalon } from "../pantallas/Mesas.jsx";
-import { NOMBRES_EXTERNOS, conProgreso, cuentaOrders, cuentaSubtotal, dayKey, estadoVisualMesa, itemListos, itemServidos, mesaMatch, mesaNombre, orderTotal, porServir, timeLabel } from "../utilidades.js";
+import { reservaProxima, NOMBRES_EXTERNOS, conProgreso, cuentaDeMesa, cuentaOrders, cuentaSubtotal, dayKey, esPorLiberar, estadoVisualMesa, itemListos, itemServidos, mesaMatch, mesaNombre, orderTotal, porServir, timeLabel } from "../utilidades.js";
 
+import { Hoja } from "../componentes/Hoja.jsx";
 /* ---------------- MESERO ---------------- */
 
-export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas, persistMesas, saveOrder, saveOrdersMap, saveCuenta, persistMenu, persistConfig, insumos, ajustarInventario }) {
+/** Texto corto de qué cambió entre la versión enviada y la nueva (para avisar a cocina). */
+function resumenCambio(antes, despues) {
+  const previos = new Map(antes.map((i) => [i.id, i]));
+  const out = [];
+  despues.forEach((it) => {
+    const p = previos.get(it.id);
+    if (!p) out.push(`Nuevo: ${it.qty}× ${itemNombre(it)}`);
+    else if (it.qty !== p.qty) out.push(`${itemNombre(it)}: ${p.qty} → ${it.qty}`);
+    else if ((it.nota || "") !== (p.nota || "")) out.push(`${itemNombre(it)}: nota cambió`);
+    previos.delete(it.id);
+  });
+  previos.forEach((p) => out.push(`Se quitó ${p.qty}× ${itemNombre(p)}`));
+  return out;
+}
+
+export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual, config, mesas, persistMesas, saveOrder, saveOrdersMap, saveCuenta, persistMenu, persistConfig, insumos, ajustarInventario }) {
   // Editar el menú, precios y mesas queda reservado al administrador — un
   // mesero normal no debería poder cambiar precios ni borrar productos.
   const meseroActual = usuarioActual.nombre;
@@ -73,6 +89,12 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
   const [modalItem, setModalItem] = useState(null);       // producto con opciones que se está personalizando
   const [nuevoExterno, setNuevoExterno] = useState(null); // 'llevar' | 'domicilio'
 
+  const [liberarCuenta, setLiberarCuenta] = useState(null); // mesa ya pagada que se está por liberar
+  const tocarMesa = (id) => {
+    const c = cuentaDeMesa(cuentas, id);
+    if (c && esPorLiberar(c)) setLiberarCuenta(c); else enterMesa(id);
+  };
+  const liberarMesa = async (c) => { await saveCuenta({ ...c, liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual }); setLiberarCuenta(null); };
   const cuentaAbiertaDe = (mesaId) => cuentas.find((c) => mesaMatch(c.mesa, mesaId) && c.estado === "abierta");
 
   const totalItems = Object.values(draft).reduce((a, b) => a + b.qty, 0);
@@ -91,9 +113,16 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
   };
   const addQty = (id, d) => {
     if (d > 0) vibrar(8);
+    // al modificar un pedido enviado, lo que ya se sirvió no se puede quitar
+    let minimo = 0;
+    if (editingOrderId) {
+      const orig = orders.find((o) => o.id === editingOrderId);
+      const prevIt = orig && orig.items.find((x) => x.id === id);
+      if (prevIt) minimo = itemServidos(orig, prevIt);
+    }
     setDraft((prev) => {
       const cur = prev[id] || { qty: 0, nota: "" };
-      const nextQty = Math.max(0, cur.qty + d);
+      const nextQty = Math.max(minimo, cur.qty + d);
       const next = { ...prev };
       if (nextQty === 0) delete next[id];
       else next[id] = { ...cur, qty: nextQty };
@@ -125,7 +154,7 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
     if (order) {
       // lo que ese pedido había descontado del inventario vuelve a su lugar
       if (order.consumo && Object.keys(order.consumo).length > 0) await ajustarInventario(order.consumo);
-      await saveOrder({ ...order, estado: "cancelado", consumo: {} });
+      await saveOrder({ ...order, estado: "cancelado", consumo: {}, canceladoTs: Date.now(), canceladoPor: meseroActual, cancelAvisoVisto: false });
     }
     setConfirmCancelId(null);
     if (editingOrderId === orderId) resetDraft();
@@ -194,13 +223,17 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
           const consumoNuevo = consumoDeItems(conservados, menu);
           const dif = difConsumo(consumoNuevo, original.consumo || {});
           if (Object.keys(dif).length > 0) await ajustarInventario(negar(dif));
-          await saveOrder(conProgreso({ ...original, nota: note.trim(), editado: true, consumo: consumoNuevo }, conservados));
+          const cambios = resumenCambio(original.items, conservados);
+          if ((original.nota || "") !== note.trim()) cambios.push("nota general");
+          const aviso = cambios.length > 0 ? { cambio: { ts: Date.now(), por: meseroActual, texto: cambios.join(" · ") }, cambioVisto: false } : {};
+          await saveOrder(conProgreso({ ...original, nota: note.trim(), editado: true, consumo: consumoNuevo, ...aviso }, conservados));
         }
       } else {
         let cuenta = cuentaAbiertaDe(mesaNum);
         // un pedido para llevar / domicilio ya cobrado no se puede seguir llenando
         if (!cuenta && String(mesaNum).startsWith("ext-")) { exitMesa(); return; }
         if (!cuenta) {
+          for (const vieja of cuentas.filter((c) => mesaMatch(c.mesa, mesaNum) && esPorLiberar(c))) await saveCuenta({ ...vieja, liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual });
           cuenta = { id: uid(), mesa: mesaNum, ts: Date.now(), estado: "abierta", mesero: meseroActual };
           await saveCuenta(cuenta);
         }
@@ -340,7 +373,9 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
               {verPedidos && (
                 <div style={styles.pedidosLista}>
                   {pending.map((o) => {
-                    const puedeModificar = o.estado === "pendiente" || o.estado === "preparando";
+                    const puedeModificar = o.estado === "pendiente" || o.estado === "preparando" || o.estado === "listo";
+                    const hayServidos = o.items.some((it) => itemServidos(o, it) > 0);
+                    const numRonda = pending.slice().sort((a, b) => a.ts - b.ts).findIndex((x) => x.id === o.id) + 1;
                     if (o.estado === "servido") {
                       return (
                         <div key={o.id} style={styles.pedidoServidoRow}>
@@ -354,7 +389,7 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
                         <div style={styles.pedidoCardHead}>
                           <span style={styles.pedidoCardInfo}>
                             <span style={{ ...styles.stateDot, background: STATE_META[o.estado].color }} />
-                            {timeLabel(o.ts)} · {money(orderTotal(o))}
+                            Ronda {numRonda} · {timeLabel(o.ts)} · {money(orderTotal(o))}
                             {o.editado && <span style={styles.editedTag}>editado</span>}
                           </span>
                           {puedeModificar && (
@@ -368,7 +403,7 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
                               ) : (
                                 <>
                                   <button style={styles.iconBtn} onClick={() => startEdit(o)} title="Modificar"><Pencil size={13} /></button>
-                                  <button style={{ ...styles.iconBtn, color: "var(--c-c1442d-t)" }} onClick={() => setConfirmCancelId(o.id)} title="Cancelar"><Ban size={13} /></button>
+                                  {!hayServidos && <button style={{ ...styles.iconBtn, color: "var(--c-c1442d-t)" }} onClick={() => setConfirmCancelId(o.id)} title="Cancelar"><Ban size={13} /></button>}
                                 </>
                               )}
                             </div>
@@ -417,7 +452,7 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
         <div style={styles.catPillsWrap}>
           <div style={{ position: "relative" }}>
             <Search size={17} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--c-8a8272-t)", pointerEvents: "none" }} />
-            <input style={{ ...styles.searchInput, width: "100%", boxSizing: "border-box", paddingLeft: 40, paddingRight: search ? 38 : 12 }} placeholder="Buscar producto…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input style={{ ...styles.searchInput, width: "100%", boxSizing: "border-box", paddingLeft: 40, paddingRight: search ? 38 : 12 }} data-enter="blur" placeholder="Buscar producto…" value={search} onChange={(e) => setSearch(e.target.value)} />
             {search && (
               <button aria-label="Borrar búsqueda" onClick={() => setSearch("")} style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", color: "var(--c-8a8272-t)", cursor: "pointer" }}><X size={15} /></button>
             )}
@@ -451,24 +486,11 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
             const sinStock = !agotadoManual && faltaStock(item, insumos);
             const agotado = agotadoManual || (sinStock && !!config.inventarioBloquear);
             return (
-              <div key={item.id} style={{ ...styles.menuRow, opacity: agotado ? 0.5 : 1 }}>
+              <div key={item.id} style={{ ...styles.menuRow, flexWrap: "wrap", opacity: agotado ? 0.5 : 1 }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={styles.menuItemName}>{item.name} {agotadoManual && <span style={styles.agotadoTag}>AGOTADO</span>}{sinStock && <span style={styles.agotadoTag}>SIN STOCK</span>}</div>
                   {search.trim() && <div style={styles.menuItemCat}>{item.cat}</div>}
                   <div style={styles.menuItemPrice}>{conOpc ? "desde " : ""}{money(item.price)}</div>
-                  {!conOpc && d && d.qty > 0 && (
-                    notingItemId === item.id ? (
-                      <input
-                        autoFocus style={styles.itemNoteInput} placeholder="Nota para este producto…"
-                        value={d.nota} onChange={(e) => setItemNota(item.id, e.target.value)}
-                        onBlur={() => setNotingItemId(null)}
-                      />
-                    ) : (
-                      <button style={styles.itemNoteBtn} onClick={() => setNotingItemId(item.id)}>
-                        <MessageSquarePlus size={11} /> {d.nota ? d.nota : "agregar nota"}
-                      </button>
-                    )
-                  )}
                   {lineas.map(([k, v]) => (
                     <div key={k} style={styles.lineaOpc} className="anim-in">
                       <span style={styles.lineaOpcTxt}>{v.qty}× {v.mods && v.mods.length ? modsTexto(v.mods) : "Normal"}{v.nota ? ` · ${v.nota}` : ""}</span>
@@ -489,6 +511,24 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
                     <button style={styles.stepBtn} disabled={agotado} onClick={() => addQty(item.id, -1)}><Minus size={14} /></button>
                     <span style={styles.stepVal}>{d?.qty || 0}</span>
                     <button style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} disabled={agotado} onClick={() => addQty(item.id, 1)}><Plus size={14} /></button>
+                  </div>
+                )}
+                {!conOpc && d && d.qty > 0 && (
+                  <div style={{ flexBasis: "100%", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 2 }}>
+                    {notingItemId === item.id ? (
+                      <>
+                        <input
+                          autoFocus style={{ ...styles.itemNoteInput, flex: 1, minWidth: 0 }} placeholder="Nota para este producto…" enterKeyHint="done"
+                          value={d.nota} onChange={(e) => setItemNota(item.id, e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") setNotingItemId(null); }}
+                        />
+                        <button style={styles.notaListoBtn} onMouseDown={(e) => e.preventDefault()} onClick={() => setNotingItemId(null)}><Check size={16} /> Listo</button>
+                      </>
+                    ) : (
+                      <button style={{ ...styles.notaBtn, ...(d.nota ? styles.notaBtnOn : {}) }} onClick={() => setNotingItemId(item.id)}>
+                        <PencilLine size={14} /> {d.nota ? d.nota : "Agregar nota"}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -540,6 +580,18 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
         </button>
       )}
       <AvisoActivarNotificaciones />
+      {liberarCuenta && (
+        <Hoja onCerrar={() => setLiberarCuenta(null)} ancho={440} gap={12} label="Liberar mesa">
+{({ cerrar: cerrarHoja }) => (
+<>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: "var(--c-242019-t)" }}>{mesaNombre(mesas, liberarCuenta.mesa)} ya pagó</div>
+            <div style={{ fontSize: 13.5, color: "var(--c-5c5648-t)", lineHeight: 1.5 }}>La cuenta está cobrada y la mesa sigue ocupada hasta que se libere. Libérala cuando el cliente ya se haya ido.</div>
+            <button style={styles.sendBtn} onClick={() => liberarMesa(liberarCuenta)}>Liberar mesa</button>
+            <button style={styles.cancelEditBtn} onClick={cerrarHoja}>Cancelar</button>
+          </>
+)}
+</Hoja>
+      )}
       <div className="ancho" style={styles.mesaGridHeader}>
         <div>
           <div style={styles.pageEyebrow}>SALÓN</div>
@@ -569,7 +621,7 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
         )}
       {vistaMesas === "plano" ? (
         <div style={{ padding: "0 16px 16px" }}>
-          <PlanoSalon mesas={mesas} zonas={(config.plano && config.plano.zonas) || []} alto={(config.plano && config.plano.alto) || 100} cuentas={cuentas} orders={orders} editable={false} onTapMesa={enterMesa} />
+          <PlanoSalon mesas={mesas} zonas={(config.plano && config.plano.zonas) || []} alto={(config.plano && config.plano.alto) || 100} cuentas={cuentas} orders={orders} editable={false} onTapMesa={tocarMesa} />
         </div>
       ) : (
         <div className="ancho" style={styles.mesaGrid}>
@@ -577,14 +629,15 @@ export function MeseroView({ menu, orders, cuentas, usuarioActual, config, mesas
             <div style={styles.cajaEmptyText}>No hay mesas creadas todavía. Toca "Mesas" para agregar la primera.</div>
           )}
           {mesas.map((m) => {
-            const cuenta = cuentaAbiertaDe(m.id);
+            const cuenta = cuentaDeMesa(cuentas, m.id);
             const visual = estadoVisualMesa(cuenta, cuenta ? cuentaOrders(orders, cuenta.id) : []);
             return (
-              <button key={m.id} className="anim-in" style={styles.mesaCard} onClick={() => enterMesa(m.id)}>
+              <button key={m.id} className="anim-in" style={styles.mesaCard} onClick={() => tocarMesa(m.id)}>
                 <span style={styles.mesaCardNum}>{m.nombre}</span>
                 <span style={{ ...styles.mesaCardTag, background: visual.bg, color: visual.color }}>{visual.tag}</span>
                 {visual.extra && <span style={styles.mesaCardExtra}>{visual.extra}</span>}
-                {cuenta && <span style={styles.mesaCardSince}>desde {timeLabel(cuenta.ts)}</span>}
+                {!cuenta && (() => { const res = reservaProxima(reservas, m.id); return res ? <span style={{ ...styles.mesaCardExtra, color: "var(--warn-solid)", fontWeight: 700 }}>Reserva {new Date(res.ts).toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" })} · {res.nombre}</span> : null; })()}
+                {cuenta && <span style={styles.mesaCardSince}>{esPorLiberar(cuenta) ? `pagada ${timeLabel(cuenta.pagadaTs)}` : `desde ${timeLabel(cuenta.ts)}`}</span>}
               </button>
             );
           })}

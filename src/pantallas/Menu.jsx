@@ -96,7 +96,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
         <div style={m.sticky}>
           <div style={m.buscador}>
             <Search size={16} color="var(--c-8a8272-t)" />
-            <input style={m.buscadorInput} placeholder="Buscar producto…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+            <input data-enter="blur" style={m.buscadorInput} placeholder="Buscar producto…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
             {busqueda && <button style={m.limpiar} onClick={() => setBusqueda("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
           </div>
           <div style={m.fila1}>
@@ -206,7 +206,7 @@ const m = {
   pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
   fila1: { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" },
   pastilla: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
-  pastillaOn: { background: "var(--accent)", borderColor: "transparent", color: "#F4F6F8" },
+  pastillaOn: { background: "var(--neon)", borderColor: "transparent", color: "var(--neon-text)", fontWeight: 800, boxShadow: "var(--neon-glow)" },
   cuenta: { fontSize: 11.5, opacity: 0.7, fontWeight: 700 },
   formTitulo: { display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)" },
   etiqueta: { fontSize: 11.5, color: "var(--c-8a8272-t)", fontWeight: 600, marginBottom: 4 },
@@ -218,5 +218,5 @@ const m = {
   meta: { fontSize: 11.5, color: "var(--c-8a8272-t)" },
   precio: { fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)", flexShrink: 0 },
   detalle: { display: "flex", flexDirection: "column", gap: 10, padding: "4px 14px 14px" },
-  eliminar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px", background: "transparent", border: "none", color: "#D64545", fontSize: 14, fontWeight: 600, cursor: "pointer" },
+  eliminar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px", background: "transparent", border: "none", color: "var(--c-c1442d-t)", fontSize: 14, fontWeight: 600, cursor: "pointer" },
 };

@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import { Plus, Minus, Clock, UserCircle2, Printer } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { money } from "../logica.js";
+import { MontoSigno, FilaTabs } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { cuentaGranTotal, cuentaOrders, dateTimeLabel, hourLabel, tieneRol } from "../utilidades.js";
 
 /* ---------------- Reportes ---------------- */
 
-export function ReportesView({ cuentas, orders, menu, usuarioActual }) {
+export function ReportesView({ cuentas, orders, menu, usuarioActual, onIr }) {
   const [rango, setRango] = useState("hoy");
   const esAdmin = tieneRol(usuarioActual, "admin");
 
@@ -74,12 +75,12 @@ export function ReportesView({ cuentas, orders, menu, usuarioActual }) {
 
   return (
     <div className="ancho" style={styles.menuScroll}>
-      <div className="no-imprimir ancho" style={styles.cajaTabSwitch}>
-        <button style={{ ...styles.cajaTabBtn, ...(rango === "hoy" ? styles.cajaTabBtnActive : {}) }} onClick={() => setRango("hoy")}>Hoy</button>
-        <button style={{ ...styles.cajaTabBtn, ...(rango === "semana" ? styles.cajaTabBtnActive : {}) }} onClick={() => setRango("semana")}>7 días</button>
-        <button style={{ ...styles.cajaTabBtn, ...(rango === "mes" ? styles.cajaTabBtnActive : {}) }} onClick={() => setRango("mes")}>30 días</button>
-        {esAdmin && <button style={styles.exportLink} onClick={() => window.print()}><Printer size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Imprimir</button>}
-      </div>
+      <FilaTabs className="no-imprimir" style={{ ...styles.cajaTabSwitch, padding: "0 0 12px" }}>
+        <button style={{ ...styles.cajaTabBtn, ...(rango === "hoy" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "hoy" ? "true" : undefined} onClick={() => setRango("hoy")}>Hoy</button>
+        <button style={{ ...styles.cajaTabBtn, ...(rango === "semana" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "semana" ? "true" : undefined} onClick={() => setRango("semana")}>7 días</button>
+        <button style={{ ...styles.cajaTabBtn, ...(rango === "mes" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "mes" ? "true" : undefined} onClick={() => setRango("mes")}>30 días</button>
+        {esAdmin && <button style={styles.exportLink} onClick={() => window.print()}><Printer size={15} />Imprimir</button>}
+      </FilaTabs>
 
       <div className="solo-imprimir" style={styles.reportePrintHeader}>
         <div style={styles.reportePrintTitle}>Reporte financiero — {rango === "hoy" ? "Hoy" : rango === "semana" ? "Últimos 7 días" : "Últimos 30 días"}</div>
@@ -89,7 +90,7 @@ export function ReportesView({ cuentas, orders, menu, usuarioActual }) {
       <div style={styles.cajaTotalCard}>
         <span style={styles.cajaTotalLabel}>Total vendido</span>
         <span style={styles.cajaTotalValue}>{money(totalRango)}</span>
-        <span style={styles.turnoEsperadoLabel}>{pagadasRango.length} cuentas · {money(propinasRango)} en propinas</span>
+        <span style={styles.turnoEsperadoLabel}>{pagadasRango.length} {pagadasRango.length === 1 ? "cuenta" : "cuentas"} · {money(propinasRango)} en propinas</span>
         {esAdmin && huboCostosCargados && (
           <div style={styles.margenRow}>
             <span>Margen estimado: <b>{money(margenRango)}</b> ({margenPct}%)</span>
@@ -97,7 +98,10 @@ export function ReportesView({ cuentas, orders, menu, usuarioActual }) {
         )}
       </div>
       {esAdmin && !huboCostosCargados && ventaProductos > 0 && (
-        <div style={styles.cajaEmptyText}>Agrégale costo a tus productos en Menú para ver aquí el margen de este período.</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", marginBottom: 14, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 16 }}>
+          <div style={{ flex: 1, fontSize: 13, lineHeight: 1.45, color: "var(--c-5c5648-t)" }}>Agrégale costo a tus productos para ver aquí el margen de este período.</div>
+          {onIr && <button style={{ flexShrink: 0, padding: "9px 14px", borderRadius: 12, border: "1px solid var(--c-d9cfae-o)", background: "var(--c-ede7d8-b)", color: "var(--c-242019-t)", fontSize: 13, fontWeight: 600, cursor: "pointer" }} onClick={() => onIr("menu")}>Ir a Menú</button>}
+        </div>
       )}
 
       {esAdmin && (
@@ -105,8 +109,8 @@ export function ReportesView({ cuentas, orders, menu, usuarioActual }) {
           <div style={{ ...styles.catLabel, marginTop: 16 }}>RESUMEN FINANCIERO</div>
           <div style={styles.turnoBox}>
             <div style={styles.subtotalRow}><span>Consumo bruto (antes de descuentos)</span><span>{money(cuentaBrutaRango)}</span></div>
-            <div style={styles.subtotalRow}><span>Descuentos y cortesías aplicados</span><span style={{ color: "var(--c-c1442d-t)" }}>−{money(descuentosRango)}</span></div>
-            <div style={styles.subtotalRow}><span>Propinas</span><span>+{money(propinasRango)}</span></div>
+            <div style={styles.subtotalRow}><span>Descuentos y cortesías aplicados</span><MontoSigno valor={descuentosRango} signo="−" /></div>
+            <div style={styles.subtotalRow}><span>Propinas</span><MontoSigno valor={propinasRango} signo="+" positivo /></div>
             <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Total cobrado</span><span>{money(totalRango)}</span></div>
             {huboCostosCargados && (
               <>

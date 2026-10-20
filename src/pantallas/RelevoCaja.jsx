@@ -8,6 +8,7 @@ import { responsableDe, tramoVigente, statsTramo, proponerRelevo, aceptarRelevo,
 import { playBeep, mostrarNotificacionSistema } from "../avisos.js";
 import { vibrar } from "../theme.js";
 
+import { Hoja } from "../componentes/Hoja.jsx";
 /* Entregar la caja a otra persona (o asumirla si quien la tenía se fue), y recibirla. */
 
 const K = {
@@ -16,8 +17,6 @@ const K = {
   rojo: "var(--c-c1442d-t)", verde: "var(--c-5b7553-t)", ambar: "var(--c-8a611a-t)",
 };
 const x = {
-  overlay: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(10,12,15,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center", animation: "fadeIn .18s ease" },
-  hoja: { width: "100%", maxWidth: 520, maxHeight: "92dvh", overflowY: "auto", background: K.bg, borderRadius: "22px 22px 0 0", padding: "18px 16px calc(18px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 12, animation: "sheetUp .38s cubic-bezier(.32,.72,0,1)", color: K.ink },
   titulo: { fontFamily: "var(--font-display)", fontSize: 21, fontWeight: 700 },
   texto: { fontSize: 13, color: K.sub, lineHeight: 1.5 },
   cerrar: { width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", background: K.surface, color: K.sub, border: `1px solid ${K.border}`, borderRadius: 16, cursor: "pointer", flexShrink: 0 },
@@ -27,7 +26,7 @@ const x = {
   input: { width: "100%", boxSizing: "border-box", padding: "12px 13px", borderRadius: 10, border: `1px solid ${K.border}`, fontSize: 14, fontFamily: "var(--font-body)", color: K.ink, background: K.surface },
   caja: { borderRadius: 12, padding: "12px 14px", fontSize: 13.5 },
   linea: { display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12.5, padding: "2px 0" },
-  boton: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px", border: "none", borderRadius: 11, background: "var(--accent)", color: K.cream, fontSize: 14.5, fontWeight: 700, cursor: "pointer", width: "100%" },
+  boton: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px", border: "none", borderRadius: 11, background: "var(--neon)", color: "var(--neon-text)", boxShadow: "var(--neon-glow)", fontSize: 14.5, fontWeight: 700, cursor: "pointer", width: "100%" },
   botonGhost: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 14px", borderRadius: 11, background: "transparent", border: `1.5px solid var(--accent)`, color: "var(--accent-t)", fontSize: 14, fontWeight: 700, cursor: "pointer" },
   error: { fontSize: 12.5, color: K.rojo, fontWeight: 600 },
 };
@@ -38,7 +37,7 @@ export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCe
   const responsable = responsableDe(turno);
   const candidatos = (equipo || []).filter((p) => p.activo === true && p.roles && (p.roles.cajero || p.roles.admin) && p.uid !== usuarioActual.uid);
   const [destino, setDestino] = useState(null);
-  const [contado, setContado] = useState("");
+  const [contado, setContado] = useState("0");
   const [calculado, setCalculado] = useState(false);
   const [nota, setNota] = useState("");
   const [error, setError] = useState("");
@@ -68,8 +67,9 @@ export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCe
   };
 
   return (
-    <div className="hoja-overlay" style={x.overlay} onClick={onCerrar}>
-      <div style={x.hoja} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={asumir ? "Asumir la caja" : "Entregar la caja"}>
+    <Hoja onCerrar={onCerrar} ancho={520} gap={12} label={asumir ? "Asumir la caja" : "Entregar la caja"}>
+{({ cerrar: cerrarHoja }) => (
+<>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
           <div>
             <div style={x.titulo}>{asumir ? `Asumir la caja de ${responsable.nombre}` : "Entregar la caja"}</div>
@@ -79,7 +79,7 @@ export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCe
                 : "Cuenta solo el efectivo. La tarjeta y las transferencias se revisan una sola vez, al cerrar el turno."}
             </div>
           </div>
-          <button style={x.cerrar} onClick={onCerrar} aria-label="Cerrar"><X size={16} /></button>
+          <button style={x.cerrar} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
         </div>
 
         {!asumir && (
@@ -126,8 +126,9 @@ export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCe
             )}
           </>
         )}
-      </div>
-    </div>
+      </>
+)}
+</Hoja>
   );
 }
 
@@ -142,7 +143,7 @@ export function TarjetaRelevoPendiente({ turno, usuarioActual, esAdmin }) {
   const soyQuienEntrega = r.deUid === usuarioActual.uid;
   const ejecutar = async (fn) => { setOcupado(true); await fn(); setOcupado(false); setMotivando(false); };
   return (
-    <div style={{ background: "var(--c-fbefd9-b)", border: "1px solid #C58B1B", borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, color: K.ink }}>
+    <div style={{ background: "var(--c-fbefd9-b)", border: "1px solid var(--warn-solid)", borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, color: K.ink }}>
       <div style={x.etiqueta}>ENTREGA PENDIENTE</div>
       <div style={{ fontSize: 14, lineHeight: 1.45 }}>
         <b>{r.deNombre}</b> entrega la caja a <b>{r.aNombre}</b> con <b>{money(r.contado)}</b> <span style={{ color: K.muted }}>({timeLabel(r.ts)})</span>.
@@ -153,7 +154,7 @@ export function TarjetaRelevoPendiente({ turno, usuarioActual, esAdmin }) {
           <input style={x.input} placeholder="¿Qué no coincide? (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} autoFocus />
           <div style={{ display: "flex", gap: 8 }}>
             <button style={{ ...x.botonGhost, flex: 1 }} onClick={() => setMotivando(false)}>Volver</button>
-            <button style={{ ...x.boton, flex: 1, background: "#d64545" }} disabled={ocupado} onClick={() => ejecutar(() => deshacerRelevo({ turno, usuario: usuarioActual, motivo: motivo.trim() || "No coincidía el efectivo" }))}>Deshacer entrega</button>
+            <button style={{ ...x.boton, flex: 1, background: "var(--danger-solid)" }} disabled={ocupado} onClick={() => ejecutar(() => deshacerRelevo({ turno, usuario: usuarioActual, motivo: motivo.trim() || "No coincidía el efectivo" }))}>Deshacer entrega</button>
           </div>
         </>
       ) : (
@@ -181,7 +182,7 @@ export function AvisoRelevo({ turno, usuarioActual }) {
   }, [r && r.id]);
   if (!r || r.aUid !== usuarioActual.uid) return null;
   return (
-    <div className="no-imprimir" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2E6FD6", color: "#F4F6F8", fontSize: 13.5, fontWeight: 600, flexWrap: "wrap" }}>
+    <div className="no-imprimir" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--info-solid)", color: "#F4F6F8", fontSize: 13.5, fontWeight: 600, flexWrap: "wrap" }}>
       <ArrowRightLeft size={16} />
       <span style={{ flex: 1, minWidth: 180 }}>{r.deNombre} te entrega la caja con {money(r.contado)}</span>
       <button disabled={ocupado} style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#F4F6F8", color: "#14181D", fontWeight: 700, fontSize: 13, cursor: "pointer" }}

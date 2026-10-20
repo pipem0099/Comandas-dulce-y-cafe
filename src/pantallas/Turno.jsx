@@ -4,11 +4,12 @@ import {
 } from "lucide-react";
 import { uid, money } from "../logica.js";
 import { saveShared, getRecord, saveCollectionArray, updateRecord } from "../firebase.js";
-import { FormularioMovimiento, ListaMovimientos } from "./MovimientosCaja.jsx";
+import { FormularioMovimiento, ListaMovimientos, RegistrarMovimiento } from "./MovimientosCaja.jsx";
 import { FlujoEntrega, TarjetaRelevoPendiente } from "./RelevoCaja.jsx";
 import { ResumenDia } from "./ResumenDia.jsx";
 import { responsableDe, statsTramo, tramoVigente, tramosDe } from "../relevoCaja.js";
 import { CampoMonto, Acordeon } from "../componentes/Comunes.jsx";
+import { MontoSigno } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { descargarRespaldo } from "../exportar.js";
 import { agruparPorMes, arqueosDe, dateTimeLabel, dayKey, duracionLabel, mesaNombre, movimientosDe, propinasEnRango, tieneRol, timeLabel, totalesMovimientos, ventasDelTurno } from "../utilidades.js";
@@ -16,10 +17,10 @@ import { agruparPorMes, arqueosDe, dateTimeLabel, dayKey, duracionLabel, mesaNom
 /* ---------------- Turno / arqueo de caja ---------------- */
 
 export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, config, persistConfig, usuarioActual, menu, mesas, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, equipo }) {
-  const [base, setBase] = useState("");
-  const [contado, setContado] = useState("");
-  const [contadoTarjeta, setContadoTarjeta] = useState("");
-  const [contadoTransf, setContadoTransf] = useState("");
+  const [base, setBase] = useState("0");
+  const [contado, setContado] = useState("0");
+  const [contadoTarjeta, setContadoTarjeta] = useState("0");
+  const [contadoTransf, setContadoTransf] = useState("0");
   const [observaciones, setObservaciones] = useState("");
   const [confirmandoCierre, setConfirmandoCierre] = useState(false);
   // Cierre "a ciegas": lo esperado solo se muestra DESPUÉS de escribir lo contado. Si no cuadra se puede
@@ -43,7 +44,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
       tramos: { [tramoId]: { id: tramoId, uid: usuarioActual.uid, nombre: usuarioActual.nombre, inicioTs: ahora, base: baseNum, estado: "activo" } },
     };
     await saveTurno(turno);
-    setBase("");
+    setBase("0");
   };
 
   // Tarjeta y transferencia se cuadran UNA vez, al cerrar (total del día). El efectivo se cuadra por tramo:
@@ -67,10 +68,10 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
   const difTarjeta = tarjetaNum - tarjetaEsperada;
   const difTransf = transfNum - transferenciaEsperada;
   const todoCuadra = diferencia === 0 && difTarjeta === 0 && difTransf === 0;
-  const camposCompletos = contado !== "" && contadoTarjeta !== "" && contadoTransf !== "";
+  const camposCompletos = true; // un campo vacío cuenta como $0
   const arqueos = arqueosDe(turnoAbierto).filter((a) => !tramo || !a.tramoId || a.tramoId === tramo.id);
   const reiniciarCierre = () => {
-    setContado(""); setContadoTarjeta(""); setContadoTransf(""); setObservaciones("");
+    setContado("0"); setContadoTarjeta("0"); setContadoTransf("0"); setObservaciones("");
     setCalculado(false); setConfirmandoCierre(false);
   };
 
@@ -156,33 +157,54 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
           )}
 
           <div style={t.rejilla}>
-            {/* Movimientos de caja */}
-            <div style={t.tarjeta}>
-              <div style={t.tarjetaTitulo}>Movimientos de caja</div>
-              <div style={t.meta}>Anota el dinero que entra o sale del cajón <b>fuera de las ventas</b>.</div>
-              {!calculado && (
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button style={{ ...t.selMov, ...t.selEntrada }} onClick={() => setMovForm("entrada")}><ArrowDownToLine size={22} color="#2f8f68" /> Entrada</button>
-                  <button style={{ ...t.selMov, ...t.selSalida }} onClick={() => setMovForm("salida")}><ArrowUpFromLine size={22} color="#d64545" /> Salida</button>
-                </div>
-              )}
-              {movimientos.length > 0 ? (
-                <div style={t.movBox}>
-                  <div style={t.movHead}>
-                    <span style={t.etiqueta}>EN ESTE TURNO</span>
-                    <span style={t.meta}>
-                      {mov.entradas > 0 && <span style={{ color: "var(--c-5b7553-t)", fontWeight: 700 }}>+{money(mov.entradas)}</span>}
-                      {mov.entradas > 0 && mov.salidas > 0 && "  ·  "}
-                      {mov.salidas > 0 && <span style={{ color: "var(--c-c1442d-t)", fontWeight: 700 }}>−{money(mov.salidas)}</span>}
-                    </span>
+            {/* Columna 1: registrar movimiento + lista */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+              <div style={t.tarjeta}>
+                <div style={t.tarjetaTitulo}>Registrar movimiento</div>
+                <div style={t.meta}>Dinero que entra o sale del cajón <b>fuera de las ventas</b>.</div>
+                {!calculado ? <RegistrarMovimiento onGuardar={registrarMovimiento} /> : <div style={t.vacio}>Ya calculaste el cierre: no se pueden registrar más movimientos.</div>}
+                {errorMov && <div style={{ fontSize: 12.5, color: "var(--c-c1442d-t)", fontWeight: 600 }}>{errorMov}</div>}
+              </div>
+              <div style={t.tarjeta}>
+                <div style={t.tarjetaTitulo}>Movimientos del efectivo</div>
+                {movimientos.length > 0 ? (
+                  <div style={t.movBox}>
+                    <div style={t.movHead}>
+                      <span style={t.etiqueta}>EN ESTE TURNO</span>
+                      <span style={t.meta}>
+                        {mov.entradas > 0 && <span style={{ color: "var(--c-5b7553-t)", fontWeight: 700 }}>+{money(mov.entradas)}</span>}
+                        {mov.entradas > 0 && mov.salidas > 0 && "  ·  "}
+                        {mov.salidas > 0 && <span style={{ color: "var(--c-c1442d-t)", fontWeight: 700 }}>−{money(mov.salidas)}</span>}
+                      </span>
+                    </div>
+                    <ListaMovimientos movimientos={movimientos} onAnular={calculado ? null : anularMovimiento} puedeAnular={(m) => !tramo || m.ts >= tramo.inicioTs} />
                   </div>
-                  <ListaMovimientos movimientos={movimientos} onAnular={calculado ? null : anularMovimiento} puedeAnular={(m) => !tramo || m.ts >= tramo.inicioTs} />
-                </div>
-              ) : <div style={t.vacio}>Todavía no hay movimientos en este turno.</div>}
-              {errorMov && <div style={{ fontSize: 12.5, color: "var(--c-c1442d-t)", fontWeight: 600 }}>{errorMov}</div>}
+                ) : <div style={t.vacio}>Todavía no hay movimientos en este turno.</div>}
+              </div>
             </div>
 
-            {/* Entrega y cierre */}
+            {/* Columna 2: cuadre (solo propietario) + entrega y cierre */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+            {esAdmin && (
+              <div style={t.tarjeta}>
+                <div style={t.tarjetaTitulo}>Cuadre del efectivo</div>
+                <div style={t.meta}>Así se llega al efectivo que debe haber en el cajón.</div>
+                <div style={t.cuadreFila}><span>Apertura</span><b>{money(turnoAbierto.baseEfectivo || 0)}</b></div>
+                <div style={t.cuadreFila}><span>Ventas en efectivo</span><MontoSigno valor={ventas.efectivo} signo="+" positivo /></div>
+                <div style={t.cuadreFila}><span>Ingresos manuales</span><MontoSigno valor={mov.entradas} signo="+" positivo /></div>
+                <div style={t.cuadreFila}><span>Gastos y retiros</span><MontoSigno valor={mov.salidas} signo="−" /></div>
+                <div style={{ ...t.cuadreFila, borderTop: "1px solid var(--c-e4dfce-o)", paddingTop: 10, fontSize: 15 }}><b>Efectivo esperado</b><b style={{ color: "var(--pago-ok)", fontSize: 18 }}>{money(esperado)}</b></div>
+              </div>
+            )}
+            {esAdmin && (
+              <div style={t.tarjeta}>
+                <div style={t.tarjetaTitulo}>Ventas por método de pago</div>
+                <div style={t.meta}>Todo lo cobrado en este turno.</div>
+                {[["efectivo", "Efectivo"], ["tarjeta", "Tarjeta"], ["transferencia", "Transferencia"]].map(([k, l]) => (
+                  <div key={k} style={t.cuadreFila}><span>{l}</span><b>{money(ventas[k] || 0)}</b></div>
+                ))}
+              </div>
+            )}
             <div style={t.tarjeta}>
               <div style={t.tarjetaTitulo}>Entrega y cierre</div>
           <div style={styles.closeConfirmText}>El total esperado en caja, tarjeta y transferencia se muestra al cerrar el turno, después de que registres lo que contaste.</div>
@@ -266,6 +288,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
             </div>
           )}
             </div>
+            </div>
           </div>
         </div>
       )}
@@ -322,16 +345,16 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
 // Estilos propios de esta pantalla (usan las variables de color de la paleta)
 const t = {
   puerta: { display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 14, padding: "34px 18px", margin: "10px auto 0", maxWidth: 520, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 20 },
-  puertaIcono: { width: 60, height: 60, borderRadius: 30, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(52,199,142,.14)", color: "var(--pago-ok)", border: "1px solid rgba(52,199,142,.35)" },
+  puertaIcono: { width: 60, height: 60, borderRadius: 30, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--c-e4eee1-b)", color: "var(--pago-ok)", border: "1px solid var(--ok-border)" },
   puertaTitulo: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--c-242019-t)" },
   puertaTexto: { fontSize: 13.5, lineHeight: 1.5, color: "var(--c-5c5648-t)", maxWidth: 380 },
   pagina: { display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, margin: "0 auto", width: "100%" },
-  estado: { display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 16, background: "linear-gradient(135deg, rgba(52,199,142,.14), rgba(52,199,142,.04))", border: "1px solid rgba(52,199,142,.32)", color: "var(--c-242019-t)" },
-  estadoPunto: { width: 12, height: 12, borderRadius: 6, background: "var(--pago-ok)", boxShadow: "0 0 0 5px rgba(52,199,142,.2)", flexShrink: 0 },
+  estado: { display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 16, background: "var(--c-e4eee1-b)", border: "1px solid rgba(52,199,142,.32)", color: "var(--c-242019-t)" },
+  estadoPunto: { width: 12, height: 12, borderRadius: 6, background: "var(--pago-ok)", boxShadow: "0 0 0 5px var(--ok-border)", flexShrink: 0 },
   estadoChip: { fontSize: 11.5, fontWeight: 600, padding: "2px 9px", borderRadius: 10, background: "rgba(128,138,150,.16)", color: "var(--c-5c5648-t)", marginLeft: 4 },
   stats: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 },
   stat: { display: "flex", flexDirection: "column", gap: 4, padding: "14px 14px", borderRadius: 16, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)" },
-  statVerde: { background: "linear-gradient(135deg, rgba(52,199,142,.16), rgba(52,199,142,.05))", borderColor: "rgba(52,199,142,.35)" },
+  statVerde: { background: "var(--c-e4eee1-b)", borderColor: "var(--ok-border)" },
   statEt: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1, fontWeight: 700, color: "var(--c-8a8272-t)" },
   statVal: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--c-242019-t)" },
   statSub: { fontSize: 11.5, color: "var(--c-8a8272-t)" },
@@ -341,6 +364,7 @@ const t = {
   selMov: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "16px 10px", borderRadius: 16, border: "1.5px solid var(--c-e4dfce-o)", background: "var(--c-f7f4ec-b)", color: "var(--c-242019-t)", fontSize: 15, fontWeight: 600, cursor: "pointer" },
   selEntrada: { borderColor: "rgba(47,143,104,.45)", background: "rgba(47,143,104,.08)" },
   selSalida: { borderColor: "rgba(214,69,69,.45)", background: "rgba(214,69,69,.08)" },
+  cuadreFila: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13.5, color: "var(--c-5c5648-t)", padding: "4px 0" },
   vacio: { fontSize: 13, color: "var(--c-8a8272-t)", padding: "6px 2px" },
 
   meta: { fontSize: 11.5, color: "var(--c-8a8272-t)" },
