@@ -60,6 +60,10 @@
         }
       }
     },
+    "reservas": {
+      ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
+      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true"
+    },
     "respaldos": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
       ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true"

@@ -118,6 +118,7 @@ El rol de propietario no se puede quitar ni desactivar, pero sí **transferir** 
     │   ├── BarraSuperior.jsx   barra de arriba y acceso al menú de usuario
     │   ├── MenuUsuario.jsx     menú de la persona: apariencia, administración y cuenta
     │   ├── CabeceraAdmin.jsx   encabezado común de las pantallas de administración
+    │   ├── Hoja.jsx            hoja flotante tipo iOS (la usan todos los diálogos)
     │   ├── PantallaCarga.jsx   pantalla de carga con la marca
     │   └── Comunes.jsx         campo de monto, logo, avisos
     └── pantallas/        una pantalla por archivo
