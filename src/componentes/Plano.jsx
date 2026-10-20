@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { ChefHat, Bath, Trees, Beer, DoorOpen, Receipt, Package, Armchair, Square, GripVertical } from "lucide-react";
-import { estadoVisualMesa, mesaMatch } from "../utilidades.js";
+import { estadoVisualMesa, cuentaDeMesa } from "../utilidades.js";
 
 /*
  * Plano del negocio: un lienzo donde se dibujan las ZONAS (cocina, baño, terraza…) y las MESAS
@@ -102,7 +102,7 @@ export function PlanoSalon({ mesas, zonas = [], alto = 100, cuentas, orders, edi
 
         {/* Mesas */}
         {mesas.map((m, idx) => {
-          const cuenta = (cuentas || []).find((c) => mesaMatch(c.mesa, m.id) && c.estado === "abierta");
+          const cuenta = cuentaDeMesa(cuentas, m.id);
           const visual = estadoVisualMesa(cuenta, cuenta ? (orders || []).filter((o) => o.cuentaId === cuenta.id) : []);
           const bg = cuenta ? visual.bg : "var(--c-fffdf8-b)";
           const color = cuenta ? visual.color : "var(--c-242019-t)";

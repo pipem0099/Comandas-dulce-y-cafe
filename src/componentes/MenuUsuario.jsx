@@ -4,7 +4,7 @@ import { guardarTema, temaGuardado, vibrar } from "../theme.js";
 import { enviarCorreoCambioClave } from "../firebase.js";
 import { rolesLabel } from "../utilidades.js";
 import { VERSION } from "../constantes.js";
-import { useAncho } from "../useAncho.js";
+import { Hoja } from "./Hoja.jsx";
 
 /*
  * Menú de la persona que inició sesión: se abre al tocar su nombre en la barra de arriba.
@@ -12,7 +12,7 @@ import { useAncho } from "../useAncho.js";
  */
 const K = {
   bg: "var(--c-f7f4ec-b)", surface: "var(--c-fffdf8-b)", soft: "var(--c-ede7d8-b)", border: "var(--c-e4dfce-o)",
-  ink: "var(--c-242019-t)", muted: "var(--c-8a8272-t)", sub: "var(--c-5c5648-t)", faint: "#9BA4B0", cream: "#F4F6F8",
+  ink: "var(--c-242019-t)", muted: "var(--c-8a8272-t)", sub: "var(--c-5c5648-t)", faint: "var(--c-9a9382-t)", cream: "#F4F6F8",
 };
 const TEMAS = [
   { id: "claro", label: "Claro", icon: Sun },
@@ -27,7 +27,6 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   const [seccion, setSeccion] = useState(esAdminU ? "admin" : "cuenta"); // pastilla activa
   const [confirmClave, setConfirmClave] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const ancho = useAncho();
   const [puedeInstalar, setPuedeInstalar] = useState(!!window.__instalarApp);
   const esAdmin = usuarioActual.roles.includes("admin");
 
@@ -52,11 +51,9 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
     window.__instalarApp = null;
     setPuedeInstalar(false);
   };
-  const ir = (fn) => () => { onCerrar(); fn(); };
-
   const Fila = ({ icon: Icon, titulo, sub, onClick, peligro }) => (
-    <button style={{ ...s.fila, color: peligro ? "#D64545" : K.ink }} onClick={onClick}>
-      <span style={{ ...s.filaIcono, color: peligro ? "#D64545" : K.sub }}><Icon size={17} strokeWidth={1.9} /></span>
+    <button className="fila-tap" style={{ ...s.fila, color: peligro ? "var(--c-c1442d-t)" : K.ink }} onClick={onClick}>
+      <span style={{ ...s.filaIcono, color: peligro ? "var(--c-c1442d-t)" : K.sub }}><Icon size={17} strokeWidth={1.9} /></span>
       <span style={s.filaTexto}>
         <span style={s.filaTitulo}>{titulo}</span>
         {sub && <span style={s.filaSub}>{sub}</span>}
@@ -66,8 +63,11 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   );
 
   return (
-    <div style={{ ...s.overlay, ...(ancho >= 700 ? { alignItems: "center" } : {}) }} onClick={onCerrar}>
-      <div style={{ ...s.hoja, ...(ancho >= 700 ? { borderRadius: 22, maxWidth: 460, padding: 20 } : {}) }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Mi cuenta">
+    <Hoja onCerrar={onCerrar} ancho={440} gap={10} label="Mi cuenta" z={70}>
+      {({ cerrar }) => {
+        const ir = (fn) => () => { fn(); cerrar(); };
+        return (
+      <>
         <div style={s.cabecera}>
           <div style={s.avatar}>{(usuarioActual.nombre || "?").trim().charAt(0).toUpperCase()}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -75,7 +75,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
             <div style={s.correo}>{usuarioActual.correo}</div>
             <span style={s.rol}>{rolesLabel(usuarioActual)}</span>
           </div>
-          <button style={s.cerrarBtn} onClick={onCerrar} aria-label="Cerrar"><X size={16} /></button>
+          <button style={s.cerrarBtn} onClick={cerrar} aria-label="Cerrar"><X size={16} /></button>
         </div>
 
         {/* Pastillas: cada una muestra solo su sección */}
@@ -121,7 +121,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
               const Icon = t.icon; const on = tema === t.id;
               return (
                 <button key={t.id} style={{ ...s.temaCard, ...(on ? s.temaCardOn : {}) }} onClick={() => elegirTema(t.id)}>
-                  <span style={{ ...s.temaMuestra, background: t.id === "claro" ? "#F4F6F8" : "#0E1013", color: t.id === "claro" ? "#14181D" : "#F4F6F8" }}><Icon size={22} /></span>
+                  <span style={{ ...s.temaMuestra, background: t.id === "claro" ? "#F5F5F7" : "#121316", color: t.id === "claro" ? "#1C1C1E" : "#ECEDEF" }}><Icon size={22} /></span>
                   <span style={{ fontSize: 14, fontWeight: 600 }}>{t.label}</span>
                   {on && <Check size={14} color="var(--accent)" />}
                 </button>
@@ -141,14 +141,14 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
         )}
 
         <div style={s.pie}>{(config.businessName || "Comandas")} · v{VERSION}</div>
-      </div>
-    </div>
+      </>
+        );
+      }}
+    </Hoja>
   );
 }
 
 const s = {
-  overlay: { position: "fixed", inset: 0, zIndex: 70, background: "rgba(10,8,5,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center", animation: "fadeIn .18s ease" },
-  hoja: { width: "100%", maxWidth: 440, maxHeight: "92dvh", overflowY: "auto", background: K.bg, borderRadius: "22px 22px 0 0", padding: "18px 16px calc(16px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 10, animation: "sheetUp .24s cubic-bezier(.2,.8,.2,1)", color: K.ink },
   cabecera: { display: "flex", alignItems: "center", gap: 14, padding: "4px 2px 8px" },
   avatar: { width: 52, height: 52, borderRadius: 26, background: "var(--accent)", color: K.cream, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, flexShrink: 0 },
   nombre: { fontFamily: "var(--font-display)", fontSize: 21, fontWeight: 700, lineHeight: 1.15, color: K.ink },
@@ -158,7 +158,7 @@ const s = {
   etiqueta: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1.3, color: K.faint, fontWeight: 700, margin: "6px 2px 0" },
   segmentado: { display: "flex", background: K.soft, borderRadius: 12, padding: 3, gap: 2 },
   segBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 6px", border: "none", borderRadius: 9, background: "transparent", color: K.sub, fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
-  segBtnOn: { background: K.surface, color: K.ink, boxShadow: "0 1px 3px rgba(0,0,0,.18)" },
+  segBtnOn: { background: "var(--seg-thumb)", color: K.ink, boxShadow: "0 1px 3px rgba(0,0,0,.18)" },
   grupo: { background: K.surface, border: `1px solid ${K.border}`, borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column" },
   fila: { display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", background: "transparent", border: "none", borderBottom: `1px solid ${K.border}`, cursor: "pointer", textAlign: "left", width: "100%" },
   filaIcono: { width: 30, height: 30, borderRadius: 9, background: K.soft, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
@@ -168,7 +168,7 @@ const s = {
   aviso: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--c-5b7553-t)", fontWeight: 600, padding: "0 4px" },
   confirmar: { background: K.surface, border: `1px solid ${K.border}`, borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 10 },
   btnGhost: { flex: 1, padding: "11px 12px", background: "transparent", color: K.sub, border: `1px solid ${K.border}`, borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
-  btnSalir: { flex: 1, padding: "11px 12px", background: "#D64545", color: K.cream, border: "none", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
+  btnSalir: { flex: 1, padding: "11px 12px", background: "var(--danger-solid)", color: K.cream, border: "none", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
   temaCard: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 14, borderRadius: 16, border: `1.5px solid ${K.border}`, background: K.surface, color: K.ink, cursor: "pointer" },
   temaCardOn: { borderColor: "var(--accent)" },
   temaMuestra: { width: "100%", height: 56, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${K.border}` },
