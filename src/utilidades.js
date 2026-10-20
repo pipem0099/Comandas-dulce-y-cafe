@@ -51,14 +51,15 @@ export function mesaOrderIndex(mesas, mesaId) {
 // llevado a la mesa" (azul), "cuenta abierta, todo servido" (verde) y libre.
 export function estadoVisualMesa(cuenta, ordersDeLaCuenta) {
   if (!cuenta) return { tag: "Libre", bg: "var(--c-ede7d8-b)", color: "var(--c-8a8272-t)" };
+  if (esPorLiberar(cuenta)) return { tag: "Pagada · liberar", bg: "var(--warn-solid)", color: "#1a1204", extra: "Toca para liberar la mesa" };
   const vivos = ordersDeLaCuenta.filter((o) => o.estado !== "cancelado");
   const enCocina = vivos.some((o) => o.estado === "pendiente" || o.estado === "preparando");
   // Lo que ya salió de cocina y falta llevar a la mesa pesa más que lo que sigue en cocina:
   // si salen de a una de 10 bebidas, la mesa avisa cuántas hay para servir YA.
   const paraServir = vivos.reduce((a, o) => a + porServir(o), 0);
-  if (paraServir > 0) return { tag: `${paraServir} para servir`, bg: "#2E6FD6", color: "#F4F6F8", extra: enCocina ? "El resto sigue en cocina" : null };
-  if (enCocina) return { tag: "En cocina", bg: "#D64545", color: "#F4F6F8" };
-  return { tag: "Cuenta abierta", bg: "#1F8A62", color: "#F4F6F8" };
+  if (paraServir > 0) return { tag: `${paraServir} para servir`, bg: "var(--info-solid)", color: "#F4F6F8", extra: enCocina ? "El resto sigue en cocina" : null };
+  if (enCocina) return { tag: "En cocina", bg: "var(--danger-solid)", color: "#F4F6F8" };
+  return { tag: "Cuenta abierta", bg: "var(--ok-solid)", color: "#F4F6F8" };
 }
 
 /* ---------------- helpers ---------------- */
@@ -303,4 +304,19 @@ export function agruparPorMes(lista, getTs) {
     grupos[idx[key]].items.push(x);
   });
   return grupos.sort((a, b) => b.key.localeCompare(a.key));
+}
+
+/** Una cuenta de mesa ya pagada por completo que sigue ocupando la mesa hasta que alguien la libere. */
+export const esPorLiberar = (c) => !!c && c.estado === "pagada" && c.liberada === false;
+/** La cuenta que hoy "ocupa" la mesa: la abierta, o la ya pagada que está por liberar. */
+export function cuentaDeMesa(cuentas, mesaId) {
+  const lista = (cuentas || []).filter((c) => mesaMatch(c.mesa, mesaId));
+  return lista.find((c) => c.estado === "abierta") || lista.find(esPorLiberar);
+}
+
+/** Reserva (pendiente o confirmada) de esta mesa que llega pronto: de 20 min antes a 90 min después de ahora. */
+export function reservaProxima(reservas, mesaId, ahora = Date.now()) {
+  return (reservas || [])
+    .filter((r) => (r.estado === "pendiente" || r.estado === "confirmada") && r.mesaId && mesaMatch(r.mesaId, mesaId) && r.ts >= ahora - 20 * 60e3 && r.ts <= ahora + 90 * 60e3)
+    .sort((a, b) => a.ts - b.ts)[0];
 }

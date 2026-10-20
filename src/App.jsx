@@ -7,10 +7,12 @@ import { esExterna, etiquetaExterna } from "./logica.js";
 import { subscribeShared, saveShared, subscribeCollection, subscribeCollectionSince, getCollectionAll, getCollectionRange, getRecord, saveRecord, saveRecords, deleteRecord, updateRecord, ajustarStock, observarSesion, cerrarSesion, updateShared } from "./firebase.js";
 import { TopBar, BarraInferior, Lateral, itemsNavegacion } from "./componentes/BarraSuperior.jsx";
 import { useDispositivo } from "./useAncho.js";
+import { instalarEnterSiguiente } from "./enterSiguiente.js";
 import { PantallaCarga } from "./componentes/PantallaCarga.jsx";
 import { AvisoRelevo } from "./pantallas/RelevoCaja.jsx";
 import { AjustesPanel } from "./extras.jsx";
 import { MenuEditor } from "./pantallas/Menu.jsx";
+import { ReservasView } from "./pantallas/Reservas.jsx";
 import { MesasEditor } from "./pantallas/Mesas.jsx";
 import { Equipo } from "./pantallas/Equipo.jsx";
 import { Respaldos } from "./pantallas/Respaldos.jsx";
@@ -26,6 +28,8 @@ import { NOMBRES_EXTERNOS, dayKey, rolesDe, tieneRol } from "./utilidades.js";
 export default function App() {
   const [role, setRole] = useState("mesero");
   const [menu, setMenu] = useState(DEFAULT_MENU);
+  const [kioskoCocina, setKioskoCocina] = useState(false);
+  useEffect(() => instalarEnterSiguiente(), []);
   const dispositivo = useDispositivo(); // (los hooks van arriba, antes de cualquier "return" anticipado)
   const fantasmasRef = useRef([]);   // ids de registros de inventario sin nombre (restos de insumos borrados)
   const insumosRef = useRef([]);
@@ -33,6 +37,7 @@ export default function App() {
   const [cuentas, setCuentas] = useState([]);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [turnos, setTurnos] = useState([]);
+  const [reservas, setReservas] = useState([]);
   const [mesas, setMesas] = useState(DEFAULT_MESAS);
   const [insumos, setInsumos] = useState([]);
   const menuRef = useRef(DEFAULT_MENU);
@@ -145,6 +150,7 @@ export default function App() {
       subscribeCollectionSince("cuentas", "ts", desde, (v) => { setCuentas(v); markLoaded("cuentas"); }),
       subscribeShared("config", DEFAULT_CONFIG, (v) => { setConfig({ ...DEFAULT_CONFIG, ...v }); markLoaded("config"); }),
       subscribeCollection("turnos", (v) => { setTurnos(v); markLoaded("turnos"); }),
+      subscribeCollection("reservas", (v) => setReservas(v || [])),
       subscribeCollection("inventario", (v) => {
         // Un registro SIN nombre es un "fantasma": lo crea un descuento de stock sobre un insumo ya borrado.
         const reales = (v || []).filter((i) => i && i.nombre);
@@ -253,6 +259,16 @@ export default function App() {
     const ok = await saveRecord("cuentas", cuenta.id, cuenta);
     if (!ok) avisarErrorGuardado(MSG_SIN_CONEXION);
   }, [avisarErrorGuardado]);
+  const saveReserva = useCallback(async (r) => {
+    setReservas((prev) => { const i = prev.findIndex((x) => x.id === r.id); if (i === -1) return [...prev, r]; const next = [...prev]; next[i] = r; return next; });
+    const ok = await saveRecord("reservas", r.id, r);
+    if (!ok) avisarErrorGuardado(MSG_SIN_CONEXION);
+  }, [avisarErrorGuardado]);
+  const deleteReserva = useCallback(async (id) => {
+    setReservas((prev) => prev.filter((x) => x.id !== id));
+    const ok = await deleteRecord("reservas", id);
+    if (!ok) avisarErrorGuardado(MSG_SIN_CONEXION);
+  }, [avisarErrorGuardado]);
   const saveTurno = useCallback(async (turno) => {
     setTurnos((prev) => { const i = prev.findIndex((t) => t.id === turno.id); if (i === -1) return [...prev, turno]; const next = [...prev]; next[i] = turno; return next; });
     const ok = await saveRecord("turnos", turno.id, turno);
@@ -340,14 +356,15 @@ export default function App() {
   }
 
   const movil = dispositivo === "movil";
+  const ocultarNav = kioskoCocina && role === "cocina"; // pantalla completa de cocina: solo se ve la cocina
   const items = itemsNavegacion(usuarioActual);
   const cambiarRol = (r) => { setVista(null); setRole(r); };
 
   return (
     <div style={styles.app}>
-      {movil && <TopBar config={config} usuarioActual={usuarioActual} online={online} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
+      {movil && !ocultarNav && <TopBar config={config} usuarioActual={usuarioActual} online={online} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: movil ? "column" : "row" }}>
-        {!movil && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online} ancho={dispositivo === "escritorio"} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
+        {!movil && !ocultarNav && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online} ancho={dispositivo === "escritorio"} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <AvisoRelevo turno={turnoAbierto} usuarioActual={usuarioActual} />
       {errorGuardado && (
@@ -379,7 +396,7 @@ export default function App() {
         !tieneRol(usuarioActual, "mesero") && !tieneRol(usuarioActual, "admin") ? (
           <AccesoDenegado mensaje="Tu usuario no tiene el rol de Mesero — esto es Mesero." accion="Ir a Caja" onAccion={() => setRole("caja")} onCambiarUsuario={cerrarSesionYRecargar} />
         ) : (
-          <MeseroView
+          <MeseroView reservas={reservas}
             menu={menu} orders={orders} cuentas={cuentas} usuarioActual={usuarioActual} config={config}
             mesas={mesas} persistMesas={persistMesas}
             saveOrder={saveOrder} saveOrdersMap={saveOrdersMap} saveCuenta={saveCuenta}
@@ -388,7 +405,8 @@ export default function App() {
           />
         )
       )}
-      {!vista && role === "cocina" && <CocinaView orders={orders} saveOrder={saveOrder} mesas={mesas} config={config} />}
+      {!vista && role === "reservas" && <ReservasView reservas={reservas} saveReserva={saveReserva} deleteReserva={deleteReserva} mesas={mesas} usuarioActual={usuarioActual} />}
+      {!vista && role === "cocina" && <CocinaView orders={orders} saveOrder={saveOrder} mesas={mesas} config={config} onKiosko={setKioskoCocina} />}
       {!vista && role === "caja" && (
         !tieneRol(usuarioActual, "cajero") && !tieneRol(usuarioActual, "admin") ? (
           <AccesoDenegado mensaje="Tu usuario no tiene el rol de Cajero — esto es Caja." accion="Ir a Mesero" onAccion={() => setRole("mesero")} onCambiarUsuario={cerrarSesionYRecargar} />
@@ -399,7 +417,7 @@ export default function App() {
             config={config} persistConfig={persistConfig} usuarioActual={usuarioActual}
             mesas={mesas} persistMesas={persistMesas}
             equipo={equipo} insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario}
-            ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial}
+            ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial} onIr={setVista}
             historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto}
           />
         )
@@ -407,7 +425,7 @@ export default function App() {
       </div>
         </div>
       </div>
-      {movil && <BarraInferior items={items} role={role} setRole={cambiarRol} />}
+      {movil && !ocultarNav && <BarraInferior items={items} role={role} setRole={cambiarRol} />}
     </div>
   );
 }

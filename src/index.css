@@ -12,8 +12,17 @@ html, body, #root {
 @supports (height: 100dvh) {
   html, body, #root { height: 100dvh; }
 }
-:root { --pago-ok: #0b8a5f; }
-:root[data-theme="dark"] { --pago-ok: #34d399; }
+:root {
+  --pago-ok: #137A56;
+  /* Acción principal (cobrar, enviar, confirmar): el color de marca de cada negocio, sin brillo ni neón. */
+  --neon: var(--accent); --neon-text: #FFFFFF;
+  --neon-glow: 0 6px 16px -8px color-mix(in srgb, var(--accent) 70%, transparent);
+  --neon-naranja: var(--c-b98a2e-t);
+}
+:root[data-theme="dark"] {
+  --pago-ok: #4FBF95;
+  --neon-glow: 0 6px 18px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+}
 html, body { overflow: hidden; overscroll-behavior: none; }
 body {
   -webkit-font-smoothing: antialiased;
@@ -69,14 +78,16 @@ body {
 @keyframes popIn { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
 .anim-in { animation: popIn .24s cubic-bezier(.2, .8, .2, 1) both; }
 
-/* Tacto tipo iPhone: al tocar se hunde rápido y al soltar rebota suave. */
+/* Tacto tipo iPhone: al tocar se hunde rápido y al soltar vuelve con suavidad (sin rebote). */
 button {
-  transition: transform .42s cubic-bezier(.34, 1.56, .64, 1), background-color .2s ease, opacity .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+  transition: transform .22s cubic-bezier(.32, .72, 0, 1), background-color .2s ease, opacity .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
   touch-action: manipulation;
   -webkit-user-select: none; user-select: none;
   -webkit-touch-callout: none;
 }
-button:active:not(:disabled) { transform: scale(.965); transition-duration: .08s, .2s, .2s, .2s, .2s, .2s; }
+button:active:not(:disabled) { transform: scale(.97); transition-duration: .06s, .2s, .2s, .2s, .2s, .2s; }
+/* Filas de lista: se resaltan al presionar, sin hundirse */
+.fila-tap:active:not(:disabled) { background: var(--c-f1ecdd-b) !important; transform: none; transition-duration: .05s; }
 button:disabled { cursor: not-allowed; }
 
 input, select, textarea { transition: border-color .18s ease, box-shadow .18s ease; }
@@ -128,6 +139,39 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Bloques que se despliegan (cuentas, turnos, meses): aparecen sin saltos. */
 @keyframes despliega { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .despliega { animation: despliega .28s cubic-bezier(.32, .72, 0, 1) both; }
+
+/* ───────── Hoja flotante (componente <Hoja>) ───────── */
+.hoja-v2 { position: fixed; inset: 0; display: flex; align-items: flex-end; justify-content: center; }
+.hoja-v2-scrim {
+  position: absolute; inset: 0; background: var(--scrim); opacity: 0;
+  -webkit-backdrop-filter: blur(6px) saturate(115%); backdrop-filter: blur(6px) saturate(115%);
+  transition: opacity .4s cubic-bezier(.32, .72, 0, 1);
+}
+.hoja-v2-panel {
+  position: relative; width: calc(100% - 20px); margin: 0 10px calc(10px + env(safe-area-inset-bottom));
+  max-height: calc(100dvh - 28px - env(safe-area-inset-top)); display: flex; flex-direction: column; overflow: hidden;
+  background: var(--sheet); color: var(--c-242019-t); border-radius: 30px; box-shadow: var(--shadow-float);
+  transform: translate3d(0, calc(100% + 48px), 0); will-change: transform;
+  transition: transform .5s cubic-bezier(.32, .72, 0, 1);
+}
+.hoja-v2-agarre { flex-shrink: 0; display: flex; justify-content: center; padding: 9px 0 3px; touch-action: none; cursor: grab; }
+.hoja-v2-agarre span { width: 38px; height: 5px; border-radius: 3px; background: var(--c-c7bfa0-o); opacity: .9; }
+.hoja-v2-scroll {
+  display: flex; flex-direction: column; overflow-y: auto; padding: 8px 18px 20px;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scroll-behavior: auto;
+}
+.hoja-v2[data-fase="abierta"] .hoja-v2-scrim { opacity: 1; }
+.hoja-v2[data-fase="abierta"] .hoja-v2-panel { transform: none; }
+.hoja-v2[data-fase="saliendo"] .hoja-v2-scrim { opacity: 0; transition-duration: .3s; }
+.hoja-v2[data-fase="saliendo"] .hoja-v2-panel { transform: translate3d(0, calc(100% + 48px), 0); transition-duration: .32s; }
+@media (min-width: 700px) {
+  .hoja-v2 { align-items: center; }
+  .hoja-v2-panel { width: 100%; margin: 0 16px; max-height: 88dvh; border-radius: 26px; transform: scale(.965) translateY(8px); opacity: 0; transition: transform .42s cubic-bezier(.32, .72, 0, 1), opacity .26s ease; }
+  .hoja-v2-agarre { display: none; }
+  .hoja-v2-scroll { padding-top: 22px; }
+  .hoja-v2[data-fase="abierta"] .hoja-v2-panel { transform: none; opacity: 1; }
+  .hoja-v2[data-fase="saliendo"] .hoja-v2-panel { transform: scale(.975); opacity: 0; transition-duration: .22s; }
+}
 
 /* Hojas que suben desde abajo en el celular: en tablet y computador se muestran como ventana centrada. */
 @media (min-width: 700px) {

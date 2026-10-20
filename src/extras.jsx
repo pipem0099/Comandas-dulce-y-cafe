@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { CabeceraAdmin } from "./componentes/CabeceraAdmin.jsx";
 import { Plus, Minus, Trash2, Check, X, Upload, Boxes, AlertTriangle, Pencil, ShoppingBag, Bike, Image as ImageIcon } from "lucide-react";
 import { ACENTOS, FUENTES, MARCA_POR_DEFECTO, reducirLogo, vibrar } from "./theme.js";
+import { Hoja } from "./componentes/Hoja.jsx";
 import {
   uid, money, fmtNum, precioUnitario, getEstaciones, UNIDADES, estadoStock, costoReceta, TIPO_META,
 } from "./logica.js";
@@ -19,19 +20,17 @@ const K = {
 };
 
 const x = {
-  overlay: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(10,8,5,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center", animation: "fadeIn .18s ease" },
-  sheet: { width: "100%", maxWidth: 560, maxHeight: "90dvh", overflowY: "auto", background: K.bg, borderRadius: "20px 20px 0 0", padding: "18px 16px calc(18px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 12, animation: "sheetUp .38s cubic-bezier(.32,.72,0,1)", color: K.ink },
   sheetTitle: { fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: K.ink, lineHeight: 1.15 },
   sheetSub: { fontSize: 12.5, color: K.muted },
   eyebrow: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1.3, color: K.faint, fontWeight: 700, textTransform: "uppercase" },
   card: { background: K.surface, border: `1px solid ${K.border}`, borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 10 },
   input: { width: "100%", padding: "11px 12px", borderRadius: 9, border: `1px solid ${K.border}`, fontSize: 14, fontFamily: "var(--font-body)", color: K.ink, background: K.surface, boxSizing: "border-box" },
-  btnPrimary: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px 14px", background: "var(--accent)", color: K.cream, border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", width: "100%" },
+  btnPrimary: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px 14px", background: "var(--neon)", color: "var(--neon-text)", boxShadow: "var(--neon-glow)", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", width: "100%" },
   btnDark: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 14px", background: K.inkBg, color: K.cream, border: "none", borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: "pointer", width: "100%" },
   btnGhost: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 14px", background: "transparent", color: K.sub, border: `1px solid ${K.border}`, borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
   btnSmall: { display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 11px", background: K.surface, color: K.ink, border: `1px solid ${K.border}`, borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
   btnIcon: { width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.surface, color: K.sub, border: `1px solid ${K.border}`, borderRadius: 8, cursor: "pointer", flexShrink: 0 },
-  btnDanger: { width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.surface, color: "#D64545", border: `1px solid ${K.border}`, borderRadius: 8, cursor: "pointer", flexShrink: 0 },
+  btnDanger: { width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.surface, color: "var(--c-c1442d-t)", border: `1px solid ${K.border}`, borderRadius: 8, cursor: "pointer", flexShrink: 0 },
   row: { display: "flex", alignItems: "center", gap: 8 },
   stepper: { display: "flex", alignItems: "center", gap: 10 },
   stepBtn: { width: 34, height: 34, borderRadius: 9, border: `1px solid ${K.border}`, background: K.surface, color: K.ink, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
@@ -137,7 +136,18 @@ export function ModalOpciones({ item, onClose, onAdd }) {
     });
   };
 
-  const faltan = grupos.filter((g) => g.requerido && (sel[g.id] || []).length === 0);
+  // Si el producto tiene un grupo obligatorio de "elegir uno" (ej. Sabor), cada opción lleva su propia cantidad:
+  // "2 de lulo + 1 de mora" se pide en una sola pantalla.
+  const grupoCant = grupos.find((g) => g.tipo === "uno" && g.requerido && (g.opciones || []).length >= 2) || null;
+  const [cantOpc, setCantOpc] = useState({}); // id de opción -> cantidad
+  const cambiarCant = (oid, d) => { vibrar(8); setCantOpc((p) => { const n = Math.max(0, Math.min(99, (p[oid] || 0) + d)); const c = { ...p }; if (n === 0) delete c[oid]; else c[oid] = n; return c; }); };
+  const totalCant = Object.values(cantOpc).reduce((a, b) => a + b, 0);
+  const modsDe = (oidPrincipal) => grupos.flatMap((g) => {
+    const elegidas = grupoCant && g.id === grupoCant.id ? [oidPrincipal] : (sel[g.id] || []);
+    return elegidas.map((oid) => { const o = (g.opciones || []).find((v) => v.id === oid); return o ? { g: g.id, o: o.id, n: o.nombre, p: o.precio || 0 } : null; }).filter(Boolean);
+  });
+  const faltan = grupos.filter((g) => g.requerido && !(grupoCant && g.id === grupoCant.id) && (sel[g.id] || []).length === 0);
+  const totalPrecio = grupoCant ? Object.entries(cantOpc).reduce((a, [oid, q]) => a + precioUnitario(item, modsDe(oid)) * q, 0) : null;
   const mods = grupos.flatMap((g) =>
     (sel[g.id] || []).map((oid) => {
       const o = (g.opciones || []).find((v) => v.id === oid);
@@ -147,17 +157,38 @@ export function ModalOpciones({ item, onClose, onAdd }) {
   const unit = precioUnitario(item, mods);
 
   return (
-    <div className="hoja-overlay" style={x.overlay} onClick={onClose}>
-      <div style={x.sheet} onClick={(e) => e.stopPropagation()}>
+    <Hoja onCerrar={onClose} ancho={560} gap={12}>
+{({ cerrar: cerrarHoja }) => (
+<>
         <div style={x.row}>
           <div style={{ flex: 1 }}>
             <div style={x.sheetTitle}>{item.name}</div>
             <div style={x.sheetSub}>Desde {money(item.price)}</div>
           </div>
-          <button style={x.btnIcon} onClick={onClose} aria-label="Cerrar"><X size={16} /></button>
+          <button style={x.btnIcon} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
         </div>
 
-        {grupos.map((g) => (
+        {grupos.map((g) => (grupoCant && g.id === grupoCant.id) ? (
+          <div key={g.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={x.groupTitle}><span style={x.groupName}>{g.nombre}</span><span style={x.groupHint}>Elige cuántos de cada uno</span></div>
+            {(g.opciones || []).map((o) => {
+              const q = cantOpc[o.id] || 0;
+              return (
+                <div key={o.id} style={{ ...x.optRow, ...(q > 0 ? x.optRowSel : {}), justifyContent: "space-between", cursor: "default" }}>
+                  <span style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontWeight: 600 }}>{o.nombre}</span>
+                    {o.precio > 0 && <span style={x.optPrice}>+{money(o.precio)}</span>}
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {q > 0 && <button style={x.stepBtn} onClick={() => cambiarCant(o.id, -1)} aria-label="Menos"><Minus size={15} /></button>}
+                    {q > 0 && <span style={x.stepVal}>{q}</span>}
+                    <button style={{ ...x.stepBtn, ...x.stepBtnPlus }} onClick={() => cambiarCant(o.id, 1)} aria-label="Más"><Plus size={15} /></button>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
           <div key={g.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={x.groupTitle}>
               <span style={x.groupName}>{g.nombre}</span>
@@ -181,22 +212,32 @@ export function ModalOpciones({ item, onClose, onAdd }) {
         <input style={x.input} placeholder="Nota para cocina (opcional)" value={nota} onChange={(e) => setNota(e.target.value)} />
 
         <div style={{ ...x.row, justifyContent: "space-between" }}>
-          <div style={x.stepper}>
-            <button style={x.stepBtn} onClick={() => setQty((q) => Math.max(1, q - 1))}><Minus size={15} /></button>
-            <span style={x.stepVal}>{qty}</span>
-            <button style={{ ...x.stepBtn, ...x.stepBtnPlus }} onClick={() => setQty((q) => Math.min(99, q + 1))}><Plus size={15} /></button>
-          </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: K.ink }}>{money(unit * qty)}</div>
+          {grupoCant ? (
+            <div style={{ fontSize: 14, fontWeight: 600, color: K.sub }}>{totalCant} {totalCant === 1 ? "unidad" : "unidades"}</div>
+          ) : (
+            <div style={x.stepper}>
+              <button style={x.stepBtn} onClick={() => setQty((q) => Math.max(1, q - 1))}><Minus size={15} /></button>
+              <span style={x.stepVal}>{qty}</span>
+              <button style={{ ...x.stepBtn, ...x.stepBtnPlus }} onClick={() => setQty((q) => Math.min(99, q + 1))}><Plus size={15} /></button>
+            </div>
+          )}
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: K.ink }}>{money(grupoCant ? totalPrecio : unit * qty)}</div>
         </div>
         {faltan.length > 0 && <div style={{ fontSize: 12.5, color: K.red, fontWeight: 600 }}>Falta elegir: {faltan.map((g) => g.nombre).join(", ")}</div>}
+        {grupoCant && totalCant === 0 && <div style={{ fontSize: 12.5, color: K.muted }}>Toca + en los {grupoCant.nombre.toLowerCase()}s que quieras.</div>}
         <button
-          style={{ ...x.btnPrimary, opacity: faltan.length ? 0.45 : 1 }} disabled={faltan.length > 0}
-          onClick={() => { vibrar(14); onAdd(mods, qty, nota.trim()); }}
+          style={{ ...x.btnPrimary, opacity: faltan.length || (grupoCant && totalCant === 0) ? 0.45 : 1 }} disabled={faltan.length > 0 || (!!grupoCant && totalCant === 0)}
+          onClick={() => {
+            vibrar(14);
+            if (grupoCant) Object.entries(cantOpc).forEach(([oid, q]) => onAdd(modsDe(oid), q, nota.trim()));
+            else onAdd(mods, qty, nota.trim());
+          }}
         >
           <Plus size={16} /> Agregar al pedido
         </button>
-      </div>
-    </div>
+      </>
+)}
+</Hoja>
   );
 }
 
@@ -379,7 +420,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
               <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={subirLogo} />
               <button style={x.btnSmall} onClick={() => fileRef.current && fileRef.current.click()}><Upload size={13} /> {marca.logo ? "Cambiar logo" : "Subir logo"}</button>
-              {marca.logo && <button style={{ ...x.btnSmall, color: "#D64545" }} onClick={() => setMarca({ logo: null })}><Trash2 size={13} /> Quitar logo</button>}
+              {marca.logo && <button style={{ ...x.btnSmall, color: "var(--c-c1442d-t)" }} onClick={() => setMarca({ logo: null })}><Trash2 size={13} /> Quitar logo</button>}
             </div>
           </div>
           {errorLogo && <div style={{ fontSize: 12.5, color: K.red, fontWeight: 600 }}>{errorLogo}</div>}
@@ -528,7 +569,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
 
       {lista.map((ins) => {
         const est = estadoStock(ins);
-        const meta = { agotado: { t: "AGOTADO", bg: "var(--c-fbe2dc-b)", c: "var(--c-8a3a2b-t)", bar: "#D64545" }, bajo: { t: "POR AGOTARSE", bg: "var(--c-fbefd9-b)", c: "var(--c-8a611a-t)", bar: "#C58B1B" }, ok: { t: "OK", bg: "var(--c-e4eee1-b)", c: "var(--c-5b7553-t)", bar: "#1F8A62" } }[est];
+        const meta = { agotado: { t: "AGOTADO", bg: "var(--c-fbe2dc-b)", c: "var(--c-8a3a2b-t)", bar: "var(--danger-solid)" }, bajo: { t: "POR AGOTARSE", bg: "var(--c-fbefd9-b)", c: "var(--c-8a611a-t)", bar: "var(--warn-solid)" }, ok: { t: "OK", bg: "var(--c-e4eee1-b)", c: "var(--c-5b7553-t)", bar: "var(--ok-solid)" } }[est];
         const techo = Math.max((Number(ins.minimo) || 0) * 3, Number(ins.stock) || 0, 1);
         const pct = Math.max(0, Math.min(100, ((Number(ins.stock) || 0) / techo) * 100));
         const a = accion && accion.id === ins.id ? accion : null;
@@ -559,7 +600,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
                 <span style={{ fontSize: 13, color: K.red, fontWeight: 600 }}>¿Eliminar este insumo?</span>
                 <div style={x.row}>
                   <button style={x.btnSmall} onClick={() => setConfirmDel(null)}>No</button>
-                  <button style={{ ...x.btnSmall, background: "#D64545", color: "#F4F6F8", border: "none" }} onClick={async () => { await deleteInsumo(ins.id); registrar(`Inventario: eliminó "${ins.nombre}"`); setConfirmDel(null); }}>Sí, eliminar</button>
+                  <button style={{ ...x.btnSmall, background: "var(--danger-solid)", color: "#F4F6F8", border: "none" }} onClick={async () => { await deleteInsumo(ins.id); registrar(`Inventario: eliminó "${ins.nombre}"`); setConfirmDel(null); }}>Sí, eliminar</button>
                 </div>
               </div>
             )}
@@ -607,15 +648,16 @@ export function NuevoPedidoExterno({ tipo, onCancel, onCrear }) {
   const Icono = esDom ? Bike : ShoppingBag;
 
   return (
-    <div className="hoja-overlay" style={x.overlay} onClick={onCancel}>
-      <div style={x.sheet} onClick={(e) => e.stopPropagation()}>
+    <Hoja onCerrar={onCancel} ancho={560} gap={12}>
+{({ cerrar: cerrarHoja }) => (
+<>
         <div style={x.row}>
           <div style={{ ...x.emptyIcon, width: 44, height: 44, color: "var(--accent-t)" }}><Icono size={22} strokeWidth={1.8} /></div>
           <div style={{ flex: 1 }}>
             <div style={x.sheetTitle}>{TIPO_META[tipo].label}</div>
             <div style={x.sheetSub}>{esDom ? "Datos para que el domiciliario llegue" : "Pedido sin mesa — el cliente lo recoge"}</div>
           </div>
-          <button style={x.btnIcon} onClick={onCancel} aria-label="Cerrar"><X size={16} /></button>
+          <button style={x.btnIcon} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
         </div>
         <input style={x.input} autoFocus placeholder={esDom ? "Nombre del cliente" : "Nombre del cliente (opcional)"} value={nombre} onChange={(e) => setNombre(e.target.value)} />
         <input style={x.input} type="tel" inputMode="tel" placeholder={esDom ? "Teléfono" : "Teléfono (opcional)"} value={telefono} onChange={(e) => setTelefono(e.target.value)} />
@@ -632,7 +674,8 @@ export function NuevoPedidoExterno({ tipo, onCancel, onCrear }) {
         >
           <Check size={16} /> Crear y tomar pedido
         </button>
-      </div>
-    </div>
+      </>
+)}
+</Hoja>
   );
 }

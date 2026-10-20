@@ -10,35 +10,56 @@
 
 // variable → [modo claro, modo oscuro]
 const PALETA = {
-  "--c-242019-b": ["#0f1729", "#1a2133"],
-  "--c-242019-o": ["#0f1729", "#3a465c"],
-  "--c-242019-t": ["#0f172a", "#f1f5f9"],
-  "--c-2f6690-t": ["#2563eb", "#7cb0ff"],
-  "--c-3b372e-t": ["#1e293b", "#e2e8f0"],
-  "--c-5b7553-t": ["#0b8a5f", "#34d399"],
-  "--c-5c5648-t": ["#475569", "#b4bdcc"],
-  "--c-8a3a2b-t": ["#b42323", "#fca5a5"],
-  "--c-8a611a-t": ["#92620f", "#f5c451"],
-  "--c-8a8272-t": ["#64748b", "#8b96a9"],
-  "--c-9a9382-t": ["#7a8699", "#78849a"],
-  "--c-b98a2e-t": ["#b7791f", "#fbbf24"],
-  "--c-c1442d-t": ["#dc3545", "#f87171"],
-  "--c-c7bfa0-o": ["#b8c3d4", "#2a3348"],
-  "--c-d9cfae-o": ["#cbd5e3", "#273044"],
-  "--c-e4dfce-b": ["#dde4ef", "#1d2535"],
-  "--c-e4dfce-o": ["#dde4ef", "#1d2535"],
-  "--c-e4eee1-b": ["#d9f4e8", "#0c2a21"],
-  "--c-e8bbaf-o": ["#f5b5b5", "#5b2a30"],
-  "--c-ede7d8-b": ["#dbe3ef", "#161c2a"],
-  "--c-ede7d8-o": ["#e3e9f2", "#1a2132"],
-  "--c-f1ecdd-b": ["#eef2f8", "#121827"],
-  "--c-f1ecdd-o": ["#eef2f8", "#121827"],
-  "--c-f2eee2-b": ["#eef2f8", "#121827"],
-  "--c-f7f4ec-b": ["#e8edf5", "#070b14"],
-  "--c-fbe2dc-b": ["#fde8e8", "#2b1519"],
-  "--c-fbefd9-b": ["#fef3d3", "#2b2410"],
-  "--c-fbf8f0-b": ["#f4f7fb", "#0f141f"],
-  "--c-fffdf8-b": ["#ffffff", "#0f141f"]
+  // Superficies (neutros sin tinte azul)
+  "--c-f7f4ec-b": ["#F5F5F7", "#121316"],   // fondo de página
+  "--c-fffdf8-b": ["#FFFFFF", "#1B1D21"],   // tarjetas
+  "--c-fbf8f0-b": ["#FAFAFB", "#17191C"],
+  "--c-f1ecdd-b": ["#F1F1F4", "#202328"],   // relleno sutil / resaltado al presionar
+  "--c-f1ecdd-o": ["#F1F1F4", "#202328"],
+  "--c-f2eee2-b": ["#F1F1F4", "#202328"],
+  "--c-ede7d8-b": ["#EBEBF0", "#23262B"],   // chips, campos
+  "--c-ede7d8-o": ["#E3E4E8", "#2C3036"],
+  // Líneas
+  "--c-e4dfce-b": ["#E3E4E8", "#2C3036"],
+  "--c-e4dfce-o": ["#E3E4E8", "#2C3036"],
+  "--c-d9cfae-o": ["#D6D8DD", "#34383F"],
+  "--c-c7bfa0-o": ["#C6C9CF", "#3B4047"],
+  // Tinta (relleno de pastillas activas y botones oscuros) y textos
+  "--c-242019-b": ["#1C1C1E", "#2E3138"],
+  "--c-242019-o": ["#1C1C1E", "#2E3138"],
+  "--c-242019-t": ["#1C1C1E", "#ECEDEF"],
+  "--c-3b372e-t": ["#2C2C2E", "#DADCE0"],
+  "--c-5c5648-t": ["#4E5258", "#B8BDC4"],
+  "--c-8a8272-t": ["#6B6F76", "#A0A5AD"],
+  "--c-9a9382-t": ["#82868E", "#7C828B"],
+  // Estados (solo significan algo: pagada, pendiente, error). En oscuro, algo desaturados.
+  "--c-5b7553-t": ["#137A56", "#4FBF95"],
+  "--c-e4eee1-b": ["#E3F4EC", "#16261F"],
+  "--c-8a3a2b-t": ["#B3261E", "#F1A29C"],
+  "--c-c1442d-t": ["#D0342C", "#EF7F78"],
+  "--c-e8bbaf-o": ["#F0C2BF", "#4E2B2A"],
+  "--c-fbe2dc-b": ["#FCEBEA", "#2A1A1A"],
+  "--c-8a611a-t": ["#8A5A0B", "#E5B866"],
+  "--c-b98a2e-t": ["#B07514", "#E0A93E"],
+  "--c-fbefd9-b": ["#FDF3E0", "#2A2214"],
+  "--c-2f6690-t": ["#2A62C9", "#8AB0F0"],
+  // Barras, hojas y sombras
+  "--chrome-solid": ["#F5F5F7", "#121316"],
+  "--chrome-line": ["rgba(0,0,0,.08)", "rgba(255,255,255,.08)"],
+  "--nav-float": ["rgba(255,255,255,.88)", "rgba(34,36,41,.88)"],
+  "--seg-on-bg": ["#1C1C1E", "#ECEDEF"],
+  "--seg-on-fg": ["#F5F5F7", "#121316"],
+  "--seg-thumb": ["#FFFFFF", "#3A3E45"],
+  "--sheet": ["#F5F5F7", "#17191C"],
+  "--danger-solid": ["#D0342C", "#C93A33"],
+  "--ok-solid": ["#1B7F5C", "#2E9473"],
+  "--warn-solid": ["#C58B1B", "#B9831C"],
+  "--info-solid": ["#2E6FD6", "#3F78D1"],
+  "--ok-border": ["rgba(19,122,86,.30)", "rgba(79,191,149,.32)"],
+  "--warn-border": ["rgba(176,117,20,.38)", "rgba(224,169,62,.34)"],
+  "--scrim": ["rgba(20,20,24,.36)", "rgba(0,0,0,.58)"],
+  "--shadow-float": ["0 18px 50px -12px rgba(20,20,30,.30), 0 2px 8px rgba(20,20,30,.08)", "0 18px 50px -10px rgba(0,0,0,.70), 0 0 0 1px rgba(255,255,255,.07)"],
+  "--shadow-nav": ["0 10px 30px -10px rgba(20,20,30,.25), 0 0 0 1px rgba(0,0,0,.05)", "0 10px 30px -8px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.08)"],
 };
 
 export const ACENTOS = {
@@ -91,7 +112,7 @@ export function aplicarTema(modo) {
   const oscuro = modo === "oscuro" || (modo !== "claro" && prefiereOscuro()); // sin guardado, se parte del tema del equipo una sola vez
   document.documentElement.dataset.theme = oscuro ? "dark" : "light";
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", oscuro ? "#1a2133" : "#0f1729");
+  if (meta) meta.setAttribute("content", oscuro ? "#121316" : "#F5F5F7");
 }
 export function guardarTema(modo) {
   try { localStorage.setItem(CLAVE_TEMA, modo); } catch (e) {}
