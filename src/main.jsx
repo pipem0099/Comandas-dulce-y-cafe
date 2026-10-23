@@ -4,6 +4,10 @@ import { aplicarMarca } from "./theme.js";
 import { leerMarcaCache } from "./marcaCache.js";
 import "./index.css";
 import App from "./App.jsx";
+import { LimiteErrores } from "./componentes/LimiteErrores.jsx";
+import { AnfitrionImpresion } from "./impresion.jsx";
+import { AnfitrionAvisos } from "./avisos.jsx";
+import { instalarCapturaDeErrores } from "./errores.js";
 
 // Marca (color y tipografía) de este negocio, desde el primer instante
 const marcaGuardada = leerMarcaCache();
@@ -16,7 +20,8 @@ window.addEventListener("beforeinstallprompt", (e) => {
   window.dispatchEvent(new Event("instalar-disponible"));
 });
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+instalarCapturaDeErrores();
+ReactDOM.createRoot(document.getElementById("root")).render(<LimiteErrores><App /><AnfitrionImpresion /><AnfitrionAvisos /></LimiteErrores>);
 // La pantalla de carga ya cubre todo con el mismo color; recién entonces se suelta el color de arranque.
 requestAnimationFrame(() => requestAnimationFrame(() => { const a = document.getElementById("arranque"); if (a) a.remove(); }));
 

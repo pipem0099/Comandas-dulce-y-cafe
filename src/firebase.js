@@ -3,24 +3,31 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getDatabase, ref, onValue, get, query, orderByChild, startAt, set, update, remove, increment } from "firebase/database";
 
 /*
- * ─────────────────────────────────────────────────────────────────────────
- *  PASO OBLIGATORIO ANTES DE DESPLEGAR
- * ─────────────────────────────────────────────────────────────────────────
- *  1. Ve a https://console.firebase.google.com y crea un proyecto (gratis).
- *  2. En el menú lateral: "Compilación" → "Realtime Database" → "Crear base
- *     de datos". Elige la región más cercana. Cuando pregunte por las reglas
- *     de seguridad, elige "Modo de prueba" para empezar rápido (puedes
- *     endurecerlas después, ver database.rules.json en la raíz del proyecto).
- *  3. En "Configuración del proyecto" (ícono de engranaje) → pestaña
- *     "General" → sección "Tus apps" → clic en el ícono web </> para crear
- *     una app web. Copia el objeto de configuración que te da Firebase y
- *     pégalo reemplazando el objeto de aquí abajo.
- *  4. Guarda este archivo y sube el proyecto a Netlify. Listo — todos los
- *     dispositivos que abran el link verán los mismos datos, en vivo, y
- *     nada se borra al cerrar o refrescar la página.
- * ─────────────────────────────────────────────────────────────────────────
+ * ───────────────────────────────────────────────────────────
+ *  CONFIGURACIÓN DE FIREBASE (una por negocio)
+ * ───────────────────────────────────────────────────────────
+ *  Cada negocio usa SU PROPIO proyecto de Firebase. La configuración se lee de variables de
+ *  entorno (en Netlify: Site configuration → Environment variables; en tu computador: archivo
+ *  .env, ver .env.example). Pasos completos en docs/INSTALACION.md.
+ *
+ *  IMPORTANTE: al crear la base de datos NO elijas "modo de prueba" (deja todo abierto al
+ *  mundo). Elige "modo bloqueado" y publica de inmediato el archivo database.rules.json.
+ *
+ *  Si no hay variables de entorno se usa la configuración de abajo (la de este negocio).
+ *  Al entregar el proyecto a otro negocio, BORRA ese objeto y deja solo las variables.
+ * ───────────────────────────────────────────────────────────
  */
-const firebaseConfig = {
+const env = (typeof import.meta !== "undefined" && import.meta.env) || {};
+const configDeEntorno = env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_DATABASE_URL ? {
+  apiKey: env.VITE_FIREBASE_API_KEY,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: env.VITE_FIREBASE_DATABASE_URL,
+  projectId: env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.VITE_FIREBASE_APP_ID,
+} : null;
+const firebaseConfig = configDeEntorno || {
   apiKey: "AIzaSyBOxKCrmZs_Osa7_TRpcndE9i69hJASYGE",
   authDomain: "dulce-y-cafe-dabf3.firebaseapp.com",
   databaseURL: "https://dulce-y-cafe-dabf3-default-rtdb.firebaseio.com",
@@ -136,6 +143,24 @@ export function subscribeShared(key, defaultValue, callback) {
  * antes de guardar, para que un dato faltante nunca cause que se pierda un
  * pedido o una cuenta completa.
  */
+/* Cambios que ya se pidieron guardar pero el servidor todavía no confirma (sin internet se quedan aquí y se suben solos al volver). */
+let escriturasPendientes = 0;
+const escuchasPendientes = new Set();
+const avisarPendientes = () => escuchasPendientes.forEach((f) => f(escriturasPendientes));
+export function observarPendientes(cb) {
+  escuchasPendientes.add(cb);
+  cb(escriturasPendientes);
+  return () => escuchasPendientes.delete(cb);
+}
+async function rastreado(fn) {
+  escriturasPendientes += 1; avisarPendientes();
+  try { return await fn(); } finally { escriturasPendientes -= 1; avisarPendientes(); }
+}
+
+/** Código del último error al escribir (p. ej. "PERMISSION_DENIED"), para dar un aviso más preciso. */
+let ultimoErrorEscritura = "";
+export const ultimoErrorDeEscritura = () => ultimoErrorEscritura;
+
 function sanitizeForFirebase(value) {
   if (value === undefined) return null;
   return JSON.parse(JSON.stringify(value));
@@ -147,9 +172,10 @@ function sanitizeForFirebase(value) {
  * funciones de "colección" de más abajo, que guardan registro por registro. */
 export async function saveShared(key, value) {
   try {
-    await set(ref(db, key), sanitizeForFirebase(value));
+    await rastreado(() => set(ref(db, key), sanitizeForFirebase(value)));
     return true;
   } catch (e) {
+    ultimoErrorEscritura = (e && e.code) || "";
     console.error(`Error guardando "${key}" en Firebase:`, e);
     return false;
   }
@@ -198,9 +224,10 @@ export function subscribeCollection(path, callback) {
 /** Guarda o actualiza UN solo registro de una colección (un pedido, una cuenta, un turno). */
 export async function saveRecord(path, id, value) {
   try {
-    await set(ref(db, `${path}/${id}`), sanitizeForFirebase(value));
+    await rastreado(() => set(ref(db, `${path}/${id}`), sanitizeForFirebase(value)));
     return true;
   } catch (e) {
+    ultimoErrorEscritura = (e && e.code) || "";
     console.error(`Error guardando registro en "${path}/${id}":`, e);
     return false;
   }
@@ -214,20 +241,27 @@ export async function saveRecords(path, recordsById) {
     Object.entries(recordsById).forEach(([id, value]) => {
       updates[`${path}/${id}`] = sanitizeForFirebase(value);
     });
-    await update(ref(db), updates);
+    await rastreado(() => update(ref(db), updates));
     return true;
   } catch (e) {
+    ultimoErrorEscritura = (e && e.code) || "";
     console.error(`Error guardando varios registros en "${path}":`, e);
     return false;
   }
 }
 
 /** Borra un solo registro de una colección. */
+/** Borra una colección completa (solo administradores; p. ej. limpiar el registro de errores). */
+export async function borrarColeccion(path) {
+  try { await rastreado(() => remove(ref(db, path))); return true; } catch (e) { ultimoErrorEscritura = (e && e.code) || ""; return false; }
+}
+
 export async function deleteRecord(path, id) {
   try {
-    await remove(ref(db, `${path}/${id}`));
+    await rastreado(() => remove(ref(db, `${path}/${id}`)));
     return true;
   } catch (e) {
+    ultimoErrorEscritura = (e && e.code) || "";
     console.error(`Error borrando registro en "${path}/${id}":`, e);
     return false;
   }
@@ -239,7 +273,7 @@ export async function saveCollectionArray(path, arrayOfRecords) {
   try {
     const map = {};
     (arrayOfRecords || []).forEach((rec, i) => { if (rec) map[rec.id || String(i)] = sanitizeForFirebase(rec); });
-    await set(ref(db, path), map);
+    await rastreado(() => set(ref(db, path), map));
     return true;
   } catch (e) {
     console.error(`Error restaurando colección "${path}":`, e);
@@ -327,7 +361,7 @@ export async function getRecord(path) {
  */
 export async function ajustarStock(id, delta) {
   try {
-    await update(ref(db), { [`inventario/${id}/stock`]: increment(delta) });
+    await rastreado(() => update(ref(db), { [`inventario/${id}/stock`]: increment(delta) }));
     return true;
   } catch (e) {
     console.error(`Error ajustando stock de "${id}":`, e);
@@ -338,9 +372,10 @@ export async function ajustarStock(id, delta) {
 /** Cambia solo algunos campos de un registro (sin pisar el resto, ej. el stock). */
 export async function updateRecord(path, id, partial) {
   try {
-    await update(ref(db, `${path}/${id}`), sanitizeForFirebase(partial));
+    await rastreado(() => update(ref(db, `${path}/${id}`), sanitizeForFirebase(partial)));
     return true;
   } catch (e) {
+    ultimoErrorEscritura = (e && e.code) || "";
     console.error(`Error actualizando "${path}/${id}":`, e);
     return false;
   }
@@ -349,9 +384,10 @@ export async function updateRecord(path, id, partial) {
 /** Cambia solo algunos campos de una carpeta (sin pisar el resto). */
 export async function updateShared(path, partial) {
   try {
-    await update(ref(db, path), sanitizeForFirebase(partial));
+    await rastreado(() => update(ref(db, path), sanitizeForFirebase(partial)));
     return true;
   } catch (e) {
+    ultimoErrorEscritura = (e && e.code) || "";
     console.error(`Error actualizando "${path}":`, e);
     return false;
   }

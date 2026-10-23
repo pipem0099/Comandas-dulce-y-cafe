@@ -33,6 +33,10 @@ export function rolesLabel(usuario) {
 export function mesaMatch(a, b) {
   return String(a) === String(b);
 }
+/** ¿Esta cuenta cubre esa mesa? (su mesa principal o una mesa que se le juntó). */
+export function cuentaCubre(c, mesaId) {
+  return !!c && (mesaMatch(c.mesa, mesaId) || (c.mesasExtra || []).some((m) => mesaMatch(m, mesaId)));
+}
 // Pedidos para llevar / domicilio: no tienen mesa, su "nombre" sale de la cuenta.
 // App lo llena en cada render con las cuentas conocidas.
 export const NOMBRES_EXTERNOS = {};
@@ -310,7 +314,7 @@ export function agruparPorMes(lista, getTs) {
 export const esPorLiberar = (c) => !!c && c.estado === "pagada" && c.liberada === false;
 /** La cuenta que hoy "ocupa" la mesa: la abierta, o la ya pagada que está por liberar. */
 export function cuentaDeMesa(cuentas, mesaId) {
-  const lista = (cuentas || []).filter((c) => mesaMatch(c.mesa, mesaId));
+  const lista = (cuentas || []).filter((c) => cuentaCubre(c, mesaId));
   return lista.find((c) => c.estado === "abierta") || lista.find(esPorLiberar);
 }
 

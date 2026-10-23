@@ -11,7 +11,7 @@ import {
  * (marca y estaciones), inventario y formulario de para llevar / domicilio.
  * Usan las mismas variables de color que el resto de la app (claro/oscuro). */
 
-const K = {
+export const K = {
   bg: "var(--c-f7f4ec-b)", surface: "var(--c-fffdf8-b)", soft: "var(--c-ede7d8-b)", border: "var(--c-e4dfce-o)",
   ink: "var(--c-242019-t)", inkBg: "var(--c-242019-b)", inkBorder: "var(--c-242019-o)",
   muted: "var(--c-8a8272-t)", sub: "var(--c-5c5648-t)", faint: "#9BA4B0", cream: "#F4F6F8",
@@ -19,18 +19,18 @@ const K = {
   warnBg: "var(--c-fbefd9-b)", warnTx: "var(--c-8a611a-t)", dangerBg: "var(--c-fbe2dc-b)", okBg: "var(--c-e4eee1-b)",
 };
 
-const x = {
+export const x = {
   sheetTitle: { fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: K.ink, lineHeight: 1.15 },
   sheetSub: { fontSize: 12.5, color: K.muted },
   eyebrow: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1.3, color: K.faint, fontWeight: 700, textTransform: "uppercase" },
   card: { background: K.surface, border: `1px solid ${K.border}`, borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 10 },
-  input: { width: "100%", padding: "11px 12px", borderRadius: 9, border: `1px solid ${K.border}`, fontSize: 14, fontFamily: "var(--font-body)", color: K.ink, background: K.surface, boxSizing: "border-box" },
-  btnPrimary: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px 14px", background: "var(--neon)", color: "var(--neon-text)", boxShadow: "var(--neon-glow)", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", width: "100%" },
-  btnDark: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 14px", background: K.inkBg, color: K.cream, border: "none", borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: "pointer", width: "100%" },
-  btnGhost: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 14px", background: "transparent", color: K.sub, border: `1px solid ${K.border}`, borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
-  btnSmall: { display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 11px", background: K.surface, color: K.ink, border: `1px solid ${K.border}`, borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
-  btnIcon: { width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.surface, color: K.sub, border: `1px solid ${K.border}`, borderRadius: 8, cursor: "pointer", flexShrink: 0 },
-  btnDanger: { width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.surface, color: "var(--c-c1442d-t)", border: `1px solid ${K.border}`, borderRadius: 8, cursor: "pointer", flexShrink: 0 },
+  input: { width: "100%", padding: "12px 14px", minHeight: 44, borderRadius: 12, border: `1px solid ${K.border}`, fontSize: 14, fontFamily: "var(--font-body)", color: K.ink, background: K.surface, boxSizing: "border-box" },
+  btnPrimary: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 14px", minHeight: 44, background: "var(--neon)", color: "var(--neon-text)", boxShadow: "var(--neon-glow)", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", width: "100%" },
+  btnDark: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 14px", minHeight: 44, background: K.inkBg, color: K.cream, border: "none", borderRadius: 12, fontSize: 13.5, fontWeight: 600, cursor: "pointer", width: "100%" },
+  btnGhost: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 14px", minHeight: 44, background: K.soft, color: K.sub, border: "none", borderRadius: 12, fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
+  btnSmall: { display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 13px", minHeight: 36, background: K.soft, color: K.ink, border: "none", borderRadius: 10, fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
+  btnIcon: { width: 36, height: 36, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.soft, color: K.sub, border: "none", borderRadius: 10, cursor: "pointer", flexShrink: 0 },
+  btnDanger: { width: 36, height: 36, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.soft, color: "var(--c-c1442d-t)", border: "none", borderRadius: 10, cursor: "pointer", flexShrink: 0 },
   row: { display: "flex", alignItems: "center", gap: 8 },
   stepper: { display: "flex", alignItems: "center", gap: 10 },
   stepBtn: { width: 34, height: 34, borderRadius: 9, border: `1px solid ${K.border}`, background: K.surface, color: K.ink, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
@@ -47,10 +47,10 @@ const x = {
   segmented: { display: "inline-flex", background: K.soft, borderRadius: 9, padding: 3, gap: 2 },
   segBtn: { padding: "6px 11px", border: "none", borderRadius: 7, background: "transparent", color: K.sub, fontSize: 12, fontWeight: 600, cursor: "pointer" },
   segBtnOn: { background: K.inkBg, color: K.cream },
-  chip: { display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 11px", borderRadius: 16, border: `1px dashed ${K.faint}`, background: "transparent", color: K.sub, fontSize: 12, fontWeight: 600, cursor: "pointer" },
+  chip: { display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 13px", minHeight: 36, borderRadius: 999, border: `1px dashed ${K.faint}`, background: "transparent", color: K.sub, fontSize: 12, fontWeight: 600, cursor: "pointer" },
   label: { fontSize: 12, fontWeight: 600, color: K.sub },
   hint: { fontSize: 12, color: K.muted, lineHeight: 1.45 },
-  select: { padding: "10px 10px", borderRadius: 9, border: `1px solid ${K.border}`, fontSize: 13.5, fontFamily: "var(--font-body)", color: K.ink, background: K.surface },
+  select: { padding: "10px 12px", minHeight: 44, borderRadius: 12, border: `1px solid ${K.border}`, fontSize: 13.5, fontFamily: "var(--font-body)", color: K.ink, background: K.surface },
   // inventario
   invCard: { background: K.surface, border: `1px solid ${K.border}`, borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 10 },
   invStock: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: K.ink },
@@ -76,26 +76,35 @@ export function EmptyState({ icon: Icon, titulo, texto, children }) {
 }
 
 // Monto en pesos con separador de miles (igual que CampoMonto de la app)
-function CampoPesos({ value, onChange, placeholder, style }) {
+export function CampoPesos({ value, onChange, placeholder, style }) {
+  const [escribiendo, setEscribiendo] = useState(false);
   const digitos = (value === undefined || value === null ? "" : String(value)).replace(/\D/g, "");
+  const esCero = !digitos || Number(digitos) === 0;
   return (
     <input
-      style={style || x.input} type="text" inputMode="numeric" placeholder={placeholder}
-      value={digitos ? Number(digitos).toLocaleString("es-CO") : ""}
-      onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+      style={style || x.input} type="text" inputMode="numeric" placeholder={placeholder ?? "0"}
+      value={esCero && !escribiendo ? "" : Number(digitos).toLocaleString("es-CO")}
+      onBlur={() => setEscribiendo(false)}
+      onChange={(e) => { setEscribiendo(true); onChange(e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "")); }}
     />
   );
 }
 // Número con decimales (cantidades de insumos: 0,25 kg · 1,5 L)
-function CampoNumero({ value, onChange, placeholder, style }) {
+export function CampoNumero({ value, onChange, placeholder, style }) {
+  const [escribiendo, setEscribiendo] = useState(false);
+  const texto = value === undefined || value === null ? "" : String(value).replace(".", ",");
+  const esCero = texto === "" || texto === "0";
   return (
     <input
-      style={style || x.input} type="text" inputMode="decimal" placeholder={placeholder}
-      value={value === undefined || value === null ? "" : String(value).replace(".", ",")}
+      style={style || x.input} type="text" inputMode="decimal" placeholder={placeholder ?? "0"}
+      value={esCero && !escribiendo ? "" : texto}
+      onBlur={() => setEscribiendo(false)}
       onChange={(e) => {
+        setEscribiendo(true);
         let v = e.target.value.replace(/[^\d.,]/g, "").replace(",", ".");
         const partes = v.split(".");
         if (partes.length > 2) v = partes[0] + "." + partes.slice(1).join("");
+        if (/^0\d/.test(v)) v = v.replace(/^0+(?=\d)/, "");
         onChange(v);
       }}
     />
@@ -367,6 +376,15 @@ export function AjustesPanel({ config, persistConfig, menu, onClose }) {
   const estaciones = getEstaciones(config);
   const categorias = [...new Set(menu.map((m) => m.cat))];
   const [nuevaEst, setNuevaEst] = useState("");
+  const [nombreNegocio, setNombreNegocio] = useState(config.businessName || "");
+  const [nombreGuardado, setNombreGuardado] = useState(false);
+  const guardarNombre = async () => {
+    const n = nombreNegocio.trim();
+    if (!n) return;
+    await persistConfig({ ...config, businessName: n });
+    setNombreGuardado(true);
+    setTimeout(() => setNombreGuardado(false), 1800);
+  };
   const [errorLogo, setErrorLogo] = useState("");
   const fileRef = useRef(null);
 
@@ -410,6 +428,16 @@ export function AjustesPanel({ config, persistConfig, menu, onClose }) {
       <CabeceraAdmin titulo="Ajustes del negocio" onClose={onClose} />
 
       <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Nombre del negocio */}
+        <div style={x.card}>
+          <div style={x.eyebrow}>Nombre del negocio</div>
+          <input style={x.input} placeholder="Ej: Dulce & Café" value={nombreNegocio} onChange={(e) => setNombreNegocio(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") guardarNombre(); }} />
+          <div style={x.hint}>Aparece en la barra superior, en el ingreso, en los respaldos y en las listas que compartes.</div>
+          <button style={{ ...x.btnDark, opacity: nombreNegocio.trim() && nombreNegocio.trim() !== (config.businessName || "") ? 1 : 0.5 }} disabled={!nombreNegocio.trim() || nombreNegocio.trim() === (config.businessName || "")} onClick={guardarNombre}>
+            {nombreGuardado ? <><Check size={15} /> Guardado</> : "Guardar nombre"}
+          </button>
+        </div>
+
         {/* Marca */}
         <div style={x.card}>
           <div style={x.eyebrow}>Marca</div>
@@ -492,148 +520,6 @@ export function AjustesPanel({ config, persistConfig, menu, onClose }) {
 }
 
 /* ───────── 4. Inventario ───────── */
-
-export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo, ajustarInventario, config, persistConfig, usuarioActual }) {
-  const vacio = { nombre: "", unidad: "unidades", stock: "", minimo: "", costo: "" };
-  const [form, setForm] = useState(vacio);
-  const [abierto, setAbierto] = useState(false);
-  const [accion, setAccion] = useState(null); // { id, tipo: 'entrada' | 'conteo' | 'editar', valor, ... }
-  const [confirmDel, setConfirmDel] = useState(null);
-
-  const registrar = (txt) => persistConfig({ ...config, auditLog: [{ ts: Date.now(), accion: txt, actor: usuarioActual.nombre }, ...(config.auditLog || [])].slice(0, 500) });
-
-  const orden = { agotado: 0, bajo: 1, ok: 2 };
-  const lista = insumos.slice().sort((a, b) => orden[estadoStock(a)] - orden[estadoStock(b)] || a.nombre.localeCompare(b.nombre));
-  const nAlertas = insumos.filter((i) => estadoStock(i) !== "ok").length;
-
-  const crear = async () => {
-    if (!form.nombre.trim()) return;
-    await saveInsumo({ id: uid(), nombre: form.nombre.trim(), unidad: form.unidad, stock: num(form.stock), minimo: num(form.minimo), costo: num(form.costo) });
-    registrar(`Inventario: creó "${form.nombre.trim()}" con ${fmtNum(num(form.stock))} ${form.unidad}`);
-    setForm(vacio); setAbierto(false);
-  };
-  const confirmarAccion = async (ins) => {
-    if (accion.tipo === "entrada") {
-      const c = num(accion.valor);
-      if (c <= 0) return;
-      await ajustarInventario({ [ins.id]: c });
-      registrar(`Inventario: entrada de ${fmtNum(c)} ${ins.unidad} de "${ins.nombre}"`);
-    } else if (accion.tipo === "conteo") {
-      if (accion.valor === "" || accion.valor === undefined) return;
-      const nuevo = num(accion.valor);
-      const dif = nuevo - (Number(ins.stock) || 0);
-      if (dif !== 0) await ajustarInventario({ [ins.id]: dif });
-      registrar(`Inventario: conteo de "${ins.nombre}" → ${fmtNum(nuevo)} ${ins.unidad} (antes ${fmtNum(ins.stock)})`);
-    } else if (accion.tipo === "editar") {
-      if (!accion.nombre.trim()) return;
-      await updateInsumo(ins.id, { nombre: accion.nombre.trim(), unidad: accion.unidad, minimo: num(accion.minimo), costo: num(accion.costo) });
-    }
-    setAccion(null); vibrar(14);
-  };
-
-  return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "8px 16px 28px", display: "flex", flexDirection: "column", gap: 12, color: K.ink }}>
-      {nAlertas > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, background: K.warnBg, color: K.warnTx, fontSize: 13, fontWeight: 600 }}>
-          <AlertTriangle size={15} /> {nAlertas} {nAlertas === 1 ? "insumo está" : "insumos están"} agotados o por agotarse
-        </div>
-      )}
-
-      {!abierto ? (
-        <button style={x.btnDark} onClick={() => setAbierto(true)}><Plus size={15} /> Nuevo insumo</button>
-      ) : (
-        <div style={x.card} className="anim-in">
-          <div style={x.eyebrow}>Nuevo insumo</div>
-          <input style={x.input} autoFocus placeholder="Nombre (ej: Harina, Leche, Pan de hamburguesa)" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-          <div style={x.row}>
-            <select style={{ ...x.select, flex: 1 }} value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })}>
-              {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-            <CampoNumero style={{ ...x.input, flex: 1 }} placeholder="Stock actual" value={form.stock} onChange={(v) => setForm({ ...form, stock: v })} />
-          </div>
-          <div style={x.row}>
-            <CampoNumero style={{ ...x.input, flex: 1 }} placeholder="Avisar cuando baje de…" value={form.minimo} onChange={(v) => setForm({ ...form, minimo: v })} />
-            <CampoPesos style={{ ...x.input, flex: 1 }} placeholder="Costo por unidad $" value={form.costo} onChange={(v) => setForm({ ...form, costo: v })} />
-          </div>
-          <div style={x.hint}>El costo por unidad (por kg, por litro, por unidad…) sirve para calcular solo el costo de cada producto según su receta.</div>
-          <div style={x.row}>
-            <button style={{ ...x.btnGhost, flex: 1 }} onClick={() => { setAbierto(false); setForm(vacio); }}>Cancelar</button>
-            <button style={{ ...x.btnDark, flex: 2 }} onClick={crear}><Check size={15} /> Guardar insumo</button>
-          </div>
-        </div>
-      )}
-
-      {lista.length === 0 && !abierto && (
-        <EmptyState icon={Boxes} titulo="Aún no hay insumos" texto="Crea tus insumos (harina, leche, pan, café…), luego en Menú → Configurar defines la receta de cada producto y el stock baja solo con cada pedido." />
-      )}
-
-      {lista.map((ins) => {
-        const est = estadoStock(ins);
-        const meta = { agotado: { t: "AGOTADO", bg: "var(--c-fbe2dc-b)", c: "var(--c-8a3a2b-t)", bar: "var(--danger-solid)" }, bajo: { t: "POR AGOTARSE", bg: "var(--c-fbefd9-b)", c: "var(--c-8a611a-t)", bar: "var(--warn-solid)" }, ok: { t: "OK", bg: "var(--c-e4eee1-b)", c: "var(--c-5b7553-t)", bar: "var(--ok-solid)" } }[est];
-        const techo = Math.max((Number(ins.minimo) || 0) * 3, Number(ins.stock) || 0, 1);
-        const pct = Math.max(0, Math.min(100, ((Number(ins.stock) || 0) / techo) * 100));
-        const a = accion && accion.id === ins.id ? accion : null;
-        return (
-          <div key={ins.id} style={x.invCard} className="anim-in">
-            <div style={{ ...x.row, justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>{ins.nombre}</div>
-                <div style={x.hint}>Mínimo {fmtNum(ins.minimo)} {ins.unidad}{ins.costo ? ` · ${money(ins.costo)} c/u` : ""}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={x.invStock}>{fmtNum(ins.stock)} <span style={{ fontSize: 13, fontWeight: 600, color: K.muted, fontFamily: "var(--font-body)" }}>{ins.unidad}</span></div>
-                <span style={{ ...x.pill, background: meta.bg, color: meta.c }}>{meta.t}</span>
-              </div>
-            </div>
-            <div style={x.bar}><div style={{ width: `${pct}%`, height: "100%", background: meta.bar, transition: "width .4s ease" }} /></div>
-
-            {!a && confirmDel !== ins.id && (
-              <div style={{ ...x.row, flexWrap: "wrap" }}>
-                <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "entrada", valor: "" })}><Plus size={13} /> Entrada</button>
-                <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "conteo", valor: "" })}><Check size={13} /> Contar</button>
-                <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "editar", nombre: ins.nombre, unidad: ins.unidad, minimo: String(ins.minimo || ""), costo: String(ins.costo || "") })}><Pencil size={13} /> Editar</button>
-                <button style={{ ...x.btnDanger, marginLeft: "auto" }} onClick={() => setConfirmDel(ins.id)} aria-label="Eliminar"><Trash2 size={14} /></button>
-              </div>
-            )}
-            {confirmDel === ins.id && (
-              <div style={{ ...x.row, justifyContent: "space-between" }}>
-                <span style={{ fontSize: 13, color: K.red, fontWeight: 600 }}>¿Eliminar este insumo?</span>
-                <div style={x.row}>
-                  <button style={x.btnSmall} onClick={() => setConfirmDel(null)}>No</button>
-                  <button style={{ ...x.btnSmall, background: "var(--danger-solid)", color: "#F4F6F8", border: "none" }} onClick={async () => { await deleteInsumo(ins.id); registrar(`Inventario: eliminó "${ins.nombre}"`); setConfirmDel(null); }}>Sí, eliminar</button>
-                </div>
-              </div>
-            )}
-            {a && (a.tipo === "entrada" || a.tipo === "conteo") && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={x.hint}>{a.tipo === "entrada" ? `¿Cuánto llegó? (se suma al stock, en ${ins.unidad})` : `¿Cuánto hay realmente ahora? (reemplaza el stock, en ${ins.unidad})`}</div>
-                <div style={x.row}>
-                  <CampoNumero style={{ ...x.input, flex: 1 }} placeholder={a.tipo === "entrada" ? "Cantidad que llegó" : "Cantidad contada"} value={a.valor} onChange={(v) => setAccion({ ...a, valor: v })} />
-                  <button style={x.btnGhost} onClick={() => setAccion(null)}>Cancelar</button>
-                  <button style={{ ...x.btnDark, width: "auto" }} onClick={() => confirmarAccion(ins)}><Check size={14} /> Listo</button>
-                </div>
-              </div>
-            )}
-            {a && a.tipo === "editar" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <input style={x.input} value={a.nombre} onChange={(e) => setAccion({ ...a, nombre: e.target.value })} />
-                <div style={x.row}>
-                  <select style={{ ...x.select, flex: 1 }} value={a.unidad} onChange={(e) => setAccion({ ...a, unidad: e.target.value })}>{UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}</select>
-                  <CampoNumero style={{ ...x.input, flex: 1 }} placeholder="Mínimo" value={a.minimo} onChange={(v) => setAccion({ ...a, minimo: v })} />
-                  <CampoPesos style={{ ...x.input, flex: 1 }} placeholder="Costo c/u" value={a.costo} onChange={(v) => setAccion({ ...a, costo: v })} />
-                </div>
-                <div style={x.row}>
-                  <button style={{ ...x.btnGhost, flex: 1 }} onClick={() => setAccion(null)}>Cancelar</button>
-                  <button style={{ ...x.btnDark, flex: 2 }} onClick={() => confirmarAccion(ins)}><Check size={14} /> Guardar</button>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /* ───────── 5. Nuevo pedido para llevar / domicilio ───────── */
 

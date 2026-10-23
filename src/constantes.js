@@ -108,4 +108,4 @@ export const ROLES_ORDEN = ["mesero", "cajero", "cocina", "admin"];
 export const DEFAULT_CONFIG = { businessName: "Dulce & Café", usuarios: [], auditLog: [], marca: MARCA_POR_DEFECTO };
 
 // Versión visible en el menú de usuario
-export const VERSION = "2.0";
+export const VERSION = "2.7";

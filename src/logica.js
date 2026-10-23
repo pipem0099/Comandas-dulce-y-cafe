@@ -69,7 +69,7 @@ export function estacionDeLinea(it, config) {
  * Al enviar un pedido se descuenta; el pedido guarda `consumo` (lo que
  * descontó) para poder devolverlo exacto si se cancela o se edita.
  */
-export const UNIDADES = ["unidades", "g", "kg", "ml", "L", "porciones"];
+export const UNIDADES = ["unidades", "g", "kg", "lb", "ml", "L", "porciones", "paquetes", "cajas", "bolsas", "botellas", "latas", "docenas", "rollos", "frascos"];
 
 export function consumoDeItems(items, menu) {
   const map = {};

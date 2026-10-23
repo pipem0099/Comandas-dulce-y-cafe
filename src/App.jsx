@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { calcularAlertas } from "./alertas.js";
+import { contextoErrores } from "./errores.js";
+import { avisar } from "./avisos.jsx";
 import {
   AlertTriangle,
 } from "lucide-react";
 import { aplicarMarca } from "./theme.js";
 import { esExterna, etiquetaExterna } from "./logica.js";
-import { subscribeShared, saveShared, subscribeCollection, subscribeCollectionSince, getCollectionAll, getCollectionRange, getRecord, saveRecord, saveRecords, deleteRecord, updateRecord, ajustarStock, observarSesion, cerrarSesion, updateShared } from "./firebase.js";
+import { subscribeShared, saveShared, subscribeCollection, subscribeCollectionSince, getCollectionAll, getCollectionRange, getRecord, saveRecord, saveRecords, deleteRecord, updateRecord, ajustarStock, observarSesion, cerrarSesion, updateShared, ultimoErrorDeEscritura, observarPendientes, borrarColeccion } from "./firebase.js";
 import { TopBar, BarraInferior, Lateral, itemsNavegacion } from "./componentes/BarraSuperior.jsx";
 import { useDispositivo } from "./useAncho.js";
 import { instalarEnterSiguiente } from "./enterSiguiente.js";
@@ -56,7 +59,20 @@ export default function App() {
   // se muestra un aviso visible para que quien esté usando la app se entere
   // en el momento, en vez de descubrirlo días después con datos faltantes.
   const [errorGuardado, setErrorGuardado] = useState(null);
-  const avisarErrorGuardado = useCallback((msg) => setErrorGuardado(msg), []);
+  // Cambios esperando subirse: si pasan unos segundos sin confirmarse (sin internet o conexión lenta) se avisa cuántos son.
+  const [pendientes, setPendientes] = useState(0);
+  const [pendientesLentos, setPendientesLentos] = useState(false);
+  useEffect(() => observarPendientes(setPendientes), []);
+  useEffect(() => {
+    if (pendientes === 0) { setPendientesLentos(false); return undefined; }
+    const t = setTimeout(() => setPendientesLentos(true), 5000);
+    return () => clearTimeout(t);
+  }, [pendientes > 0]);
+  const avisarErrorGuardado = useCallback((msg) => {
+    // Si Firebase rechazó el permiso (reglas sin publicar / rol sin acceso), decirlo claro en vez de culpar al internet.
+    const sinPermiso = String(ultimoErrorDeEscritura() || "").toUpperCase().includes("PERMISSION");
+    setErrorGuardado(sinPermiso ? "No se pudo guardar — esta cuenta no tiene permiso para escribir ahí. Pide al administrador publicar las reglas más recientes de la base de datos (database.rules.json)." : msg);
+  }, []);
   // (el login de caja usa el mismo usuarioActual de arriba — ya no hay un estado separado)
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
 
@@ -309,6 +325,35 @@ export default function App() {
 
   const turnoAbierto = turnos.find((t) => t.estado === "abierto") || null;
 
+  // Errores que la propia app registró (solo el administrador los lee): últimos 7 días
+  const [errores, setErrores] = useState([]);
+  useEffect(() => {
+    if (!accesoOk || !usuarioActual || !tieneRol(usuarioActual, "admin")) { setErrores([]); return undefined; }
+    return subscribeCollectionSince("errores", "ts", Date.now() - 7 * 24 * 3600 * 1000, setErrores);
+  }, [accesoOk, usuarioActual]);
+  const limpiarErrores = useCallback(async () => { await borrarColeccion("errores"); setErrores([]); }, []);
+  // Con quién y en qué pantalla estaba la persona cuando algo falle (para que el registro sirva)
+  useEffect(() => {
+    contextoErrores({ uid: usuarioActual ? usuarioActual.uid : "", rol: usuarioActual ? Object.keys(usuarioActual.roles || {}).filter((r) => usuarioActual.roles[r]).join(",") : "", vista: vista || role });
+  }, [usuarioActual, role, vista]);
+
+  // Alertas del administrador (se recalculan cada minuto y cuando cambian los datos)
+  const esAdminActual = !!usuarioActual && tieneRol(usuarioActual, "admin");
+  const minutoActual = Math.floor(Date.now() / 60000);
+  const alertas = useMemo(
+    () => (esAdminActual ? calcularAlertas({ turnoAbierto, cuentas, menu, insumos, errores }) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [esAdminActual, turnoAbierto, cuentas, menu, insumos, errores, minutoActual]
+  );
+  // Una alerta urgente NUEVA se anuncia con un aviso (la primera carga no, para no recibir una avalancha al entrar)
+  const alertasVistas = useRef(null);
+  useEffect(() => {
+    if (!esAdminActual) return;
+    const ids = new Set(alertas.map((a) => a.id));
+    if (alertasVistas.current) alertas.filter((a) => a.nivel === "alta" && !alertasVistas.current.has(a.id)).forEach((a) => avisar({ texto: a.titulo, detalle: "mira la campana de alertas", tipo: "error", duracion: 7000 }));
+    alertasVistas.current = ids;
+  }, [alertas, esAdminActual]);
+
   // Color, tipografía y logo del negocio (Ajustes → Marca): se aplican en todos los dispositivos.
   useEffect(() => { aplicarMarca(config.marca); }, [config.marca]);
   // Se recuerda en este dispositivo para que la carga y el ingreso salgan ya con la marca.
@@ -358,15 +403,25 @@ export default function App() {
   const movil = dispositivo === "movil";
   const ocultarNav = kioskoCocina && role === "cocina"; // pantalla completa de cocina: solo se ve la cocina
   const items = itemsNavegacion(usuarioActual);
+  // Cada pantalla solo se dibuja si la persona tiene el rol que la autoriza (no basta con "estar" en ella)
+  const puede = (id) => items.some((i) => i.id === id);
   const cambiarRol = (r) => { setVista(null); setRole(r); };
+  // Las alertas llevan a una pantalla principal (caja, mesero…) o a una de administración (respaldos…)
+  const irDesdeAlerta = (v) => { if (["menu", "mesas", "equipo", "respaldos", "ajustes"].includes(v)) setVista(v); else cambiarRol(v); };
 
   return (
     <div style={styles.app}>
-      {movil && !ocultarNav && <TopBar config={config} usuarioActual={usuarioActual} online={online} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
+      {movil && !ocultarNav && <TopBar config={config} usuarioActual={usuarioActual} online={online} alertas={alertas} onIrAlerta={irDesdeAlerta} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: movil ? "column" : "row" }}>
-        {!movil && !ocultarNav && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online} ancho={dispositivo === "escritorio"} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
+        {!movil && !ocultarNav && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online} alertas={alertas} onIrAlerta={irDesdeAlerta} ancho={dispositivo === "escritorio"} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <AvisoRelevo turno={turnoAbierto} usuarioActual={usuarioActual} />
+      {pendientes > 0 && pendientesLentos && !errorGuardado && (
+        <div style={styles.pendientesBanner} role="status">
+          <span style={styles.pendientesPunto} />
+          <span style={{ flex: 1 }}>Sin conexión estable · <b>{pendientes}</b> {pendientes === 1 ? "cambio espera" : "cambios esperan"} subirse. Se guardan solos al volver el internet; no cierres la app.</span>
+        </div>
+      )}
       {errorGuardado && (
         <div style={styles.errorGuardadoBanner}>
           <AlertTriangle size={14} />
@@ -387,12 +442,18 @@ export default function App() {
                 onClose={() => setVista(null)} menu={menu} orders={orders} cuentas={cuentas} config={config} turnos={turnos} mesas={mesas}
                 persistConfig={persistConfig} usuarioActual={usuarioActual} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial}
                 historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto}
+                errores={errores} limpiarErrores={limpiarErrores}
               />
             </div>
           )}
         </>
       )}
-      {!vista && role === "mesero" && (
+      {!vista && items.length === 0 && (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 28, textAlign: "center", color: "var(--c-5c5648-t)", fontSize: 14.5, lineHeight: 1.5 }}>
+          Tu cuenta todavía no tiene ningún rol asignado. Pídele al administrador que te asigne uno (mesero, cajero o cocina) en Ajustes → Equipo y usuarios.
+        </div>
+      )}
+      {!vista && role === "mesero" && puede("mesero") && (
         !tieneRol(usuarioActual, "mesero") && !tieneRol(usuarioActual, "admin") ? (
           <AccesoDenegado mensaje="Tu usuario no tiene el rol de Mesero — esto es Mesero." accion="Ir a Caja" onAccion={() => setRole("caja")} onCambiarUsuario={cerrarSesionYRecargar} />
         ) : (
@@ -405,9 +466,9 @@ export default function App() {
           />
         )
       )}
-      {!vista && role === "reservas" && <ReservasView reservas={reservas} saveReserva={saveReserva} deleteReserva={deleteReserva} mesas={mesas} usuarioActual={usuarioActual} />}
-      {!vista && role === "cocina" && <CocinaView orders={orders} saveOrder={saveOrder} mesas={mesas} config={config} onKiosko={setKioskoCocina} />}
-      {!vista && role === "caja" && (
+      {!vista && role === "reservas" && puede("reservas") && <ReservasView reservas={reservas} saveReserva={saveReserva} deleteReserva={deleteReserva} mesas={mesas} usuarioActual={usuarioActual} />}
+      {!vista && role === "cocina" && puede("cocina") && <CocinaView orders={orders} saveOrder={saveOrder} mesas={mesas} config={config} onKiosko={setKioskoCocina} />}
+      {!vista && role === "caja" && puede("caja") && (
         !tieneRol(usuarioActual, "cajero") && !tieneRol(usuarioActual, "admin") ? (
           <AccesoDenegado mensaje="Tu usuario no tiene el rol de Cajero — esto es Caja." accion="Ir a Mesero" onAccion={() => setRole("mesero")} onCambiarUsuario={cerrarSesionYRecargar} />
         ) : (
