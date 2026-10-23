@@ -5,7 +5,10 @@ import { money } from "../logica.js";
 import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { exportarExcel } from "../exportar.js";
-import { buildHistory, dateTimeLabel, dayLabel, mesaNombre, monthLabel, tieneRol, timeLabel } from "../utilidades.js";
+import { imprimir } from "../impresion.jsx";
+import { Chevron } from "../componentes/Comunes.jsx";
+import { HojaDia } from "../hojas.jsx";
+import { buildHistory, dateTimeLabel, dayKey, dayLabel, mesaNombre, monthLabel, tieneRol, timeLabel } from "../utilidades.js";
 
 /* ---------------- Historial ---------------- */
 
@@ -55,7 +58,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
           {canceladas.length} {canceladas.length === 1 ? "cuenta cancelada" : "cuentas canceladas"} sin cobrar
           {!verTodasCanceladas ? ` (últimos ${CANCELADAS_RECIENTES_DIAS} días)` : ""} — {money(canceladas.reduce((s, c) => s + (c.montoCancelado || 0), 0))} en total
         </span>
-        <span>{verCanceladas ? "▲" : "▼"}</span>
+        <Chevron abierto={verCanceladas} size={15} style={{ marginLeft: "auto" }} />
       </button>
       {verCanceladas && (
         <div style={{ marginTop: 6 }}>
@@ -182,7 +185,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
           <div style={styles.pageEyebrow}>{dayLabel(d.ts)}</div>
           <div style={{ ...styles.cajaTotalValue, color: "var(--c-242019-t)" }}>{money(d.total)}</div>
         </div>
-        <button className="no-imprimir" style={styles.exportLink} onClick={() => window.print()}><Printer size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Imprimir</button>
+        {esAdmin && <button className="no-imprimir" style={styles.exportLink} onClick={() => imprimir(<HojaDia d={d} orders={orders} mesas={mesas} canceladas={todasCanceladas.filter((c) => dayKey(c.canceladaTs) === d.key)} config={config} usuario={usuarioActual} />)}><Printer size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Imprimir</button>}
       </div>
 
       <div style={styles.metodoBreakdownRowLight}>
@@ -207,7 +210,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
               <span style={styles.cierreDate}>
                 {meta && <meta.icon size={12} color={meta.color} style={{ marginRight: 5, verticalAlign: -2 }} />}
                 {mesaNombre(mesas, c.mesa)}{c.mesero ? ` · ${c.mesero}` : ""} · cobrada {timeLabel(c.pagadaTs)}
-                {dividida && <span style={styles.dividedTag}> · dividida en {c.pagos.length} pagos {isExpanded ? "▲" : "▼"}</span>}
+                {dividida && <span style={styles.dividedTag}> · dividida en {c.pagos.length} pagos <Chevron abierto={isExpanded} size={13} style={{ verticalAlign: -2, display: "inline-block" }} /></span>}
               </span>
               <span style={styles.cierrePedidos}>{c.itemCount} ítems</span>
               <span style={styles.cierreTotal}>{money(c.total)}</span>

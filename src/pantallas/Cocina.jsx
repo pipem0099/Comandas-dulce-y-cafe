@@ -31,9 +31,17 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
 
   const activos = orders.filter((o) => o.estado !== "listo" && o.estado !== "servido" && o.estado !== "cancelado");
   const active = activos.filter((o) => o.items.some((it) => enEstacion(it) && itemListos(o, it) < it.qty)).sort((a, b) => a.ts - b.ts);
+  // "Listas": cada producto que se marca listo pasa de una vez a esta sección (no espera a que toda la comanda termine).
+  // Se ven (a) las unidades listas que aún no se han llevado a la mesa y (b) las comandas completas de los últimos 10 min.
+  const lineasListas = (o) => {
+    const completaReciente = o.estado === "listo" && o.listoTs && Date.now() - o.listoTs < 10 * 60 * 1000;
+    return o.items
+      .map((it, idx) => ({ it, idx, n: completaReciente ? it.qty : itemListos(o, it) - itemServidos(o, it) }))
+      .filter(({ it, n }) => enEstacion(it) && n > 0);
+  };
   const recienListos = orders
-    .filter((o) => o.estado === "listo" && o.listoTs && Date.now() - o.listoTs < 10 * 60 * 1000 && o.items.some(enEstacion))
-    .sort((a, b) => b.listoTs - a.listoTs);
+    .filter((o) => o.estado !== "cancelado" && o.estado !== "servido" && lineasListas(o).length > 0)
+    .sort((a, b) => (b.listoTs || b.ts) - (a.listoTs || a.ts));
   const pendientes = active.filter((o) => o.estado === "pendiente");
   const preparando = active.filter((o) => o.estado !== "pendiente");
   const [vista, setVista] = useState("pendientes"); // pendientes | preparando | listas
@@ -163,9 +171,9 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
       )}
 
       <div style={ck.pestanas}>
-        {[["pendientes", "Pendientes", pendientes.length, "#C58B1B"], ["preparando", "Preparando", preparando.length, "#3B82F6"], ["listas", "Listas", recienListos.length, "#1F8A62"]].map(([id, label, n, color]) => (
+        {[["pendientes", "Pendientes", pendientes.length, "var(--warn-solid)"], ["preparando", "Preparando", preparando.length, "var(--accent)"], ["listas", "Listas", recienListos.length, "var(--ok-solid)"]].map(([id, label, n, color]) => (
           <button key={id} style={{ ...ck.pestana, ...(vista === id ? ck.pestanaOn : {}) }} onClick={() => setVista(id)}>
-            {label} <span style={{ ...ck.contador, background: color }}>{n}</span>
+            {label} <span style={{ ...ck.contador, ...(n > 0 ? { background: color } : { background: "var(--c-ede7d8-b)", color: "var(--c-8a8272-t)" }) }}>{n}</span>
           </button>
         ))}
       </div>
@@ -198,28 +206,47 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
       {vista === "listas" ? (
         recienListos.length === 0 ? (
           <div style={styles.emptyKitchen} className="anim-in">
-            <BellRing size={30} strokeWidth={1.4} color="#5C6670" />
+            <BellRing size={30} strokeWidth={1.4} color="var(--c-9a9382-t)" />
             <div style={styles.emptyKitchenText}>Nada listo todavía</div>
-            <div style={styles.emptyKitchenSub}>Aquí quedan los pedidos que terminaste en los últimos 10 minutos, por si necesitas deshacer uno.</div>
+            <div style={styles.emptyKitchenSub}>Cada producto que marcas como listo aparece aquí al instante, hasta que el mesero lo sirve.</div>
           </div>
         ) : (
           <div style={{ ...styles.railGrid, zoom: escala }}>
-            {recienListos.map((o) => (
-              <div key={o.id} className="anim-in" style={{ ...styles.ticket, borderLeftColor: "#1F8A62" }}>
-                <div style={styles.ticketHead}><span style={styles.ticketMesa}>{mesaNombre(mesas, o.mesa).toUpperCase()}</span><span style={styles.ticketTime}>Listo a las {timeLabel(o.listoTs)}</span></div>
-                <div style={styles.ticketDivider} />
-                {o.items.filter(enEstacion).map((it, i) => (
-                  <div key={i} style={styles.ticketLine}><span style={styles.ticketQty}>{it.qty}×</span><span style={styles.ticketItemName}>{it.name}</span></div>
-                ))}
-                <div style={styles.ticketDivider} />
-                <button style={{ ...styles.ticketBtn, background: "#475569" }} onClick={() => deshacerListo(o.id)}><Undo2 size={14} /> Deshacer "listo"</button>
-              </div>
-            ))}
+            {recienListos.map((o) => {
+              const completa = o.estado === "listo";
+              const faltan = o.items.filter(enEstacion).reduce((a, it) => a + Math.max(0, it.qty - itemListos(o, it)), 0);
+              return (
+                <div key={o.id} className="anim-in" style={{ ...styles.ticket, borderLeftColor: "var(--ok-solid)" }}>
+                  <div style={styles.ticketHead}>
+                    <span style={styles.ticketMesa}>{mesaNombre(mesas, o.mesa).toUpperCase()}</span>
+                    {completa
+                      ? <span style={styles.ticketTime}>Listo a las {timeLabel(o.listoTs)}</span>
+                      : <span style={{ ...styles.ticketTime, color: "var(--c-b98a2e-t)", fontWeight: 700 }}>Faltan {faltan}</span>}
+                  </div>
+                  <div style={styles.ticketDivider} />
+                  {lineasListas(o).map(({ it, idx, n }) => (
+                    <div key={idx} style={styles.ticketLine}>
+                      <span style={styles.ticketQty}>{n}×</span>
+                      <span style={styles.ticketItemName}>{it.name}</span>
+                      {!completa && itemListos(o, it) > itemServidos(o, it) && (
+                        <span style={styles.itemKdsActions}><button style={styles.itemKdsUndo} onClick={() => itemDeshacer(o.id, idx)} title="Deshacer">−</button></span>
+                      )}
+                    </div>
+                  ))}
+                  {completa && (
+                    <>
+                      <div style={styles.ticketDivider} />
+                      <button style={{ ...styles.ticketBtn, background: "var(--c-242019-b)" }} onClick={() => deshacerListo(o.id)}><Undo2 size={14} /> Deshacer "listo"</button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )
       ) : lista.length === 0 ? (
         <div style={styles.emptyKitchen} className="anim-in">
-          <Flame size={30} strokeWidth={1.4} color="#5C6670" />
+          <Flame size={30} strokeWidth={1.4} color="var(--c-9a9382-t)" />
           <div style={styles.emptyKitchenText}>{vista === "pendientes" ? "Sin pedidos pendientes" : "Nada en preparación"}</div>
           <div style={styles.emptyKitchenSub}>Cuando un mesero envíe un pedido aparece aquí y suena la campana.</div>
         </div>
@@ -230,21 +257,21 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
               <div style={styles.ticketHead}>
                 <span style={styles.ticketMesa}>
                   {mesaNombre(mesas, o.mesa).toUpperCase()}
-                  {o.editado && <span style={{ ...styles.editedBadge, ...(o.cambio && o.cambioVisto === false ? { background: "#ff8a00", color: "#1a0e00" } : {}) }}>MODIFICADO</span>}
+                  {o.editado && <span style={{ ...styles.editedBadge, ...(o.cambio && o.cambioVisto === false ? { background: "var(--warn-solid)", color: "#FFFFFF" } : {}) }}>MODIFICADO</span>}
                 </span>
                 <span style={{ ...styles.ticketTime, color: urgencyColor(o.ts), fontWeight: 700 }}><Clock size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{elapsedLabel(o.ts)}</span>
               </div>
               <div style={styles.ticketExactTime}>
                 {o.tipo === "llevar" && <span style={styles.ticketTipo}>PARA LLEVAR</span>}
-                {o.tipo === "domicilio" && <span style={{ ...styles.ticketTipo, background: "#2E6FD6" }}>DOMICILIO</span>}
+                {o.tipo === "domicilio" && <span style={{ ...styles.ticketTipo, background: "var(--info-solid)" }}>DOMICILIO</span>}
                 Pedido a las {timeLabel(o.ts)}
               </div>
               <div style={styles.ticketDivider} />
-              {o.items.map((it, idx) => ({ it, idx })).filter(({ it }) => enEstacion(it)).map(({ it, idx }) => {
+              {o.items.map((it, idx) => ({ it, idx })).filter(({ it }) => enEstacion(it) && itemListos(o, it) < it.qty).map(({ it, idx }) => {
                 const l = itemListos(o, it);
-                const completo = l >= it.qty;
+                const completo = false; // lo que ya está listo pasa a la pestaña "Listas"
                 return (
-                  <div key={idx} style={{ opacity: completo ? 0.5 : 1, transition: "opacity .25s" }}>
+                  <div key={idx}>
                     <div style={styles.ticketLine}>
                       <span style={styles.ticketQty}>{it.qty}×</span>
                       <span style={{ ...styles.ticketItemName, textDecoration: completo ? "line-through" : "none" }}>
@@ -252,11 +279,12 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
                         {multi && est === "todas" && <span style={styles.ticketEstTag}>{nombreEstacion(it)}</span>}
                       </span>
                       <span style={styles.itemKdsActions}>
-                        {it.qty > 1 && <span style={styles.itemKdsCount}>{l}/{it.qty}</span>}
-                        {l > itemServidos(o, it) && (
+                        {/* Despachar producto por producto solo tiene sentido ya en preparación */}
+                        {o.estado !== "pendiente" && it.qty > 1 && <span style={styles.itemKdsCount}>{l}/{it.qty}</span>}
+                        {o.estado !== "pendiente" && l > itemServidos(o, it) && (
                           <button style={styles.itemKdsUndo} onClick={() => itemDeshacer(o.id, idx)} title="Deshacer">−</button>
                         )}
-                        {!completo && (
+                        {o.estado !== "pendiente" && !completo && (
                           <button style={styles.itemKdsBtn} onClick={() => itemListo(o.id, idx)}><Check size={12} /> Listo</button>
                         )}
                       </span>
@@ -267,12 +295,18 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
                 );
               })}
               {o.nota && <div style={styles.ticketNote}>"{o.nota}"</div>}
+              {(() => {
+                const yaListos = o.items.filter((it) => enEstacion(it) && itemListos(o, it) >= it.qty).length;
+                return yaListos > 0 ? (
+                  <button style={styles.ticketYaListos} onClick={() => setVista("listas")}><Check size={12} /> {yaListos} {yaListos === 1 ? "producto ya está listo" : "productos ya están listos"} · ver en Listas</button>
+                ) : null;
+              })()}
               <div style={styles.ticketDivider} />
               <div style={{ display: "flex", gap: 6 }}>
                 {o.estado === "preparando" && est === "todas" && (
                   <button style={styles.ticketBackBtn} onClick={() => retroceder(o.id)} title="Volver a pendiente">◀</button>
                 )}
-                <button style={{ ...styles.ticketBtn, flex: 1, background: o.estado === "pendiente" ? "#C58B1B" : "#1F8A62" }} onClick={() => advance(o.id)}>
+                <button style={{ ...styles.ticketBtn, flex: 1, background: o.estado === "pendiente" ? "var(--warn-solid)" : "var(--ok-solid)" }} onClick={() => advance(o.id)}>
                   {o.estado === "pendiente" ? <><Flame size={14} /> Empezar preparación</> : <><Check size={14} /> Marcar todo listo</>}
                 </button>
               </div>
@@ -284,27 +318,27 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
   );
 }
 
-const COLORES_ESTACION = ["#E08A3C", "#D64545", "#3B82F6", "#8B5CF6", "#14B8A6"];
+const COLORES_ESTACION = ["var(--accent)", "var(--warn-solid)", "var(--ok-solid)", "var(--danger-solid)", "var(--c-8a8272-t)"];
 const ck = {
   avisos: { display: "flex", flexDirection: "column", gap: 8, margin: "0 16px 12px" },
   aviso: { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 14, border: "1.5px solid" },
-  avisoAmbar: { background: "rgba(255,138,0,.14)", borderColor: "#ff8a00" },
-  avisoRojo: { background: "rgba(255,69,69,.14)", borderColor: "#ff4545" },
-  avisoTitulo: { fontSize: 13, fontWeight: 800, letterSpacing: 0.4, color: "#F4F6F8" },
-  avisoTexto: { fontSize: 14, color: "#F4F6F8", marginTop: 3, lineHeight: 1.35 },
-  avisoMeta: { fontSize: 11.5, color: "#B6BEC8", marginTop: 3 },
+  avisoAmbar: { background: "var(--c-fbefd9-b)", borderColor: "var(--warn-solid)" },
+  avisoRojo: { background: "var(--c-fbe2dc-b)", borderColor: "var(--danger-solid)" },
+  avisoTitulo: { fontSize: 13, fontWeight: 800, letterSpacing: 0.4, color: "var(--c-242019-t)" },
+  avisoTexto: { fontSize: 14, color: "var(--c-242019-t)", marginTop: 3, lineHeight: 1.35 },
+  avisoMeta: { fontSize: 11.5, color: "var(--c-5c5648-t)", marginTop: 3 },
   avisoBtn: { padding: "10px 14px", borderRadius: 12, border: "none", background: "var(--neon)", color: "var(--neon-text)", fontWeight: 800, fontSize: 13.5, cursor: "pointer", flexShrink: 0, boxShadow: "var(--neon-glow)" },
   cabecera: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "14px 16px 6px" },
-  titulo: { fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 700, color: "#F4F6F8" },
-  envivo: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: "rgba(52,199,142,.14)", color: "#34d399", border: "1px solid rgba(52,199,142,.35)" },
-  pulso: { width: 7, height: 7, borderRadius: 4, background: "#34d399", boxShadow: "0 0 0 4px rgba(52,199,142,.25)" },
+  titulo: { fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 700, color: "var(--c-242019-t)" },
+  envivo: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: "var(--c-e4eee1-b)", color: "var(--c-5b7553-t)", border: "1px solid var(--ok-border)" },
+  pulso: { width: 7, height: 7, borderRadius: 4, background: "var(--ok-solid)", boxShadow: "0 0 0 4px var(--ok-border)" },
   herr: { display: "flex", gap: 8 },
-  btnIcono: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 1, minWidth: 40, height: 40, borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.06)", color: "#E6EAEF", cursor: "pointer" },
+  btnIcono: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 1, minWidth: 40, height: 40, borderRadius: 12, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-f1ecdd-b)", color: "var(--c-3b372e-t)", cursor: "pointer" },
   estaciones: { display: "flex", gap: 8, overflowX: "auto", padding: "6px 16px", scrollbarWidth: "none" },
-  chip: { display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 999, border: "1px solid rgba(255,255,255,.12)", background: "transparent", color: "#B6BEC8", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 },
+  chip: { display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "transparent", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 },
   chipOn: { background: "var(--neon)", color: "var(--neon-text)", borderColor: "transparent", boxShadow: "var(--neon-glow)" },
-  pestanas: { display: "flex", gap: 4, margin: "8px 16px 12px", padding: 4, borderRadius: 14, background: "rgba(255,255,255,.06)" },
-  pestana: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px 6px", borderRadius: 11, border: "none", background: "transparent", color: "#B6BEC8", fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
+  pestanas: { display: "flex", gap: 4, margin: "8px 16px 12px", padding: 4, borderRadius: 14, background: "var(--c-f1ecdd-b)" },
+  pestana: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px 6px", borderRadius: 11, border: "none", background: "transparent", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
   pestanaOn: { background: "var(--neon)", color: "var(--neon-text)", boxShadow: "var(--neon-glow)" },
-  contador: { minWidth: 22, height: 22, borderRadius: 11, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#fff", padding: "0 6px" },
+  contador: { minWidth: 22, height: 22, borderRadius: 11, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#FFFFFF", padding: "0 6px" },
 };

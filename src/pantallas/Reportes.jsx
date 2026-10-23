@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, Minus, Clock, UserCircle2, Printer } from "lucide-react";
+import { imprimir } from "../impresion.jsx";
+import { HojaReporte } from "../hojas.jsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { money } from "../logica.js";
 import { MontoSigno, FilaTabs } from "../componentes/Comunes.jsx";
@@ -8,22 +10,34 @@ import { cuentaGranTotal, cuentaOrders, dateTimeLabel, hourLabel, tieneRol } fro
 
 /* ---------------- Reportes ---------------- */
 
-export function ReportesView({ cuentas, orders, menu, usuarioActual, onIr }) {
+export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu, usuarioActual, onIr, config, cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargarHistorialCompleto }) {
   const [rango, setRango] = useState("hoy");
+  // Lo de "en vivo" solo trae los últimos ~35 días: para el mes pasado se pide el historial completo (una sola vez).
+  const necesitaHistorial = rango === "mesPasado";
+  useEffect(() => { if (necesitaHistorial && cargarHistorialCompleto) cargarHistorialCompleto(); }, [necesitaHistorial, cargarHistorialCompleto]);
+  const cuentas = necesitaHistorial && cuentasParaHistorial ? cuentasParaHistorial : cuentasVivas;
+  const orders = necesitaHistorial && ordersParaHistorial ? ordersParaHistorial : ordersVivos;
   const esAdmin = tieneRol(usuarioActual, "admin");
 
-  const inicioRango = () => {
+  // Rangos: hoy · últimos 7 días · últimos 30 días · este mes (calendario) · mes pasado (calendario)
+  const limitesRango = () => {
     const d = new Date();
-    if (rango === "hoy") { d.setHours(0, 0, 0, 0); return d.getTime(); }
-    if (rango === "semana") { d.setDate(d.getDate() - 7); return d.getTime(); }
-    d.setDate(d.getDate() - 30); return d.getTime();
+    if (rango === "hoy") { d.setHours(0, 0, 0, 0); return [d.getTime(), Infinity]; }
+    if (rango === "semana") { d.setDate(d.getDate() - 7); return [d.getTime(), Infinity]; }
+    if (rango === "mesActual") return [new Date(d.getFullYear(), d.getMonth(), 1).getTime(), Infinity];
+    if (rango === "mesPasado") return [new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime(), new Date(d.getFullYear(), d.getMonth(), 1).getTime()];
+    d.setDate(d.getDate() - 30); return [d.getTime(), Infinity];
   };
-  const desde = inicioRango();
-  const pagadasRango = cuentas.filter((c) => c.estado === "pagada" && c.pagadaTs >= desde);
+  const [desde, hasta] = limitesRango();
+  const nombreMes = (fecha) => { const s = fecha.toLocaleDateString("es-CO", { month: "long", year: "numeric" }); return s.charAt(0).toUpperCase() + s.slice(1); };
+  const etiquetaRango = rango === "hoy" ? "Hoy" : rango === "semana" ? "Últimos 7 días" : rango === "mes" ? "Últimos 30 días" : rango === "mesActual" ? nombreMes(new Date()) : nombreMes(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
+  const fechaCorta = (ts) => new Date(ts).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
+  const rangoTexto = rango === "hoy" ? fechaCorta(Date.now()) : `Del ${fechaCorta(desde)} al ${fechaCorta(Math.min(hasta - 1, Date.now()))}`;
+  const pagadasRango = cuentas.filter((c) => c.estado === "pagada" && c.pagadaTs >= desde && c.pagadaTs < hasta);
   const costoPorId = Object.fromEntries(menu.map((m) => [m.id, m.cost || 0]));
 
   // Tiempo promedio de cocina: de cuando se envió el pedido a cuando se marcó "listo".
-  const ordenesConTiempo = orders.filter((o) => o.ts >= desde && o.listoTs && o.estado !== "cancelado");
+  const ordenesConTiempo = orders.filter((o) => o.ts >= desde && o.ts < hasta && o.listoTs && o.estado !== "cancelado");
   const tiempoPromedioMin = ordenesConTiempo.length > 0
     ? Math.round(ordenesConTiempo.reduce((s, o) => s + (o.listoTs - o.ts), 0) / ordenesConTiempo.length / 60000)
     : null;
@@ -58,7 +72,7 @@ export function ReportesView({ cuentas, orders, menu, usuarioActual, onIr }) {
   const propinasRango = pagadasRango.reduce((s, c) => s + ((c.propina && c.propina.monto) || 0), 0);
   const descuentosRango = pagadasRango.reduce((s, c) => s + ((c.descuento && c.descuento.monto) || 0), 0);
   const cuentaBrutaRango = totalRango + descuentosRango - propinasRango;
-  const canceladasRango = cuentas.filter((c) => c.estado === "cancelada" && (c.montoCancelado || 0) > 0 && c.canceladaTs >= desde);
+  const canceladasRango = cuentas.filter((c) => c.estado === "cancelada" && (c.montoCancelado || 0) > 0 && c.canceladaTs >= desde && c.canceladaTs < hasta);
   const totalCanceladoRango = canceladasRango.reduce((s, c) => s + (c.montoCancelado || 0), 0);
 
   const meseroMap = {};
@@ -73,19 +87,23 @@ export function ReportesView({ cuentas, orders, menu, usuarioActual, onIr }) {
   const [repartirPropinas, setRepartirPropinas] = useState(false);
   const [numPersonasPropina, setNumPersonasPropina] = useState(2);
 
+  const imprimirReporte = () => imprimir(
+    <HojaReporte etiqueta={etiquetaRango} rangoTxt={rangoTexto} pagadas={pagadasRango} orders={orders} canceladas={canceladasRango} costoPorId={costoPorId}
+      tiempoCocina={tiempoPromedioMin !== null ? { min: tiempoPromedioMin, n: ordenesConTiempo.length } : null} config={config} usuario={usuarioActual} />
+  );
+
   return (
     <div className="ancho" style={styles.menuScroll}>
       <FilaTabs className="no-imprimir" style={{ ...styles.cajaTabSwitch, padding: "0 0 12px" }}>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "hoy" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "hoy" ? "true" : undefined} onClick={() => setRango("hoy")}>Hoy</button>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "semana" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "semana" ? "true" : undefined} onClick={() => setRango("semana")}>7 días</button>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "mes" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "mes" ? "true" : undefined} onClick={() => setRango("mes")}>30 días</button>
-        {esAdmin && <button style={styles.exportLink} onClick={() => window.print()}><Printer size={15} />Imprimir</button>}
+        <button style={{ ...styles.cajaTabBtn, ...(rango === "mesActual" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "mesActual" ? "true" : undefined} onClick={() => setRango("mesActual")}>Este mes</button>
+        <button style={{ ...styles.cajaTabBtn, ...(rango === "mesPasado" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "mesPasado" ? "true" : undefined} onClick={() => setRango("mesPasado")}>Mes pasado</button>
+        {esAdmin && <button style={styles.exportLink} onClick={imprimirReporte}><Printer size={15} />Imprimir</button>}
       </FilaTabs>
 
-      <div className="solo-imprimir" style={styles.reportePrintHeader}>
-        <div style={styles.reportePrintTitle}>Reporte financiero — {rango === "hoy" ? "Hoy" : rango === "semana" ? "Últimos 7 días" : "Últimos 30 días"}</div>
-        <div style={styles.reportePrintSub}>Generado el {dateTimeLabel(Date.now())}</div>
-      </div>
+      {necesitaHistorial && !historialCompleto && <div style={styles.cargandoHistBox}><span>Cargando el historial del mes pasado…</span></div>}
 
       <div style={styles.cajaTotalCard}>
         <span style={styles.cajaTotalLabel}>Total vendido</span>

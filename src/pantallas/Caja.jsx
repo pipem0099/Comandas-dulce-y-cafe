@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
-  Receipt, AlertTriangle,
+  Receipt, AlertTriangle, Search, X,
 } from "lucide-react";
 import { estadoStock, money, esExterna } from "../logica.js";
-import { InventarioView, EmptyState } from "../extras.jsx";
+import { EmptyState } from "../extras.jsx";
+import { InventarioView } from "../inventario.jsx";
 import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { MesaCuentaCard } from "../pantallas/CuentaMesa.jsx";
@@ -32,6 +33,25 @@ export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, tur
   const mesasOcupadas = new Set([...abiertas, ...porLiberar].filter((c) => !esExterna(c)).map((c) => String(c.mesa))).size;
   const liberar = (c) => saveCuenta({ ...c, liberada: true, liberadaTs: Date.now(), liberadaPor: usuarioActual.nombre });
   const seleccionada = abiertas.find((c) => c.id === expandedId) || null;
+
+  // Buscar cuentas por mesa, mesero, cliente o producto. Atajo: "/" lleva el cursor al buscador (en computador).
+  const [busca, setBusca] = useState("");
+  const buscadorRef = useRef(null);
+  const consulta = busca.trim().toLowerCase();
+  const abiertasVista = !consulta ? abiertas : abiertas.filter((c) => {
+    const productos = cuentaOrders(orders, c.id).filter((o) => o.estado !== "cancelado").flatMap((o) => o.items.map((it) => it.name));
+    return [mesaNombre(mesas, c.mesa), c.mesero, c.cliente && c.cliente.nombre, ...productos].some((v) => String(v || "").toLowerCase().includes(consulta));
+  });
+  useEffect(() => {
+    const alTeclear = (e) => {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = document.activeElement; const tag = el && el.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (el && el.isContentEditable)) return;
+      if (buscadorRef.current) { e.preventDefault(); buscadorRef.current.focus(); }
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, []);
   const hoyKey = dayKey(Date.now());
   const pagadasHoy = cuentas.filter((c) => c.estado === "pagada" && dayKey(c.pagadaTs) === hoyKey);
   const vendidoHoy = pagadasHoy.reduce((s, c) => s + cuentaGranTotal(orders, c), 0);
@@ -101,7 +121,15 @@ export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, tur
           ) : (
             <div style={ancha ? { display: "grid", gridTemplateColumns: "minmax(300px, 400px) 1fr", gap: 14, alignItems: "start" } : { display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {abiertas.map((c) => {
+                {abiertas.length >= 3 && (
+                  <div className="campo-prefijo" style={cj.buscador}>
+                    <Search size={16} color="var(--c-8a8272-t)" />
+                    <input ref={buscadorRef} style={cj.buscadorInput} placeholder={ancha ? "Buscar mesa, mesero o producto  ( / )" : "Buscar mesa, mesero o producto"} value={busca} onChange={(e) => setBusca(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") { setBusca(""); e.currentTarget.blur(); } }} />
+                    {busca && <button style={cj.buscadorX} onClick={() => setBusca("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
+                  </div>
+                )}
+                {consulta && abiertasVista.length === 0 && <div style={{ fontSize: 13, color: "var(--c-8a8272-t)", textAlign: "center", padding: "14px 0" }}>Ninguna cuenta coincide con “{busca}”.</div>}
+                {abiertasVista.map((c) => {
                   if (!ancha) {
                     return (
                       <MesaCuentaCard
@@ -163,12 +191,15 @@ export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, tur
 
       {tabActual === "historial" && esAdmin && <HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} />}
       {tabActual === "inventario" && esAdmin && <InventarioView insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} />}
-      {tabActual === "reportes" && esAdmin && <ReportesView cuentas={cuentas} orders={orders} menu={menu} usuarioActual={usuarioActual} onIr={onIr} />}
+      {tabActual === "reportes" && esAdmin && <ReportesView cuentas={cuentas} orders={orders} menu={menu} usuarioActual={usuarioActual} onIr={onIr} config={config} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} />}
     </div>
   );
 }
 
 const cj = {
+  buscador: { display: "flex", alignItems: "center", gap: 8, padding: "0 12px", borderRadius: 12, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)" },
+  buscadorInput: { flex: 1, minWidth: 0, padding: "12px 0", border: "none", outline: "none", background: "transparent", color: "var(--c-242019-t)", fontSize: 14, fontFamily: "var(--font-body)" },
+  buscadorX: { width: 24, height: 24, borderRadius: 12, border: "none", background: "var(--c-f1ecdd-b)", color: "var(--c-5c5648-t)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
   resumen: { display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 16, overflow: "hidden", marginBottom: 12 },
   resCelda: { display: "flex", flexDirection: "column", gap: 4, padding: "12px 14px", borderRight: "1px solid var(--c-ede7d8-o)" },
   resEt: { fontSize: 11.5, color: "var(--c-8a8272-t)" },

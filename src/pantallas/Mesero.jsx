@@ -4,11 +4,11 @@ import { vibrar } from "../theme.js";
 import { claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
 import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
 import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
-import { AvisoActivarNotificaciones } from "../componentes/Comunes.jsx";
+import { AvisoActivarNotificaciones, Chevron } from "../componentes/Comunes.jsx";
 import { STATE_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { PlanoSalon } from "../pantallas/Mesas.jsx";
-import { reservaProxima, NOMBRES_EXTERNOS, conProgreso, cuentaDeMesa, cuentaOrders, cuentaSubtotal, dayKey, esPorLiberar, estadoVisualMesa, itemListos, itemServidos, mesaMatch, mesaNombre, orderTotal, porServir, timeLabel } from "../utilidades.js";
+import { reservaProxima, NOMBRES_EXTERNOS, conProgreso, cuentaCubre, cuentaDeMesa, cuentaOrders, cuentaSubtotal, dayKey, esPorLiberar, estadoVisualMesa, itemListos, itemServidos, mesaMatch, mesaNombre, orderTotal, porServir, timeLabel } from "../utilidades.js";
 
 import { Hoja } from "../componentes/Hoja.jsx";
 /* ---------------- MESERO ---------------- */
@@ -76,6 +76,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
 
   const [selectedMesa, setSelectedMesa] = useState(null);
   const [draft, setDraft] = useState({}); // { itemId: { qty, nota } }
+  const [notaAbierta, setNotaAbierta] = useState(false); // la nota para cocina se muestra solo si se pide
   const [verPedidos, setVerPedidos] = useState(false); // lista de pedidos de la mesa: compacta por defecto
   const [note, setNote] = useState("");
   const [editingOrderId, setEditingOrderId] = useState(null);
@@ -85,6 +86,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const [search, setSearch] = useState("");
   const [notingItemId, setNotingItemId] = useState(null);
   const [mesaAction, setMesaAction] = useState(null); // 'trasladar' | 'unir'
+  const [mesasJuntas, setMesasJuntas] = useState([]); // mesas juntadas ANTES del primer pedido (aún sin cuenta)
   const [vistaMesas, setVistaMesas] = useState("grid"); // 'grid' | 'plano'
   const [modalItem, setModalItem] = useState(null);       // producto con opciones que se está personalizando
   const [nuevoExterno, setNuevoExterno] = useState(null); // 'llevar' | 'domicilio'
@@ -95,11 +97,11 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     if (c && esPorLiberar(c)) setLiberarCuenta(c); else enterMesa(id);
   };
   const liberarMesa = async (c) => { await saveCuenta({ ...c, liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual }); setLiberarCuenta(null); };
-  const cuentaAbiertaDe = (mesaId) => cuentas.find((c) => mesaMatch(c.mesa, mesaId) && c.estado === "abierta");
+  const cuentaAbiertaDe = (mesaId) => cuentas.find((c) => cuentaCubre(c, mesaId) && c.estado === "abierta");
 
   const totalItems = Object.values(draft).reduce((a, b) => a + b.qty, 0);
 
-  const resetDraft = () => { setDraft({}); setNote(""); setEditingOrderId(null); setNotingItemId(null); };
+  const resetDraft = () => { setNotaAbierta(false); setMesasJuntas([]); setDraft({}); setNote(""); setEditingOrderId(null); setNotingItemId(null); };
   const enterMesa = (n) => { resetDraft(); setActiveCat(null); setSearch(""); setConfirmCancelId(null); setMesaAction(null); setSelectedMesa(n); };
   const exitMesa = () => { resetDraft(); setActiveCat(null); setSearch(""); setMesaAction(null); setSelectedMesa(null); };
 
@@ -189,6 +191,19 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   };
 
   const enviandoRef = useRef(false);
+  const buscadorProdRef = useRef(null);
+  const enviarAtajoRef = useRef(null);
+  enviarAtajoRef.current = null; // solo vale en la pantalla de una mesa (se vuelve a asignar abajo)
+  useEffect(() => {
+    const alTeclear = (e) => {
+      const el = document.activeElement; const tag = el && el.tagName;
+      const escribiendo = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+      if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey && !escribiendo && buscadorProdRef.current) { e.preventDefault(); buscadorProdRef.current.focus(); }
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && enviarAtajoRef.current) { e.preventDefault(); enviarAtajoRef.current(); }
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, []);
   const [enviando, setEnviando] = useState(false);
   const enviarPedido = async (mesaNum) => {
     if (totalItems === 0) return;
@@ -234,7 +249,8 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
         if (!cuenta && String(mesaNum).startsWith("ext-")) { exitMesa(); return; }
         if (!cuenta) {
           for (const vieja of cuentas.filter((c) => mesaMatch(c.mesa, mesaNum) && esPorLiberar(c))) await saveCuenta({ ...vieja, liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual });
-          cuenta = { id: uid(), mesa: mesaNum, ts: Date.now(), estado: "abierta", mesero: meseroActual };
+          const extras = mesasJuntas.filter((id) => !cuentaDeMesa(cuentas, id));
+          cuenta = { id: uid(), mesa: mesaNum, ts: Date.now(), estado: "abierta", mesero: meseroActual, ...(extras.length ? { mesasExtra: extras } : {}) };
           await saveCuenta(cuenta);
         }
         const consumo = consumoDeItems(items, menu);
@@ -264,7 +280,19 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   };
 
   const mesasLibres = (excluir) => mesas.filter((m) => !mesaMatch(m.id, excluir) && !cuentaAbiertaDe(m.id));
-  const mesasOcupadas = (excluir) => mesas.filter((m) => !mesaMatch(m.id, excluir) && cuentaAbiertaDe(m.id));
+  // Mesas que se pueden juntar a la actual: libres (sin cuenta ni "por liberar") y que no estén ya juntadas.
+  const mesasParaJuntar = (excluir, cuenta) => mesas.filter((m) => !mesaMatch(m.id, excluir) && !cuentaDeMesa(cuentas, m.id) && !mesasJuntas.some((j) => mesaMatch(j, m.id)) && !(cuenta && cuentaCubre(cuenta, m.id)));
+  const mesasOcupadas = (excluir, cuenta) => mesas.filter((m) => !mesaMatch(m.id, excluir) && cuentaAbiertaDe(m.id) && !(cuenta && cuentaCubre(cuenta, m.id)));
+
+  const juntarMesaLibre = async (cuenta, mesaId) => {
+    if (cuenta) await saveCuenta({ ...cuenta, mesasExtra: [...(cuenta.mesasExtra || []), mesaId] });
+    else setMesasJuntas((p) => [...p, mesaId]);
+    setMesaAction(null);
+  };
+  const separarMesa = async (cuenta, mesaId) => {
+    if (cuenta) await saveCuenta({ ...cuenta, mesasExtra: (cuenta.mesasExtra || []).filter((m) => !mesaMatch(m, mesaId)) });
+    else setMesasJuntas((p) => p.filter((m) => !mesaMatch(m, mesaId)));
+  };
 
   const trasladarA = async (cuenta, nuevaMesa) => {
     const afectadas = cuentaOrders(orders, cuenta.id);
@@ -281,7 +309,9 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     const patch = {};
     afectadas.forEach((o) => { patch[o.id] = { ...o, cuentaId: cuentaDestino.id, mesa: cuentaDestino.mesa }; });
     if (Object.keys(patch).length > 0) await saveOrdersMap(patch);
-    await saveCuenta({ ...cuentaOrigen, estado: "fusionada", fusionadaEnId: cuentaDestino.id });
+    const extrasOrigen = cuentaOrigen.mesasExtra || [];
+    if (extrasOrigen.length) await saveCuenta({ ...cuentaDestino, mesasExtra: [...(cuentaDestino.mesasExtra || []), ...extrasOrigen] });
+    await saveCuenta({ ...cuentaOrigen, mesasExtra: [], estado: "fusionada", fusionadaEnId: cuentaDestino.id });
     setMesaAction(null);
     setSelectedMesa(cuentaDestino.mesa);
   };
@@ -290,6 +320,10 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     const categories = [...new Set(menu.map((m) => m.cat))];
     const cuenta = cuentaAbiertaDe(selectedMesa);
     const pending = cuenta ? cuentaOrders(orders, cuenta.id).filter((o) => o.estado !== "cancelado") : [];
+    const esMesaNormal = !(cuenta && esExterna(cuenta)) && !String(selectedMesa).startsWith("ext-");
+    const idsMesas = cuenta ? [cuenta.mesa, ...(cuenta.mesasExtra || [])] : [selectedMesa, ...mesasJuntas];
+    const tituloMesas = idsMesas.map((id) => mesaNombre(mesas, id)).join(" + ");
+    enviarAtajoRef.current = () => { if (totalItems > 0 && !enviando) enviarPedido(selectedMesa); }; // Ctrl+Enter
 
     return (
       <div style={styles.screen}>
@@ -299,10 +333,10 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           <button style={styles.backBtn} onClick={exitMesa}>← Mesas</button>
           <div style={styles.mesaTitleWrap}>
             <span style={styles.mesaEyebrow}>{TIPO_META[(cuenta && cuenta.tipo) || "mesa"].corto}</span>
-            <span style={styles.mesaTitle}>{cuenta && esExterna(cuenta) && cuenta.cliente && cuenta.cliente.nombre ? cuenta.cliente.nombre : mesaNombre(mesas, selectedMesa)}</span>
+            <span style={styles.mesaTitle}>{cuenta && esExterna(cuenta) && cuenta.cliente && cuenta.cliente.nombre ? cuenta.cliente.nombre : tituloMesas}</span>
             {cuenta && <span style={styles.cuentaOpenSub}>Cuenta abierta · {timeLabel(cuenta.ts)}</span>}
           </div>
-          {cuenta && !esExterna(cuenta) ? (
+          {esMesaNormal ? (
             <button style={styles.mesaActionBtn} onClick={() => setMesaAction(mesaAction ? null : "menu")} title="Trasladar o unir esta mesa">
               <ArrowRightLeft size={15} />
             </button>
@@ -322,9 +356,11 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
 
         {mesaAction === "menu" && (
           <div style={styles.mesaActionPanel}>
-            <button style={styles.modoChoiceBtn} onClick={() => setMesaAction("trasladar")}>
-              <ArrowRightLeft size={15} /> Trasladar esta mesa a otra
-            </button>
+            {cuenta && (
+              <button style={styles.modoChoiceBtn} onClick={() => setMesaAction("trasladar")}>
+                <ArrowRightLeft size={15} /> Trasladar esta mesa a otra
+              </button>
+            )}
             <button style={styles.modoChoiceBtn} onClick={() => setMesaAction("unir")}>
               <Users size={15} /> Unir con otra mesa
             </button>
@@ -344,17 +380,39 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
         )}
         {mesaAction === "unir" && (
           <div style={styles.mesaActionPanel}>
-            <div style={styles.closeConfirmText}>Se unirá esta cuenta a la mesa que elijas (quedará todo en una sola cuenta):</div>
+            <div style={styles.closeConfirmText}>Juntar mesas libres (quedan en una sola cuenta):</div>
             <div style={styles.mesaPickerRow}>
-              {mesasOcupadas(selectedMesa).length === 0 && <span style={styles.cajaEmptyText}>No hay otras mesas ocupadas.</span>}
-              {mesasOcupadas(selectedMesa).map((m) => (
-                <button key={m.id} style={styles.mesaPickerBtn} onClick={() => unirCon(cuenta, cuentaAbiertaDe(m.id))}>{m.nombre}</button>
+              {mesasParaJuntar(selectedMesa, cuenta).length === 0 && <span style={styles.cajaEmptyText}>No hay mesas libres.</span>}
+              {mesasParaJuntar(selectedMesa, cuenta).map((m) => (
+                <button key={m.id} style={styles.mesaPickerBtn} onClick={() => juntarMesaLibre(cuenta, m.id)}>{m.nombre}</button>
               ))}
             </div>
+            {mesasOcupadas(selectedMesa, cuenta).length > 0 && (
+              <>
+                <div style={{ ...styles.closeConfirmText, marginTop: 6 }}>{cuenta ? "O fusionar con una cuenta ya abierta:" : "O sumarte a una cuenta ya abierta:"}</div>
+                <div style={styles.mesaPickerRow}>
+                  {mesasOcupadas(selectedMesa, cuenta).map((m) => (
+                    <button key={m.id} style={styles.mesaPickerBtn} onClick={() => (cuenta ? unirCon(cuenta, cuentaAbiertaDe(m.id)) : (setMesaAction(null), setSelectedMesa(m.id)))}>{m.nombre}</button>
+                  ))}
+                </div>
+              </>
+            )}
             <button style={styles.cancelEditBtn} onClick={() => setMesaAction("menu")}>Volver</button>
           </div>
         )}
 
+        {esMesaNormal && idsMesas.length > 1 && (
+          <div className="ancho" style={styles.extInfo}>
+            <span style={styles.extInfoItem}><Users size={12} /> Mesas juntas:</span>
+            {idsMesas.slice(1).map((id) => (
+              <button key={id} style={{ ...styles.extInfoItem, background: "transparent", border: "1px solid var(--c-e4dfce-o)", borderRadius: 999, padding: "2px 9px", color: "inherit", cursor: "pointer", fontSize: 12.5 }} onClick={() => separarMesa(cuenta, id)} title="Separar esta mesa">
+                {mesaNombre(mesas, id)} ✕
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={styles.cuerpoScroll}>
         {pending.length > 0 && (() => {
           const activos = pending.filter((o) => o.estado !== "servido");
           const enCocinaU = activos.reduce((a, o) => a + o.items.reduce((x, it) => x + (it.qty - itemListos(o, it)), 0), 0);
@@ -368,7 +426,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                   {listosU > 0 && <span style={{ color: "var(--c-2f6690-t)", fontWeight: 700 }}>● {listosU} para servir</span>}
                   {enCocinaU === 0 && listosU === 0 && <span style={{ color: "var(--c-5b7553-t)", fontWeight: 700 }}>✓ Todo servido</span>}
                 </span>
-                <span style={styles.pedidosResumenTotal}>{money(totalCuenta)} {verPedidos ? "▴" : "▾"}</span>
+                <span style={{ ...styles.pedidosResumenTotal, display: "inline-flex", alignItems: "center", gap: 6 }}>{money(totalCuenta)} <Chevron abierto={verPedidos} size={15} /></span>
               </button>
               {verPedidos && (
                 <div style={styles.pedidosLista}>
@@ -449,10 +507,10 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           <button style={styles.repeatBtn} onClick={() => repetirUltimoPedido(cuenta)}>↻ Repetir último pedido de esta cuenta</button>
         )}
 
-        <div style={styles.catPillsWrap}>
+        <div style={{ ...styles.catPillsWrap, position: "sticky", top: 0, zIndex: 5, background: "var(--c-f7f4ec-b)" }}>
           <div style={{ position: "relative" }}>
             <Search size={17} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--c-8a8272-t)", pointerEvents: "none" }} />
-            <input style={{ ...styles.searchInput, width: "100%", boxSizing: "border-box", paddingLeft: 40, paddingRight: search ? 38 : 12 }} data-enter="blur" placeholder="Buscar producto…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input style={{ ...styles.searchInput, width: "100%", boxSizing: "border-box", paddingLeft: 40, paddingRight: search ? 38 : 12 }} ref={buscadorProdRef} data-enter="blur" placeholder="Buscar producto…  ( / )" value={search} onChange={(e) => setSearch(e.target.value)} />
             {search && (
               <button aria-label="Borrar búsqueda" onClick={() => setSearch("")} style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", color: "var(--c-8a8272-t)", cursor: "pointer" }}><X size={15} /></button>
             )}
@@ -473,7 +531,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           )}
         </div>
 
-        <div className="ancho" style={styles.menuScroll}>
+        <div className="ancho" style={{ ...styles.menuScroll, flex: "none", overflowY: "visible" }}>
           {(search.trim()
             ? menu.filter((m) => m.name.toLowerCase().includes(search.trim().toLowerCase()))
             : menu.filter((m) => m.cat === (activeCat || categories[0]))
@@ -538,11 +596,17 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
             <div style={styles.noResults}>Sin resultados para "{search}"</div>
           )}
         </div>
+        </div>
 
         <div className="ancho" style={styles.orderBar}>
-          <input placeholder="Nota general para cocina (opcional)" value={note} onChange={(e) => setNote(e.target.value)} style={styles.noteInput} />
+          {(notaAbierta || note) && (
+            <input autoFocus={!note} placeholder="Nota general para cocina (opcional)" value={note} onChange={(e) => setNote(e.target.value)} style={styles.noteInput} />
+          )}
           <div style={{ display: "flex", gap: 8 }}>
             {editingOrderId && <button style={styles.cancelEditBtn} onClick={resetDraft}>Descartar</button>}
+            {!(notaAbierta || note) && (
+              <button style={{ ...styles.cancelEditBtn, flex: "0 0 auto", padding: "0 14px", display: "inline-flex", alignItems: "center", justifyContent: "center" }} onClick={() => setNotaAbierta(true)} aria-label="Agregar nota para cocina" title="Nota para cocina"><MessageSquarePlus size={18} /></button>
+            )}
             <button style={{ ...styles.sendBtn, flex: 1, opacity: totalItems === 0 || enviando ? 0.4 : 1 }} disabled={totalItems === 0 || enviando} onClick={() => enviarPedido(selectedMesa)}>
               {editingOrderId ? <Check size={16} /> : <Send size={16} />}
               {enviando ? "Enviando…" : editingOrderId ? `Guardar cambios (${totalItems})` : `Enviar pedido ${totalItems > 0 ? `(${totalItems})` : ""}`}
@@ -631,6 +695,28 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           {mesas.map((m) => {
             const cuenta = cuentaDeMesa(cuentas, m.id);
             const visual = estadoVisualMesa(cuenta, cuenta ? cuentaOrders(orders, cuenta.id) : []);
+            // Mesas juntas: se dibujan fusionadas en un solo bloque (2, 3… recuadros pegados con una sola cuenta).
+            const miembros = cuenta ? mesas.filter((x) => cuentaCubre(cuenta, x.id)) : [];
+            if (miembros.length > 1) {
+              if (miembros[0].id !== m.id) return null; // el bloque se dibuja una sola vez, en la primera mesa del grupo
+              const n = miembros.length;
+              const cols = n <= 3 ? n : n === 4 ? 2 : 3;
+              return (
+                <div key={"fus-" + cuenta.id} className="anim-in" style={{ ...styles.mesaFusion, borderColor: visual.bg }}>
+                  <div style={{ ...styles.mesaFusionGrid, gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+                    {miembros.map((x) => (
+                      <button key={x.id} style={styles.mesaFusionTile} onClick={() => tocarMesa(x.id)}>
+                        <span style={styles.mesaCardNum}>{x.nombre}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div style={styles.mesaFusionPie}>
+                    <span style={{ ...styles.mesaCardTag, background: visual.bg, color: visual.color }}>{visual.tag}</span>
+                    <span style={styles.mesaCardSince}>{n} mesas juntas · {esPorLiberar(cuenta) ? `pagada ${timeLabel(cuenta.pagadaTs)}` : `desde ${timeLabel(cuenta.ts)}`}</span>
+                  </div>
+                </div>
+              );
+            }
             return (
               <button key={m.id} className="anim-in" style={styles.mesaCard} onClick={() => tocarMesa(m.id)}>
                 <span style={styles.mesaCardNum}>{m.nombre}</span>

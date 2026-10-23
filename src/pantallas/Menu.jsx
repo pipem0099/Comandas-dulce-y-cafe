@@ -11,8 +11,6 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
   const [cat, setCat] = useState("");
-  const [businessName, setBusinessName] = useState(config.businessName || "");
-  const [savedFlash, setSavedFlash] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [editingItemId, setEditingItemId] = useState(null);
   const [editPriceValue, setEditPriceValue] = useState("");
@@ -68,13 +66,6 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
     persistMenu(menu.map((m) => (m.id === item.id ? { ...m, grupos: patch.grupos, receta: patch.receta, estacion: patch.estacion, cost: costoCalc > 0 ? costoCalc : m.cost } : m)));
     registrar(`Configuró "${item.name}" (${patch.grupos.length} grupos de opciones, ${patch.receta.length} insumos en la receta)`);
     setConfigId(null);
-  };
-
-  const guardarNombre = async () => {
-    if (!businessName.trim()) return;
-    await persistConfig({ ...config, businessName: businessName.trim() });
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 1800);
   };
 
   const categorias = [...new Set(menu.map((m) => m.cat))];
@@ -185,13 +176,6 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
             </div>
           </div>
         ))}
-
-        <Acordeon titulo="Nombre del negocio" resumen={config.businessName || "Sin nombre"}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 0 6px" }}>
-            <input style={styles.editInput} placeholder="Nombre del negocio" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
-            <button style={styles.addItemBtn} onClick={guardarNombre}>{savedFlash ? <><Check size={15} /> Guardado</> : "Guardar nombre"}</button>
-          </div>
-        </Acordeon>
       </div>
     </div>
   );

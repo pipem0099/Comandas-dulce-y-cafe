@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import { PlanoSalon, ZONA_TIPOS, ALTOS_PLANO } from "../componentes/Plano.jsx";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import {
-  Plus, Trash2, Pencil, Lock, Check, X,
+  Plus, Trash2, Pencil, Lock, Check, X, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { uid } from "../logica.js";
 import { styles } from "../estilos.js";
-import { mesaMatch } from "../utilidades.js";
+import { cuentaCubre } from "../utilidades.js";
 
 export { PlanoSalon } from "../componentes/Plano.jsx";
 
@@ -17,7 +17,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [error, setError] = useState("");
 
-  const tieneCuentaAbierta = (mesaId) => cuentas.some((c) => mesaMatch(c.mesa, mesaId) && c.estado === "abierta");
+  const tieneCuentaAbierta = (mesaId) => cuentas.some((c) => cuentaCubre(c, mesaId) && c.estado === "abierta");
 
   const registrar = (accion) => {
     if (!config || !persistConfig) return;
@@ -144,6 +144,12 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
             <div style={pl.pastillas}>
               {[["cuadrada", "Cuadrada"], ["redonda", "Redonda"], ["larga", "Larga"]].map(([k, l]) => <button key={k} style={{ ...pl.pastilla, ...((mesaSel.forma || "cuadrada") === k ? pl.on : {}) }} onClick={() => cambiarEnPlano("mesa", mesaSel.id, { forma: k })}>{l}</button>)}
             </div>
+            <div style={pl.etiqueta}>Orientación · {Math.round(Number(mesaSel.giro) || 0)}°</div>
+            <div style={pl.pastillas}>
+              {[[0, "Horizontal"], [90, "Vertical"], [45, "Diagonal ↘"], [135, "Diagonal ↗"]].map(([g, l]) => <button key={g} style={{ ...pl.pastilla, ...((Number(mesaSel.giro) || 0) === g ? pl.on : {}) }} onClick={() => cambiarEnPlano("mesa", mesaSel.id, { giro: g })}>{l}</button>)}
+              <button style={pl.pastilla} onClick={() => cambiarEnPlano("mesa", mesaSel.id, { giro: (((Number(mesaSel.giro) || 0) + 90) % 180) })}>↻ Girar 90°</button>
+            </div>
+            <input type="range" min="0" max="175" step="5" value={(((Number(mesaSel.giro) || 0) % 180) + 180) % 180} onChange={(e) => cambiarEnPlano("mesa", mesaSel.id, { giro: Number(e.target.value) })} style={{ width: "100%", accentColor: "var(--accent)" }} aria-label="Girar la mesa libremente" />
           </div>
         )}
         {editandoPlano && zonaSel && (
@@ -182,8 +188,8 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
         {mesas.map((m, idx) => (
           <div key={m.id} style={styles.editRow}>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <button style={styles.mesaReorderBtn} onClick={() => mover(idx, -1)} disabled={idx === 0}>▲</button>
-              <button style={styles.mesaReorderBtn} onClick={() => mover(idx, 1)} disabled={idx === mesas.length - 1}>▼</button>
+              <button style={styles.mesaReorderBtn} onClick={() => mover(idx, -1)} disabled={idx === 0} aria-label="Subir"><ChevronUp size={15} /></button>
+              <button style={styles.mesaReorderBtn} onClick={() => mover(idx, 1)} disabled={idx === mesas.length - 1} aria-label="Bajar"><ChevronDown size={15} /></button>
             </div>
             {editId === m.id ? (
               <>

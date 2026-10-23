@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   Plus, Minus, Check, Receipt, Ban, AlertTriangle, Lock, Wallet,
-  Users, Gift, Phone, MapPin, Shuffle, HandCoins,
+  Users, Gift, Phone, MapPin, Shuffle, HandCoins, ChevronDown,
 } from "lucide-react";
 import { itemNombre, TIPO_META, esExterna, uid, money } from "../logica.js";
-import { CampoMonto, MetodoPills } from "../componentes/Comunes.jsx";
+import { avisar } from "../avisos.jsx";
+
+// Enter dentro de un monto = pulsar el botón principal del cobro (si está disponible)
+const confirmarConEnter = () => {
+  const b = document.querySelector("[data-confirmar]:not([disabled])");
+  if (b) b.click();
+};
+import { CampoMonto, MetodoPills, Chevron } from "../componentes/Comunes.jsx";
 import { METODO_META, PROPINA_OPCIONES } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { conProgreso, cuentaGranTotal, cuentaItemCount, cuentaOrders, cuentaSubtotal, dateTimeLabel, itemsAgregados, mesaNombre, orderTotal, pagosDe, pagosTotal, qtyAsignadaPorProducto, tieneRol, timeLabel } from "../utilidades.js";
@@ -53,7 +60,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
     const vueltos = Math.round(recibido - monto);
     return (
       <div style={styles.vueltosBox}>
-        <CampoMonto placeholder={`¿Con cuánto paga? (a cobrar ${money(monto)})`} value={efectivoRecibido} onChange={setEfectivoRecibido} />
+        <CampoMonto placeholder={`¿Con cuánto paga? (a cobrar ${money(monto)})`} value={efectivoRecibido} onChange={setEfectivoRecibido} onEnter={confirmarConEnter} />
         {efectivoRecibido !== "" && (
           <div style={{ ...styles.diferenciaBox, background: vueltos >= 0 ? "var(--c-e4eee1-b)" : "var(--c-fbe2dc-b)" }}>
             {vueltos < 0 ? `Faltan ${money(Math.abs(vueltos))}` : vueltaPropina && vueltos > 0 ? `Se cobra ${money(monto + vueltos)}: ${money(monto)} + ${money(vueltos)} de propina` : `Total a devolver: ${money(vueltos)}`}
@@ -97,6 +104,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
       const nuevosPagos = [...pagosDe(cuenta), ...nuevos];
       const totalPagado = nuevosPagos.reduce((s, p) => s + p.monto, 0);
       const completo = totalPagado >= totalNuevo - 1;
+      const cuentaAntes = cuenta; let ordenesAntes = [];
       if (completo) {
         // La mesa ya se pagó por completo — si quedó algo sin marcar "listo" o
         // "servido" en Cocina/Mesero, lo cerramos ahora como servido (si ya se
@@ -104,6 +112,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
         // fantasma activo para siempre, aunque ya esté cobrado.
         const sinCerrar = cuentaOrders(orders, cuenta.id).filter((o) => o.estado === "pendiente" || o.estado === "preparando" || o.estado === "listo");
         if (sinCerrar.length > 0) {
+          ordenesAntes = sinCerrar;
           const patch = {};
           sinCerrar.forEach((o) => { patch[o.id] = conProgreso(o, o.items.map((it) => ({ ...it, listos: it.qty, servidos: it.qty }))); });
           await saveOrdersMap(patch);
@@ -112,6 +121,15 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
       const propina = vueltaTotal > 0 ? { pct: null, monto: ((cuenta.propina && cuenta.propina.monto) || 0) + vueltaTotal } : (cuenta.propina || null);
       await saveCuenta({ ...cuenta, propina, pagos: nuevosPagos, splitMode: effectiveModo || cuenta.splitMode || null, estado: completo ? "pagada" : "abierta", pagadaTs: completo ? Date.now() : cuenta.pagadaTs, ...(completo && !esExterna(cuenta) ? { liberada: false } : {}) });
       setMetodoSel(null); setEfectivoRecibido(""); setVueltaPropina(false); setMontoMixto(""); setCart({}); setEtiqueta(""); limpiarCombinado();
+      const montoRegistrado = nuevos.reduce((s, p) => s + p.monto, 0);
+      avisar({
+        texto: completo ? "Cuenta cobrada" : "Pago registrado",
+        detalle: completo ? `${mesaNombre(mesas, cuenta.mesa)} · ${money(totalNuevo)}` : `${money(montoRegistrado)} · falta ${money(Math.max(0, totalNuevo - totalPagado))}`,
+        deshacer: async () => {
+          if (ordenesAntes.length > 0) await saveOrdersMap(Object.fromEntries(ordenesAntes.map((o) => [o.id, o])));
+          await saveCuenta(cuentaAntes);
+        },
+      });
     } finally {
       cobrandoRef.current = false;
       setCobrando(false);
@@ -140,7 +158,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
   // como si nada, aunque la mesa ya no exista en Caja (pedido fantasma).
   const cancelarPedidosDeCuenta = async () => {
     const activos = cuentaOrders(orders, cuenta.id).filter((o) => o.estado !== "cancelado");
-    if (activos.length === 0) return;
+    if (activos.length === 0) return null;
     const patch = {};
     const devolver = {};
     activos.forEach((o) => {
@@ -150,22 +168,33 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
     });
     await saveOrdersMap(patch);
     if (Object.keys(devolver).length > 0) await ajustarInventario(devolver);
+    return { activos, devolver };
   };
 
   const cancelarCuenta = async () => {
+    const cuentaAntes = cuenta; let previo = null;
+    const deshacerCancelacion = async () => {
+      if (previo) {
+        await saveOrdersMap(Object.fromEntries(previo.activos.map((o) => [o.id, o])));
+        const volver = {}; Object.entries(previo.devolver).forEach(([k, v]) => { volver[k] = -v; });
+        if (Object.keys(volver).length > 0) await ajustarInventario(volver);
+      }
+      await saveCuenta(cuentaAntes);
+    };
     if (total > 0) {
       if (!esAdmin) return;
       if (!motivoCancelacion.trim()) return; // el motivo es obligatorio cuando hay dinero de por medio
-      await cancelarPedidosDeCuenta();
+      previo = await cancelarPedidosDeCuenta();
       await patchCuenta({
         estado: "cancelada", canceladaTs: Date.now(), canceladaPor: usuarioActual.nombre,
         motivoCancelacion: motivoCancelacion.trim(), montoCancelado: total,
       });
     } else {
-      await cancelarPedidosDeCuenta();
+      previo = await cancelarPedidosDeCuenta();
       await patchCuenta({ estado: "cancelada", canceladaTs: Date.now(), canceladaPor: usuarioActual.nombre, montoCancelado: 0 });
     }
     setConfirmCancelarCuenta(false); setMotivoCancelacion("");
+    avisar({ texto: "Cuenta cancelada", detalle: mesaNombre(mesas, cuenta.mesa), tipo: "info", deshacer: deshacerCancelacion });
   };
 
   const confirmarUnico = () => { if (!metodoSel) return; guardarPago({ id: uid(), ts: Date.now(), metodoPago: metodoSel, monto: total, tipo: "unico", etiqueta: null, items: itemsAgregados(orders, cuenta.id), procesadoPor: usuarioActual.nombre }, vueltaDejada(total)); };
@@ -231,7 +260,10 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
 
   // Pago mixto: el cliente reparte la cuenta entre varios métodos (ej. $30.000 en efectivo y el saldo con tarjeta).
   // Cada pago descuenta del saldo pendiente por su cuenta; la mesa se cierra cuando el saldo llega a cero.
-  const montoEste = montoMixto === "" ? restante : Math.min(restante, Math.round(parseFloat(montoMixto) || 0));
+  // Sin monto escrito = nada elegido todavía (así "Todo el saldo" y "La mitad" se pueden marcar y desmarcar).
+  const montoEste = montoMixto === "" ? 0 : Math.min(restante, Math.round(parseFloat(montoMixto) || 0));
+  const esTodo = montoMixto !== "" && montoEste >= restante;
+  const esMitad = montoMixto !== "" && !esTodo && montoEste === Math.round(restante / 2);
   const pagosMixtos = pagos.filter((p) => p.tipo === "mixto").length;
   const confirmarMixto = () => {
     if (!metodoSel || montoEste <= 0) return;
@@ -273,7 +305,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
           </div>
         )}
         <div style={styles.mixtoSaldo}><span>Falta por cobrar</span><b style={{ fontFamily: "var(--font-display)", fontSize: 22 }}>{money(falta)}</b></div>
-        <CampoMonto placeholder={`¿Cuánto paga con este método? (falta ${money(falta)})`} value={montoAbono} onChange={setMontoAbono} />
+        <CampoMonto placeholder={`¿Cuánto paga con este método? (falta ${money(falta)})`} value={montoAbono} onChange={setMontoAbono} onEnter={confirmarConEnter} />
         <div style={{ display: "flex", gap: 6 }}>
           <button style={{ ...styles.propinaPill, ...(montoSel === falta ? styles.pillOn : {}) }} onClick={() => setMontoAbono(String(falta))}>Todo lo que falta</button>
           <button style={styles.propinaPill} onClick={() => setMontoAbono(String(Math.round(falta / 2)))}>La mitad</button>
@@ -376,13 +408,16 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
             </div>
           )}
           {pagos.length === 0 && (!cuenta.descuento || !cuenta.propina) && (
-            !verAjustes ? (
-              <button style={styles.propinaToggle} onClick={() => setVerAjustes(true)}>
+            <div style={styles.ajustesWrap}>
+              <button style={{ ...styles.propinaToggle, ...(verAjustes ? styles.propinaToggleAbierto : {}) }} aria-expanded={verAjustes} onClick={() => { if (verAjustes) setMostrarDescuento(false); setVerAjustes(!verAjustes); }}>
                 <span>{!cuenta.descuento && !cuenta.propina ? "Propina y descuento" : !cuenta.propina ? "Propina" : "Descuento o cortesía"}</span>
-                <span style={{ color: "var(--c-8a8272-t)", fontWeight: 500 }}>Opcional ˅</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--c-8a8272-t)", fontWeight: 500, fontSize: 13 }}>
+                  {!verAjustes && "Opcional"}
+                  <Chevron abierto={verAjustes} size={17} />
+                </span>
               </button>
-            ) : (
-              <div className="despliega" style={styles.ajustesBox}>
+              {verAjustes && (
+                <div className="despliega" style={styles.ajustesBox}>
                 {!cuenta.descuento && (
                   !esAdmin ? (
                     <div style={styles.lockedNote}><Lock size={11} /> Solo un administrador puede aplicar descuentos o cortesías.</div>
@@ -406,14 +441,14 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                       {PROPINA_OPCIONES.map((p) => (
                         <button key={p} style={styles.propinaPill} onClick={() => setPropina(p)}>{p}%</button>
                       ))}
-                      <CampoMonto style={styles.propinaCustomInput} placeholder="$" value={propinaCustom} onChange={setPropinaCustom} />
+                      <span className="campo-prefijo" style={styles.propinaCustomWrap}><span style={{ color: "var(--c-8a8272-t)", fontWeight: 700, fontSize: 13 }}>$</span><CampoMonto style={styles.propinaCustomInput} placeholder="Otro monto" value={propinaCustom} onChange={setPropinaCustom} /></span>
                       <button style={styles.propinaCustomBtn} onClick={() => setPropina("custom")} disabled={!propinaCustom}>Ok</button>
                     </div>
                   </div>
                 )}
-                <button style={styles.inlineLink} onClick={() => { setVerAjustes(false); setMostrarDescuento(false); }}>Ocultar ˄</button>
-              </div>
-            )
+                </div>
+              )}
+            </div>
           )}
 
           <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Total a cobrar</span><span>{money(total)}</span></div>
@@ -462,7 +497,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
             <div style={styles.cobroBox}>
               {!effectiveModo ? (
                 <>
-                  <div style={styles.closeConfirmText}>¿Cómo quieren pagar?</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--c-242019-t)", margin: "2px 0 -2px" }}>¿Cómo quieren pagar?</div>
                   <div style={styles.modoGrid}>
                     <button style={styles.modoChoiceBtn} onClick={() => setModoLocal("unico")}><Wallet size={16} /> Pago único</button>
                     <button style={styles.modoChoiceBtn} onClick={() => setModoLocal("mixto")}><Shuffle size={16} /> Pago mixto</button>
@@ -477,7 +512,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                   {renderVueltos(total)}
                   <div style={{ display: "flex", gap: 8 }}>
                     <button style={styles.cancelEditBtn} onClick={() => setModoLocal(null)}>Volver</button>
-                    <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel ? 1 : 0.4 }} disabled={!metodoSel} onClick={confirmarUnico}><Lock size={15} /> Confirmar cobro</button>
+                    <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel ? 1 : 0.4 }} disabled={!metodoSel} data-confirmar="1" onClick={confirmarUnico}><Lock size={15} /> Confirmar cobro</button>
                   </div>
                 </>
               ) : effectiveModo === "mixto" ? (
@@ -488,17 +523,17 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                   </div>
                   {cobrado > 0 && <div style={styles.closeConfirmText}>Ya se pagó {money(cobrado)} de {money(total)}.</div>}
                   <div style={styles.closeConfirmText}>¿Cuánto paga con este método?</div>
-                  <CampoMonto placeholder={`Monto de este pago (saldo ${money(restante)})`} value={montoMixto} onChange={setMontoMixto} />
+                  <CampoMonto placeholder={`Monto de este pago (saldo ${money(restante)})`} value={montoMixto} onChange={setMontoMixto} onEnter={confirmarConEnter} />
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button style={{ ...styles.propinaPill, ...(montoEste >= restante ? styles.pillOn : {}) }} onClick={() => setMontoMixto(String(restante))}>Todo el saldo</button>
-                    <button style={styles.propinaPill} onClick={() => setMontoMixto(String(Math.round(restante / 2)))}>La mitad</button>
+                    <button style={{ ...styles.propinaPill, ...(esTodo ? styles.pillOn : {}) }} onClick={() => setMontoMixto(esTodo ? "" : String(restante))}>Todo el saldo</button>
+                    <button style={{ ...styles.propinaPill, ...(esMitad ? styles.pillOn : {}) }} onClick={() => setMontoMixto(esMitad ? "" : String(Math.round(restante / 2)))}>La mitad</button>
                   </div>
                   <MetodoPills selected={metodoSel} onSelect={seleccionarMetodo} />
                   {renderVueltos(montoEste)}
                   <div style={{ display: "flex", gap: 8 }}>
                     {pagos.length === 0 && <button style={styles.cancelEditBtn} onClick={() => setModoLocal(null)}>Volver</button>}
-                    <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel && montoEste > 0 ? 1 : 0.4 }} disabled={!metodoSel || montoEste <= 0} onClick={confirmarMixto}>
-                      <Check size={15} /> {montoEste >= restante ? "Registrar pago final" : "Registrar pago parcial"} — {money(montoEste)}
+                    <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel && montoEste > 0 ? 1 : 0.4 }} disabled={!metodoSel || montoEste <= 0} data-confirmar="1" onClick={confirmarMixto}>
+                      <Check size={15} /> {montoEste <= 0 ? "Elige o escribe un monto" : `${montoEste >= restante ? "Registrar pago final" : "Registrar pago parcial"} — ${money(montoEste)}`}
                     </button>
                   </div>
                   {montoEste < restante && montoEste > 0 && <div style={styles.closeConfirmText}>Después de este pago quedarán {money(restante - montoEste)} por cobrar, con otro método.</div>}
@@ -525,7 +560,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                       {renderVueltos(montoParteActual)}
                       <div style={{ display: "flex", gap: 8 }}>
                         {partesRegistradas === 0 && <button style={styles.cancelEditBtn} onClick={() => setModoLocal(null)}>Volver</button>}
-                        <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel ? 1 : 0.4 }} disabled={!metodoSel} onClick={confirmarParte}><Check size={15} /> Registrar parte {parteActual}</button>
+                        <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel ? 1 : 0.4 }} disabled={!metodoSel} data-confirmar="1" onClick={confirmarParte}><Check size={15} /> Registrar parte {parteActual}</button>
                       </div>
                       {linkCombinar}
                     </>
@@ -552,7 +587,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                       {renderVueltos(cartMonto)}
                       <div style={{ display: "flex", gap: 8 }}>
                         {pagos.length === 0 && <button style={styles.cancelEditBtn} onClick={() => setModoLocal(null)}>Volver</button>}
-                        <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel && cartMonto > 0 ? 1 : 0.4 }} disabled={!metodoSel || cartMonto === 0} onClick={confirmarProducto}><Check size={15} /> Registrar pago — {money(cartMonto)}</button>
+                        <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel && cartMonto > 0 ? 1 : 0.4 }} disabled={!metodoSel || cartMonto === 0} data-confirmar="1" onClick={confirmarProducto}><Check size={15} /> Registrar pago — {money(cartMonto)}</button>
                       </div>
                       {cartMonto > 0 && linkCombinar}
                       {/* Para cuando alguien decide pagar de una vez todo lo que falta (aunque haya productos tocados arriba) */}

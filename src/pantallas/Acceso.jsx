@@ -16,7 +16,7 @@ export const MENSAJES_AUTH = {
   "auth/network-request-failed": "Sin conexión — revisa tu internet.",
   "auth/operation-not-allowed": "Falta activar el acceso con correo y contraseña en Firebase.",
   "auth/email-already-in-use": "Ese correo ya tiene una cuenta con otra clave.",
-  "auth/weak-password": "La clave es muy corta (mínimo 6 caracteres).",
+  "auth/weak-password": "La clave es muy corta o muy simple (mínimo 10 caracteres).",
 };
 export const msgAuth = (code) => MENSAJES_AUTH[code] || "No se pudo completar. Inténtalo de nuevo.";
 
@@ -97,7 +97,7 @@ export function InicioSesion() {
     if (enviando) return;
     if (!nombre.trim()) { setError("Escribe tu nombre."); return; }
     if (!/^\S+@\S+\.\S+$/.test(correo.trim())) { setError("Escribe un correo válido."); return; }
-    if (clave.length < 6) { setError("La clave debe tener mínimo 6 caracteres."); return; }
+    if (clave.length < 10) { setError("La clave debe tener mínimo 10 caracteres."); return; }
     if (clave !== clave2) { setError("Las dos claves no son iguales."); return; }
     setEnviando(true); setError("");
     // Se recuerda el nombre para crear el perfil de propietario apenas la cuenta quede creada.
@@ -125,7 +125,7 @@ export function InicioSesion() {
       <div style={a.campos}>
         {esCrear && <input style={a.input} autoComplete="name" placeholder="Tu nombre" value={nombre} onChange={(e) => { setNombre(e.target.value); setError(""); }} />}
         <input style={a.input} type="email" inputMode="email" autoComplete="username" autoCapitalize="none" placeholder="Correo electrónico" value={correo} onChange={(e) => { setCorreo(e.target.value); setError(""); }} />
-        <CampoClave value={clave} onChange={(e) => { setClave(e.target.value); setError(""); }} placeholder={esCrear ? "Clave (mínimo 6 caracteres)" : "Clave"} autoComplete={esCrear ? "new-password" : "current-password"} onEnter={esCrear ? undefined : entrar} />
+        <CampoClave value={clave} onChange={(e) => { setClave(e.target.value); setError(""); }} placeholder={esCrear ? "Clave (mínimo 10 caracteres)" : "Clave"} autoComplete={esCrear ? "new-password" : "current-password"} onEnter={esCrear ? undefined : entrar} />
         {esCrear && <CampoClave value={clave2} onChange={(e) => { setClave2(e.target.value); setError(""); }} placeholder="Repite la clave" autoComplete="new-password" onEnter={crear} />}
       </div>
       {error && <div style={a.error}><AlertCircle size={15} /> <span>{error}</span></div>}

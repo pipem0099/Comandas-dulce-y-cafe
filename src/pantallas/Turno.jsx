@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  AlertTriangle, Lock, Download, PlayCircle, DoorClosed, ArrowDownToLine, ArrowUpFromLine, RotateCcw, ChevronDown, ChevronUp, ArrowRightLeft, HandHelping,
+  AlertTriangle, Lock, Download, PlayCircle, DoorClosed, ArrowDownToLine, ArrowUpFromLine, RotateCcw, ChevronDown, ChevronUp, ArrowRightLeft, HandHelping, Printer,
 } from "lucide-react";
 import { uid, money } from "../logica.js";
 import { saveShared, getRecord, saveCollectionArray, updateRecord } from "../firebase.js";
 import { FormularioMovimiento, ListaMovimientos, RegistrarMovimiento } from "./MovimientosCaja.jsx";
 import { FlujoEntrega, TarjetaRelevoPendiente } from "./RelevoCaja.jsx";
 import { ResumenDia } from "./ResumenDia.jsx";
+import { imprimir } from "../impresion.jsx";
+import { avisar } from "../avisos.jsx";
+import { HojaTurno, HojaMes } from "../hojas.jsx";
 import { responsableDe, statsTramo, tramoVigente, tramosDe } from "../relevoCaja.js";
-import { CampoMonto, Acordeon } from "../componentes/Comunes.jsx";
+import { CampoMonto, Acordeon, Chevron } from "../componentes/Comunes.jsx";
 import { MontoSigno } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { descargarRespaldo } from "../exportar.js";
@@ -45,6 +48,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
     };
     await saveTurno(turno);
     setBase("0");
+    avisar({ texto: "Caja abierta", detalle: `apertura ${money(turno.baseEfectivo || 0)}` });
   };
 
   // Tarjeta y transferencia se cuadran UNA vez, al cerrar (total del día). El efectivo se cuadra por tramo:
@@ -117,6 +121,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
   const cerrarTurno = async () => {
     await saveTurno(armarCierre(Date.now()));
     reiniciarCierre();
+    avisar(todoCuadra ? { texto: "Caja cerrada", detalle: "todo cuadró ✓" } : { texto: "Caja cerrada con diferencia", detalle: "quedó registrada en el resumen", tipo: "info", duracion: 6000 });
   };
 
   const cerrados = turnos.filter((t) => t.estado === "cerrado").sort((a, b) => b.cierreTs - a.cierreTs);
@@ -306,6 +311,9 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                 key={mes.key} titulo={mes.titulo} inicialAbierto={i === 0}
                 resumen={`${mes.items.length} ${mes.items.length === 1 ? "turno" : "turnos"} · ${conDif === 0 ? "todos cuadraron" : `${conDif} con diferencia`}`}
               >
+                <button style={{ ...styles.exportLink, margin: "10px 0 4px" }} onClick={() => imprimir(<HojaMes mes={mes} cuentas={cuentasParaHistorial || cuentas} config={config} usuario={usuarioActual} />)}>
+                  <Printer size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Imprimir cierre de {mes.titulo.toLowerCase()}
+                </button>
                 {mes.items.map((tr) => {
                   const abierto = detalleAbierto === tr.id;
                   return (
@@ -325,6 +333,9 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                       {abierto && (
                         <div style={{ marginTop: 10 }} className="anim-in">
                           <ResumenDia turno={tr} cuentas={cuentasParaHistorial || cuentas} />
+                          <button style={{ ...styles.exportLink, marginTop: 10 }} onClick={() => imprimir(<HojaTurno turno={tr} cuentas={cuentasParaHistorial || cuentas} config={config} usuario={usuarioActual} />)}>
+                            <Printer size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Imprimir este cierre
+                          </button>
                         </div>
                       )}
                     </div>
@@ -514,12 +525,12 @@ export function RespaldosAutomaticosBox() {
       candidatos.push(dayKey(d.getTime()));
     }
     const resultados = await Promise.all(candidatos.map((dk) => getRecord(`respaldos/${dk}`)));
-    setDias(resultados.filter(Boolean).sort((a, b) => b.dia.localeCompare(a.dia)));
+    setDias(resultados.filter((r) => r && r.dia).sort((a, b) => b.dia.localeCompare(a.dia)));
     setCargando(false);
   };
 
   const descargarDia = (r) => {
-    const data = { version: 2, exportadoTs: Date.now(), automatica: true, dia: r.dia, menu: r.menu, orders: r.orders, cuentas: r.cuentas, config: r.config, turnos: [], mesas: r.mesas };
+    const data = { version: 2, exportadoTs: Date.now(), automatica: true, dia: r.dia, menu: r.menu || [], orders: r.orders || [], cuentas: r.cuentas || [], config: r.config || {}, turnos: [], mesas: r.mesas || [] };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -546,7 +557,7 @@ export function RespaldosAutomaticosBox() {
         <div className="despliega">
           {dias.map((r) => (
             <div key={r.dia} style={styles.turnoRow}>
-              <span style={styles.cierreDate}>{r.dia} · {r.cuentas.length} {r.cuentas.length === 1 ? "cuenta" : "cuentas"}</span>
+              <span style={styles.cierreDate}>{r.dia} · {(r.cuentas || []).length} {(r.cuentas || []).length === 1 ? "cuenta" : "cuentas"}</span>
               <button style={styles.inlineLink} onClick={() => descargarDia(r)}><Download size={11} style={{ verticalAlign: -1 }} /> descargar</button>
             </div>
           ))}
@@ -601,7 +612,7 @@ export function PanelSenalesAlerta({ cuentas, turnos }) {
       <button style={styles.canceladasToggle} onClick={() => setExpandido((v) => !v)}>
         <AlertTriangle size={13} color={hayAlertas ? "var(--c-c1442d-t)" : "var(--c-b98a2e-t)"} />
         <span style={{ color: hayAlertas ? "var(--c-8a3a2b-t)" : "var(--c-5c5648-t)" }}>Señales de alerta (últimos 35 días){hayAlertas ? " — hay algo que revisar" : ""}</span>
-        <span>{expandido ? "▲" : "▼"}</span>
+        <Chevron abierto={expandido} size={15} style={{ marginLeft: "auto" }} />
       </button>
       {expandido && (
         <div style={{ marginTop: 8 }}>

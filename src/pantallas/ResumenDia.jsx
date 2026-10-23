@@ -8,8 +8,8 @@ import { ListaMovimientos } from "./MovimientosCaja.jsx";
 /*
  * Resumen del día: lo que se ve al cerrar el turno y al abrir un turno anterior.
  * Está pensado para leerse de arriba hacia abajo sin saber de contabilidad:
- *   1) ¿cuadró o no?  2) quién tuvo la caja y cómo le fue  3) cuánto se vendió
- *   4) tarjeta y transferencia  5) entradas y salidas  6) entregas de caja.
+ *   1) ¿cuadró o no?  2) efectivo: quién tuvo la caja y cómo le fue  3) tarjeta y transferencia
+ *   4) entradas y salidas  5) entregas de caja  6) total vendido del día (al final).
  */
 const K = {
   surface: "var(--c-fffdf8-b)", soft: "var(--c-f1ecdd-b)", border: "var(--c-e4dfce-o)", ink: "var(--c-242019-t)",
@@ -77,9 +77,9 @@ export function ResumenDia({ turno, cuentas }) {
         {dateTimeLabel(turno.aperturaTs)}{turno.cierreTs ? ` → ${timeLabel(turno.cierreTs)}` : ""} · Abrió {turno.abiertoPor || "—"}{turno.cerradoPor ? ` · Cerró ${turno.cerradoPor}` : ""}
       </div>
 
-      {/* 2) Quién tuvo la caja */}
+      {/* 2) Cuadre del efectivo */}
       <div style={r.card}>
-        <div style={r.titulo}>QUIÉN TUVO LA CAJA</div>
+        <div style={r.titulo}>EFECTIVO · QUIÉN TUVO LA CAJA</div>
         <div style={r.ayuda}>El efectivo se cuenta por responsable: cada persona responde solo por el tramo en que la caja estuvo a su cargo.</div>
         {tramos.map((t, i) => {
           const d = dif(t.diferencia || 0);
@@ -107,20 +107,10 @@ export function ResumenDia({ turno, cuentas }) {
         })}
       </div>
 
-      {/* 3) Lo vendido */}
-      <div style={r.card}>
-        <div style={r.titulo}>LO VENDIDO EN EL DÍA</div>
-        <L k="Efectivo" v={money(ventas.efectivo)} />
-        <L k="Tarjeta" v={money(ventas.tarjeta)} />
-        <L k="Transferencia" v={money(ventas.transferencia)} />
-        <L k="Total vendido" v={money(totalVendido)} fuerte />
-        {propinas > 0 && <div style={r.meta}>Incluye {money(propinas)} de propinas.</div>}
-      </div>
-
-      {/* 4) Tarjeta y transferencia */}
+      {/* 3) Cuadre de tarjeta y transferencia (pegado al del efectivo) */}
       {tieneTarjeta && (
         <div style={r.card}>
-          <div style={r.titulo}>TARJETA Y TRANSFERENCIA</div>
+          <div style={r.titulo}>TARJETA Y TRANSFERENCIA · CUADRE</div>
           <div style={r.ayuda}>Se revisan una sola vez, al cerrar el turno, porque el datáfono y el banco muestran el total del día.</div>
           {[["Tarjeta", turno.tarjetaEsperada, turno.tarjetaContada, difTarjeta], ["Transferencia", turno.transferenciaEsperada, turno.transferenciaContada, difTransf]].map(([n, esp, reg, d]) => (
             <div key={n} style={{ display: "flex", flexDirection: "column", gap: 1, padding: "3px 0" }}>
@@ -131,7 +121,7 @@ export function ResumenDia({ turno, cuentas }) {
         </div>
       )}
 
-      {/* 5) Entradas y salidas */}
+      {/* 4) Entradas y salidas */}
       {movs.length > 0 && (
         <div style={r.card}>
           <div style={r.titulo}>ENTRADAS Y SALIDAS DE DINERO</div>
@@ -139,7 +129,7 @@ export function ResumenDia({ turno, cuentas }) {
         </div>
       )}
 
-      {/* 6) Entregas de caja */}
+      {/* 5) Entregas de caja */}
       {relevos.length > 0 && (
         <div style={r.card}>
           <div style={r.titulo}>ENTREGAS DE CAJA</div>
@@ -156,6 +146,16 @@ export function ResumenDia({ turno, cuentas }) {
           ))}
         </div>
       )}
+
+      {/* 6) Total vendido: al final, como cierre del resumen */}
+      <div style={r.card}>
+        <div style={r.titulo}>LO VENDIDO EN EL DÍA · TOTAL</div>
+        <L k="Efectivo" v={money(ventas.efectivo)} />
+        <L k="Tarjeta" v={money(ventas.tarjeta)} />
+        <L k="Transferencia" v={money(ventas.transferencia)} />
+        <L k="Total vendido" v={money(totalVendido)} fuerte />
+        {propinas > 0 && <div style={r.meta}>Incluye {money(propinas)} de propinas.</div>}
+      </div>
     </div>
   );
 }

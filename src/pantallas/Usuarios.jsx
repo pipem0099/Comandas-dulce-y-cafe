@@ -38,7 +38,7 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
     const mail = correo.trim().toLowerCase();
     if (!nombre.trim()) { setError("Escribe el nombre."); return; }
     if (!/^\S+@\S+\.\S+$/.test(mail)) { setError("Escribe un correo válido."); return; }
-    if (clave.length < 6) { setError("La clave inicial debe tener mínimo 6 caracteres."); return; }
+    if (clave.length < 10) { setError("La clave inicial debe tener mínimo 10 caracteres."); return; }
     if (rolesNuevo.length === 0) { setError("Elige al menos un rol."); return; }
     if (lista.some((u) => (u.correo || "").toLowerCase() === mail)) { setError("Ya hay una cuenta con ese correo."); return; }
     setCreando(true);
@@ -157,7 +157,7 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
         <div style={styles.closeConfirmText}>Cada persona entra con su propio correo y clave. Puedes marcar más de un rol (ej. Mesero + Cajero). La tablet de cocina puede tener su propia cuenta con el rol Cocina.</div>
         <input style={styles.editInput} placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
         <input style={styles.editInput} type="email" inputMode="email" autoCapitalize="none" placeholder="Correo" value={correo} onChange={(e) => setCorreo(e.target.value)} />
-        <input style={styles.editInput} placeholder="Clave inicial (mínimo 6 caracteres)" value={clave} onChange={(e) => setClave(e.target.value)} />
+        <input style={styles.editInput} placeholder="Clave inicial (mínimo 10 caracteres)" value={clave} onChange={(e) => setClave(e.target.value)} />
         <div style={styles.rolPillsRow}>
           {ROLES_ORDEN.map((r) => (
             <button key={r} style={{ ...styles.rolPill, ...(rolesNuevo.includes(r) ? styles.rolPillActive : {}) }} onClick={() => toggleRolNuevo(r)}>{rolLabel(r)}</button>

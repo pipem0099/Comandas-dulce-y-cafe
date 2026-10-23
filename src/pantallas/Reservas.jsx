@@ -36,6 +36,38 @@ function diasSiguientes(n = 7) {
   return out;
 }
 
+function TarjetaReserva({ r, mesas, cambiarEstado, onEditar }) {
+  const e = ESTADOS[r.estado] || ESTADOS.pendiente;
+  const wa = waLink(r.telefono);
+  return (
+    <div className="anim-in" style={rv.tarjeta}>
+      <div style={rv.fila1}>
+        <span style={rv.hora}>{horaLabel(r)}</span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={rv.nombre}>{r.nombre}</span>
+          <span style={rv.meta}><Users size={12} /> {r.personas} {r.personas === 1 ? "persona" : "personas"}{r.mesaId ? ` · ${mesaNombre(mesas, r.mesaId)}` : " · sin mesa asignada"}</span>
+        </span>
+        <span style={{ ...rv.estado, color: e.color, borderColor: e.color + "66", background: e.color + "1F" }}>{e.label}</span>
+      </div>
+      {r.nota && <div style={rv.nota}>"{r.nota}"</div>}
+      {r.telefono && (
+        <div style={rv.contacto}>
+          <a href={`tel:${soloDigitos(r.telefono)}`} style={rv.link}><Phone size={13} /> {r.telefono}</a>
+          {wa && <a href={wa} target="_blank" rel="noreferrer" style={rv.link}><MessageCircle size={13} /> WhatsApp</a>}
+        </div>
+      )}
+      <div style={rv.acciones}>
+        {r.estado === "pendiente" && <button style={rv.btn} onClick={() => cambiarEstado(r, "confirmada")}>Confirmar</button>}
+        {ACTIVA(r) && <button style={{ ...rv.btn, ...rv.btnOk }} onClick={() => cambiarEstado(r, "llego")}><Check size={14} /> Llegó</button>}
+        {ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "no_asistio")}>No llegó</button>}
+        {ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "cancelada")}>Cancelar</button>}
+        {!ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "pendiente")}>Reabrir</button>}
+        <button style={{ ...rv.btn, flex: "0 0 auto" }} onClick={() => onEditar(r)} aria-label="Editar"><Pencil size={14} /></button>
+      </div>
+    </div>
+  );
+}
+
 export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usuarioActual }) {
   const [dia, setDia] = useState(fechaStr());
   const [form, setForm] = useState(null); // null | reserva en edición (o nueva)
@@ -49,38 +81,6 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
 
   const cambiarEstado = (r, estado) => saveReserva({ ...r, estado, [`${estado}Ts`]: Date.now(), [`${estado}Por`]: usuarioActual.nombre });
   const nueva = () => setForm({ id: null, nombre: "", telefono: "", personas: 2, fecha: dia, hora: "20:00", mesaId: "", nota: "", estado: "pendiente" });
-
-  const Tarjeta = ({ r }) => {
-    const e = ESTADOS[r.estado] || ESTADOS.pendiente;
-    const wa = waLink(r.telefono);
-    return (
-      <div className="anim-in" style={rv.tarjeta}>
-        <div style={rv.fila1}>
-          <span style={rv.hora}>{horaLabel(r)}</span>
-          <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={rv.nombre}>{r.nombre}</span>
-            <span style={rv.meta}><Users size={12} /> {r.personas} {r.personas === 1 ? "persona" : "personas"}{r.mesaId ? ` · ${mesaNombre(mesas, r.mesaId)}` : " · sin mesa asignada"}</span>
-          </span>
-          <span style={{ ...rv.estado, color: e.color, borderColor: e.color + "66", background: e.color + "1F" }}>{e.label}</span>
-        </div>
-        {r.nota && <div style={rv.nota}>"{r.nota}"</div>}
-        {r.telefono && (
-          <div style={rv.contacto}>
-            <a href={`tel:${soloDigitos(r.telefono)}`} style={rv.link}><Phone size={13} /> {r.telefono}</a>
-            {wa && <a href={wa} target="_blank" rel="noreferrer" style={rv.link}><MessageCircle size={13} /> WhatsApp</a>}
-          </div>
-        )}
-        <div style={rv.acciones}>
-          {r.estado === "pendiente" && <button style={rv.btn} onClick={() => cambiarEstado(r, "confirmada")}>Confirmar</button>}
-          {ACTIVA(r) && <button style={{ ...rv.btn, ...rv.btnOk }} onClick={() => cambiarEstado(r, "llego")}><Check size={14} /> Llegó</button>}
-          {ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "no_asistio")}>No llegó</button>}
-          {ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "cancelada")}>Cancelar</button>}
-          {!ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "pendiente")}>Reabrir</button>}
-          <button style={{ ...rv.btn, flex: "0 0 auto" }} onClick={() => setForm(r)} aria-label="Editar"><Pencil size={14} /></button>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div style={styles.screen}>
@@ -111,13 +111,13 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
             <div style={{ fontSize: 13, color: "var(--c-8a8272-t)" }}>Toca "Nueva reserva" para anotar la primera.</div>
           </div>
         ) : (
-          <div style={rv.rejilla}>{vigentes.map((r) => <Tarjeta key={r.id} r={r} />)}</div>
+          <div style={rv.rejilla}>{vigentes.map((r) => <TarjetaReserva key={r.id} r={r} mesas={mesas} cambiarEstado={cambiarEstado} onEditar={setForm} />)}</div>
         )}
 
         {cerradas.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <Acordeon titulo={`Canceladas y no llegaron (${cerradas.length})`}>
-              <div style={{ ...rv.rejilla, padding: "12px 0 6px" }}>{cerradas.map((r) => <Tarjeta key={r.id} r={r} />)}</div>
+              <div style={{ ...rv.rejilla, padding: "12px 0 6px" }}>{cerradas.map((r) => <TarjetaReserva key={r.id} r={r} mesas={mesas} cambiarEstado={cambiarEstado} onEditar={setForm} />)}</div>
             </Acordeon>
           </div>
         )}

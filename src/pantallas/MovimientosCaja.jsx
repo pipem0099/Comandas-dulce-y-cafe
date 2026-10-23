@@ -187,8 +187,8 @@ export function RegistrarMovimiento({ onGuardar }) {
           {def.cats.map((c) => <button key={c} style={{ ...x.chip, ...(cat === c ? x.chipOn : {}) }} onClick={() => setCat(c)}>{c}</button>)}
         </div>
       )}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <div style={{ flex: "0 0 140px", display: "flex", alignItems: "center", gap: 6, padding: "0 0 0 12px", borderRadius: 10, border: `1px solid ${K.border}`, background: K.surface }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} onKeyDown={(e) => { if (e.key === "Enter" && e.target.tagName === "INPUT" && !guardando) { e.preventDefault(); guardar(); } }}>
+        <div className="campo-prefijo" style={{ flex: "0 0 140px", display: "flex", alignItems: "center", gap: 6, padding: "0 0 0 12px", borderRadius: 10, border: `1px solid ${K.border}`, background: K.surface }}>
           <span style={{ color: K.muted, fontWeight: 700 }}>$</span>
           <CampoMonto value={monto} onChange={(v) => { setMonto(v); setError(""); }} style={{ ...x.input, border: "none", background: "transparent", padding: "12px 10px 12px 0" }} />
         </div>
