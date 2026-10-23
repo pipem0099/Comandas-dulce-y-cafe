@@ -18,7 +18,9 @@ que suficiente para un negocio de este tamaño.
 1. Ve a https://console.firebase.google.com y crea un proyecto nuevo.
 2. En el menú lateral: **Compilación → Realtime Database → Crear base de
    datos**. Elige la región más cercana a ti. Cuando pregunte por las reglas
-   de seguridad, elige **"Modo de prueba"** para arrancar rápido.
+   de seguridad, elige **"Modo bloqueado"** (⚠️ nunca "modo de prueba": deja
+   todos tus datos abiertos a cualquiera en internet). Luego pega y publica
+   el contenido de `database.rules.json` en la pestaña **Reglas**.
 3. Ve a **⚙️ Configuración del proyecto → General → Tus apps** y haz clic en
    el ícono **`</>`** (Web) para registrar una app web. No hace falta
    Firebase Hosting, solo necesitas el objeto de configuración que te
@@ -145,3 +147,11 @@ negocio, en `logica.js` o `utilidades.js`. Una pantalla concreta, en su archivo 
 `pantallas/`. El menú de ejemplo inicial, en `constantes.js`.
 
 La conexión a Firebase se configura solo en `src/firebase.js`.
+
+---
+
+## Documentación
+
+- [`docs/INSTALACION.md`](docs/INSTALACION.md) — instalar la app para un negocio nuevo (Firebase + Netlify), paso a paso.
+- [`docs/MANTENIMIENTO.md`](docs/MANTENIMIENTO.md) — rutina mensual, qué hace la app sola, cómo cambiar las reglas de seguridad y qué hacer ante un acceso sospechoso.
+- Antes de cambiar código o reglas: `npm run reglas:probar` (debe pasar todo) y `npm run build`.

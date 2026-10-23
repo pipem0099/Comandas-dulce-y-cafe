@@ -2,7 +2,47 @@
   command = "npm run build"
   publish = "dist"
 
+# La app es de una sola página: cualquier ruta devuelve index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# ─────────────────────────────────────────────────────────────
+#  Cabeceras de seguridad (se aplican a todo el sitio)
+# ─────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Impide que otra página meta la app dentro de un marco (robo de clics / clonación)
+    X-Frame-Options = "DENY"
+    # El navegador no "adivina" tipos de archivo
+    X-Content-Type-Options = "nosniff"
+    # No filtra la dirección completa a otros sitios
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # La app no usa cámara, micrófono ni ubicación: se bloquean
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    # Solo HTTPS durante 1 año
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    # Política de contenido (qué puede cargar y a dónde puede conectarse la app).
+    # Está en modo "solo reportar" a propósito: no bloquea nada, pero deja avisos en la consola del navegador
+    # si algo se saldría de la lista. Después de probar la app completa (docs/MANTENIMIENTO.md, sección
+    # "Activar la política de contenido"), cambia el nombre a "Content-Security-Policy" para que se aplique.
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com; frame-src https://*.firebaseio.com https://*.firebaseapp.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+# El service worker y la página principal nunca se guardan en caché: así cada actualización llega sola
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# Los archivos con huella (assets/*) sí se guardan un año: cambian de nombre cuando cambian de contenido
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

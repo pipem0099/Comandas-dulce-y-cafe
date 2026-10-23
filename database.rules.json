@@ -3,7 +3,8 @@
     "sistema": {
       ".read": true,
       "inicializado": {
-        ".write": "auth != null && !data.exists() && root.child('perfiles').child(auth.uid).child('propietario').val() === true"
+        ".write": "auth != null && !data.exists() && root.child('perfiles').child(auth.uid).child('propietario').val() === true",
+        ".validate": "newData.isBoolean()"
       },
       "marca": {
         ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true"
@@ -13,7 +14,21 @@
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "(auth != null && auth.uid === $uid && !root.child('perfiles').exists() && newData.child('activo').val() === true && newData.child('roles').child('admin').val() === true && newData.child('propietario').val() === true) || ((auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('propietario').val() === true) && (data.child('propietario').val() !== true || newData.exists()) && (newData.child('propietario').val() !== true || (newData.child('activo').val() === true && newData.child('roles').child('admin').val() === true))) || ((auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true) && data.child('propietario').val() !== true && newData.child('propietario').val() !== true)"
+        ".write": "(auth != null && auth.uid === $uid && !root.child('perfiles').exists() && newData.child('activo').val() === true && newData.child('roles').child('admin').val() === true && newData.child('propietario').val() === true) || ((auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('propietario').val() === true) && (data.child('propietario').val() !== true || newData.exists()) && (newData.child('propietario').val() !== true || (newData.child('activo').val() === true && newData.child('roles').child('admin').val() === true))) || ((auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true) && data.child('propietario').val() !== true && newData.child('propietario').val() !== true)",
+        "activo": {
+          ".validate": "newData.isBoolean()"
+        },
+        "propietario": {
+          ".validate": "newData.isBoolean()"
+        },
+        "nombre": {
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        },
+        "roles": {
+          "$r": {
+            ".validate": "newData.isBoolean()"
+          }
+        }
       }
     },
     "menu": {
@@ -26,29 +41,37 @@
     },
     "config": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
-      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
-      "$campo": {
-        ".write": "(auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true) && $campo === 'auditLog'"
-      }
+      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true"
     },
     "orders": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
-      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
+      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
       ".indexOn": [
         "ts"
-      ]
+      ],
+      "$id": {
+        ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('mesero').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cocina').val() === true) && newData.exists()",
+        ".validate": "newData.hasChildren(['ts','estado']) && newData.child('ts').isNumber() && newData.child('estado').isString()"
+      }
     },
     "cuentas": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
-      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
+      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
       ".indexOn": [
         "ts",
         "pagadaTs"
-      ]
+      ],
+      "$id": {
+        ".write": "(auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true) || (auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true) && newData.exists() && newData.child('descuento').child('monto').val() === data.child('descuento').child('monto').val()) || (auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('mesero').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true) && newData.exists() && (newData.child('estado').val() === data.child('estado').val() || ((!data.exists() || data.child('estado').val() === 'abierta') && (newData.child('estado').val() === 'abierta' || newData.child('estado').val() === 'fusionada'))) && newData.child('pagadaTs').val() === data.child('pagadaTs').val() && newData.child('montoCancelado').val() === data.child('montoCancelado').val() && newData.child('descuento').child('monto').val() === data.child('descuento').child('monto').val() && newData.child('propina').child('monto').val() === data.child('propina').child('monto').val() && newData.child('pagos').child('0').child('monto').val() === data.child('pagos').child('0').child('monto').val() && newData.child('pagos').child('0').child('metodoPago').val() === data.child('pagos').child('0').child('metodoPago').val() && newData.child('pagos').child('1').child('monto').val() === data.child('pagos').child('1').child('monto').val() && newData.child('pagos').child('1').child('metodoPago').val() === data.child('pagos').child('1').child('metodoPago').val() && newData.child('pagos').child('2').child('monto').val() === data.child('pagos').child('2').child('monto').val() && newData.child('pagos').child('2').child('metodoPago').val() === data.child('pagos').child('2').child('metodoPago').val() && newData.child('pagos').child('3').child('monto').val() === data.child('pagos').child('3').child('monto').val() && newData.child('pagos').child('3').child('metodoPago').val() === data.child('pagos').child('3').child('metodoPago').val() && newData.child('pagos').child('4').child('monto').val() === data.child('pagos').child('4').child('monto').val() && newData.child('pagos').child('4').child('metodoPago').val() === data.child('pagos').child('4').child('metodoPago').val() && newData.child('pagos').child('5').child('monto').val() === data.child('pagos').child('5').child('monto').val() && newData.child('pagos').child('5').child('metodoPago').val() === data.child('pagos').child('5').child('metodoPago').val() && newData.child('pagos').child('6').child('monto').val() === data.child('pagos').child('6').child('monto').val() && newData.child('pagos').child('6').child('metodoPago').val() === data.child('pagos').child('6').child('metodoPago').val() && newData.child('pagos').child('7').child('monto').val() === data.child('pagos').child('7').child('monto').val() && newData.child('pagos').child('7').child('metodoPago').val() === data.child('pagos').child('7').child('metodoPago').val() && newData.child('pagos').child('8').child('monto').val() === data.child('pagos').child('8').child('monto').val() && newData.child('pagos').child('8').child('metodoPago').val() === data.child('pagos').child('8').child('metodoPago').val() && newData.child('pagos').child('9').child('monto').val() === data.child('pagos').child('9').child('monto').val() && newData.child('pagos').child('9').child('metodoPago').val() === data.child('pagos').child('9').child('metodoPago').val())",
+        ".validate": "newData.hasChildren(['mesa','ts','estado']) && newData.child('ts').isNumber() && newData.child('estado').isString()"
+      }
     },
     "turnos": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
-      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true)"
+      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
+      "$id": {
+        ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true) && newData.exists() && (!data.exists() || data.child('estado').val() !== 'cerrado')"
+      }
     },
     "inventario": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
@@ -56,13 +79,13 @@
       "$id": {
         ".validate": "newData.hasChild('nombre')",
         "stock": {
-          ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true"
+          ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('mesero').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cocina').val() === true) && newData.isNumber()"
         }
       }
     },
     "reservas": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
-      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true"
+      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('mesero').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true)"
     },
     "respaldos": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
@@ -71,6 +94,44 @@
     "equipo": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
       ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true"
+    },
+    "errores": {
+      ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
+      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
+      ".indexOn": [
+        "ts"
+      ],
+      "$id": {
+        ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && !data.exists() && newData.exists()",
+        ".validate": "newData.hasChildren(['ts','mensaje'])",
+        "ts": {
+          ".validate": "newData.isNumber()"
+        },
+        "mensaje": {
+          ".validate": "newData.isString() && newData.val().length <= 600"
+        },
+        "pila": {
+          ".validate": "newData.isString() && newData.val().length <= 2500"
+        },
+        "vista": {
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        },
+        "rol": {
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        },
+        "version": {
+          ".validate": "newData.isString() && newData.val().length <= 20"
+        },
+        "uid": {
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        },
+        "agente": {
+          ".validate": "newData.isString() && newData.val().length <= 300"
+        },
+        "$otro": {
+          ".validate": false
+        }
+      }
     }
   }
 }
