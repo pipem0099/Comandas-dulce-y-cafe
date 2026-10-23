@@ -11,7 +11,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 const DUR_SALIDA = 320;
 const CURVA = "cubic-bezier(.32,.72,0,1)";
 
-export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60, padding }) {
+export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60, padding, centro = false }) {
   const [fase, setFase] = useState("entrando");
   const panelRef = useRef(null);
   const scrimRef = useRef(null);
@@ -54,6 +54,7 @@ export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60,
   useEffect(() => {
     const panel = panelRef.current, scrim = scrimRef.current, sc = scrollRef.current;
     if (!panel || !scrim) return undefined;
+    if (centro) return undefined; // ventana centrada: no se arrastra hacia abajo
     if (window.matchMedia && window.matchMedia("(min-width: 700px)").matches) return undefined;
 
     let y0 = 0, lastY = 0, lastT = 0, dy = 0, vel = 0;
@@ -119,10 +120,10 @@ export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60,
       panel.removeEventListener("touchend", fin);
       panel.removeEventListener("touchcancel", fin);
     };
-  }, [cerrar]);
+  }, [cerrar, centro]);
 
   return (
-    <div className="hoja-v2 hoja-overlay-v2" data-fase={fase} style={{ zIndex: z }}>
+    <div className={"hoja-v2 hoja-overlay-v2" + (centro ? " hoja-v2--centro" : "")} data-fase={fase} style={{ zIndex: z }}>
       <div ref={scrimRef} className="hoja-v2-scrim" onClick={cerrarPublico} />
       <div ref={panelRef} className="hoja-v2-panel" style={{ maxWidth: ancho }} role="dialog" aria-modal="true" aria-label={label}>
         <div className="hoja-v2-agarre" data-agarre aria-hidden="true"><span /></div>

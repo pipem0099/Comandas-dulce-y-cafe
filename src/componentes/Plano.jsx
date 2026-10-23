@@ -1,12 +1,12 @@
 import React, { useRef, useState } from "react";
 import { ChefHat, Bath, Trees, Beer, DoorOpen, Receipt, Package, Armchair, Square, GripVertical } from "lucide-react";
-import { estadoVisualMesa, cuentaDeMesa } from "../utilidades.js";
+import { estadoVisualMesa, cuentaDeMesa, cuentaCubre } from "../utilidades.js";
 
 /*
  * Plano del negocio: un lienzo donde se dibujan las ZONAS (cocina, baño, terraza…) y las MESAS
  * en su lugar real. Todo se guarda en porcentajes del lienzo, así se ve igual de proporcionado en
  * celular, tablet o computador.
- *   mesa:  { id, nombre, x, y (centro, %), tam: "s"|"m"|"l", forma: "cuadrada"|"redonda"|"larga" }
+ *   mesa:  { id, nombre, x, y (centro, %), tam: "s"|"m"|"l", forma: "cuadrada"|"redonda"|"larga", giro: grados (0 = horizontal, 90 = vertical, libre) }
  *   zona:  { id, tipo, nombre, x, y (esquina sup. izq., %), w, h (%) }
  */
 export const ZONA_TIPOS = {
@@ -100,6 +100,17 @@ export function PlanoSalon({ mesas, zonas = [], alto = 100, cuentas, orders, edi
           );
         })}
 
+        {/* Mesas juntas: una barra del color de la cuenta las une visualmente */}
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1, pointerEvents: "none" }}>
+          {(cuentas || []).filter((c) => (c.mesasExtra || []).length > 0 && c.estado !== "pagada" && c.estado !== "fusionada").map((c) => {
+            const grupo = mesas.map((m, idx) => ({ m, idx })).filter(({ m }) => cuentaCubre(c, m.id));
+            if (grupo.length < 2) return null;
+            const visual = estadoVisualMesa(c, (orders || []).filter((o) => o.cuentaId === c.id));
+            const pts = grupo.map(({ m, idx }) => (drag && drag.kind === "mesa" && drag.id === m.id && live ? live : mesaPos(m, idx)));
+            return <polyline key={c.id} points={pts.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke={visual.bg} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: 14 }} opacity="0.85" />;
+          })}
+        </svg>
+
         {/* Mesas */}
         {mesas.map((m, idx) => {
           const cuenta = cuentaDeMesa(cuentas, m.id);
@@ -111,13 +122,14 @@ export function PlanoSalon({ mesas, zonas = [], alto = 100, cuentas, orders, edi
           const forma = m.forma || "cuadrada";
           const w = forma === "larga" ? base * 1.9 : base;
           const sel = seleccion && seleccion.kind === "mesa" && seleccion.id === m.id;
+          const giro = Number(m.giro) || 0; // orientación libre en grados (0 = horizontal, 90 = vertical)
           return (
             <button
               key={m.id}
               onPointerDown={(e) => empezar(e, "mesa", m.id, "mover", mesaPos(m, idx))}
               onClick={() => { if (!editable && onTapMesa) onTapMesa(m.id); }}
               style={{
-                position: "absolute", left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)",
+                position: "absolute", left: `${pos.x}%`, top: `${pos.y}%`, transform: `translate(-50%, -50%) rotate(${giro}deg)`,
                 width: `${w}%`, aspectRatio: forma === "larga" ? "1.9 / 1" : "1 / 1", boxSizing: "border-box",
                 borderRadius: forma === "redonda" ? "50%" : "clamp(8px, 2.4cqw, 16px)", border: `2px solid ${sel ? "var(--accent)" : cuenta ? bg : "var(--c-e4dfce-b)"}`,
                 background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 2, lineHeight: 1.15,
@@ -126,7 +138,7 @@ export function PlanoSalon({ mesas, zonas = [], alto = 100, cuentas, orders, edi
               }}
             >
               {editable && <GripVertical size={11} style={{ position: "absolute", top: 3, right: 2, opacity: 0.45 }} />}
-              <span style={{ overflow: "hidden", wordBreak: "break-word" }}>{m.nombre}</span>
+              <span style={{ overflow: "hidden", wordBreak: "break-word", display: "inline-block", transform: giro ? `rotate(${-giro}deg)` : undefined }}>{m.nombre}</span>
             </button>
           );
         })}

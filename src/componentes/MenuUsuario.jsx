@@ -63,7 +63,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   );
 
   return (
-    <Hoja onCerrar={onCerrar} ancho={440} gap={10} label="Mi cuenta" z={70}>
+    <Hoja onCerrar={onCerrar} ancho={440} gap={10} label="Mi cuenta" z={70} centro>
       {({ cerrar }) => {
         const ir = (fn) => () => { fn(); cerrar(); };
         return (
@@ -75,15 +75,22 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
             <div style={s.correo}>{usuarioActual.correo}</div>
             <span style={s.rol}>{rolesLabel(usuarioActual)}</span>
           </div>
-          <button style={s.cerrarBtn} onClick={cerrar} aria-label="Cerrar"><X size={16} /></button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, alignSelf: "flex-start" }}>
+            <button style={s.cerrarBtn} onClick={cerrar} aria-label="Cerrar"><X size={16} /></button>
+            <button style={s.cerrarBtn} onClick={() => elegirTema(tema === "oscuro" ? "claro" : "oscuro")} aria-label={tema === "oscuro" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"} title={tema === "oscuro" ? "Tema claro" : "Tema oscuro"}>
+              {tema === "oscuro" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </div>
         </div>
 
         {/* Pastillas: cada una muestra solo su sección */}
-        <div style={s.segmentado}>
+        {esAdmin && <div style={s.segmentado}>
           {esAdmin && <button style={{ ...s.segBtn, ...(seccion === "admin" ? s.segBtnOn : {}) }} onClick={() => setSeccion("admin")}><Settings size={14} /> Administración</button>}
           <button style={{ ...s.segBtn, ...(seccion === "cuenta" ? s.segBtnOn : {}) }} onClick={() => setSeccion("cuenta")}><UserRound size={14} /> Mi cuenta</button>
-          <button style={{ ...s.segBtn, ...(seccion === "tema" ? s.segBtnOn : {}) }} onClick={() => setSeccion("tema")}><Palette size={14} /> Apariencia</button>
-        </div>
+        </div>}
+
+        {/* Altura mínima fija: al cambiar de pestaña la ventana ya no se encoge ni "salta" */}
+        <div style={{ minHeight: esAdmin ? 322 : 0, display: "flex", flexDirection: "column", gap: 10 }}>
 
         {seccion === "admin" && esAdmin && (
           <div className="despliega" style={s.grupo}>
@@ -115,20 +122,6 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
           </div>
         )}
 
-        {seccion === "tema" && (
-          <div className="despliega" style={{ display: "flex", gap: 10 }}>
-            {TEMAS.map((t) => {
-              const Icon = t.icon; const on = tema === t.id;
-              return (
-                <button key={t.id} style={{ ...s.temaCard, ...(on ? s.temaCardOn : {}) }} onClick={() => elegirTema(t.id)}>
-                  <span style={{ ...s.temaMuestra, background: t.id === "claro" ? "#F5F5F7" : "#121316", color: t.id === "claro" ? "#1C1C1E" : "#ECEDEF" }}><Icon size={22} /></span>
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>{t.label}</span>
-                  {on && <Check size={14} color="var(--accent)" />}
-                </button>
-              );
-            })}
-          </div>
-        )}
         {aviso && <div style={s.aviso}><Check size={14} /> {aviso}</div>}
         {confirmSalir && (
           <div style={s.confirmar} className="anim-in">
@@ -139,6 +132,8 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
             </div>
           </div>
         )}
+
+        </div>
 
         <div style={s.pie}>{(config.businessName || "Comandas")} · v{VERSION}</div>
       </>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ChefHat, ClipboardList, Receipt, CalendarClock } from "lucide-react";
 import { MenuUsuario } from "./MenuUsuario.jsx";
+import { CampanaAlertas } from "./CampanaAlertas.jsx";
 import { LogoMarca } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { tieneRol } from "../utilidades.js";
@@ -15,7 +16,7 @@ export function itemsNavegacion(usuarioActual) {
   const admin = tieneRol(usuarioActual, "admin");
   return [
     { id: "mesero", label: "Mesero", icon: ClipboardList, ok: admin || tieneRol(usuarioActual, "mesero") },
-    { id: "cocina", label: "Cocina", icon: ChefHat, ok: true },
+    { id: "cocina", label: "Cocina", icon: ChefHat, ok: admin || tieneRol(usuarioActual, "cocina") },
     { id: "reservas", label: "Reservas", icon: CalendarClock, ok: admin || tieneRol(usuarioActual, "mesero") || tieneRol(usuarioActual, "cajero") },
     { id: "caja", label: "Caja", icon: Receipt, ok: admin || tieneRol(usuarioActual, "cajero") },
   ].filter((i) => i.ok);
@@ -28,7 +29,7 @@ const Avatar = ({ usuarioActual, size = 30 }) => (
 );
 
 /* Celular: barra de arriba mínima */
-export function TopBar({ config, usuarioActual, onIr, onSalir, online }) {
+export function TopBar({ config, usuarioActual, onIr, onSalir, online, alertas, onIrAlerta }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   return (
     <div className="no-imprimir" style={{ ...styles.topBar, flexWrap: "nowrap", padding: "10px 16px" }}>
@@ -37,11 +38,14 @@ export function TopBar({ config, usuarioActual, onIr, onSalir, online }) {
         <span style={styles.brandText}>{(config.businessName || "LA COMANDA").toUpperCase()}</span>
         <span style={{ ...styles.syncDot, background: online ? "var(--c-5b7553-t)" : "var(--c-c1442d-t)" }} title={online ? "En línea" : "Sin conexión"} />
       </div>
-      {usuarioActual && (
-        <button style={{ background: "transparent", border: "none", padding: 2, cursor: "pointer" }} onClick={() => setMenuAbierto(true)} aria-label="Mi cuenta" aria-haspopup="dialog">
-          <Avatar usuarioActual={usuarioActual} size={34} />
-        </button>
-      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {alertas && tieneRol(usuarioActual, "admin") && <CampanaAlertas alertas={alertas} onIr={onIrAlerta} tamano={34} compacto />}
+        {usuarioActual && (
+          <button style={{ background: "transparent", border: "none", padding: 2, cursor: "pointer" }} onClick={() => setMenuAbierto(true)} aria-label="Mi cuenta" aria-haspopup="dialog">
+            <Avatar usuarioActual={usuarioActual} size={34} />
+          </button>
+        )}
+      </div>
       {menuAbierto && usuarioActual && <MenuUsuario usuarioActual={usuarioActual} config={config} onCerrar={() => setMenuAbierto(false)} onIr={onIr} onSalir={onSalir} />}
     </div>
   );
@@ -68,7 +72,7 @@ export function BarraInferior({ items, role, setRole }) {
 }
 
 /* Tablet y escritorio: menú lateral */
-export function Lateral({ items, role, setRole, config, usuarioActual, onIr, onSalir, online, ancho }) {
+export function Lateral({ items, role, setRole, config, usuarioActual, onIr, onSalir, online, ancho, alertas, onIrAlerta }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const compacto = !ancho; // tablet: solo íconos
   return (
@@ -90,6 +94,12 @@ export function Lateral({ items, role, setRole, config, usuarioActual, onIr, onS
       })}
 
       <div style={{ flex: 1 }} />
+      {alertas && tieneRol(usuarioActual, "admin") && (
+        <div style={{ display: "flex", justifyContent: compacto ? "center" : "flex-start", padding: compacto ? "0 0 6px" : "0 4px 6px", alignItems: "center", gap: 10 }}>
+          <CampanaAlertas alertas={alertas} onIr={onIrAlerta} tamano={38} />
+          {!compacto && <span style={{ fontSize: 12.5, color: "var(--c-8a8272-t)" }}>{alertas.filter((a) => a.nivel !== "info").length > 0 ? "Hay alertas por revisar" : "Sin alertas urgentes"}</span>}
+        </div>
+      )}
       {usuarioActual && (
         <button onClick={() => setMenuAbierto(true)} aria-label="Mi cuenta" aria-haspopup="dialog"
           style={{ display: "flex", alignItems: "center", justifyContent: compacto ? "center" : "flex-start", gap: 10, padding: compacto ? "8px 0" : "10px 10px", border: "none", borderRadius: 12, background: "var(--c-ede7d8-b)", color: "var(--c-242019-t)", cursor: "pointer", textAlign: "left" }}>

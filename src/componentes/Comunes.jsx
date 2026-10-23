@@ -13,19 +13,26 @@ export function LogoMarca({ marca, size = 22 }) {
  * SÍ entiende el punto como separador de miles (como se escribe en Colombia:
  * "50.000") — solo guarda los dígitos por dentro y siempre muestra el número
  * formateado, así que nunca se puede escribir un monto ambiguo o mal leído. */
-export function CampoMonto({ value, onChange, placeholder, style, autoFocus }) {
+export function CampoMonto({ value, onChange, placeholder, style, autoFocus, onEnter }) {
+  // El cero "por defecto" no se muestra: el campo aparece vacío (con "0" tenue de guía), así que
+  // al tocarlo no hay nada que borrar ni seleccionar — se escribe y listo.
+  const [escribiendo, setEscribiendo] = useState(false);
   const digitos = (value || "").toString().replace(/\D/g, "");
-  const mostrado = digitos ? Number(digitos).toLocaleString("es-CO") : "";
+  const esCero = !digitos || Number(digitos) === 0;
+  const mostrado = esCero && !escribiendo ? "" : Number(digitos).toLocaleString("es-CO");
   return (
     <input
       autoFocus={autoFocus}
       style={style || styles.editInput}
       type="text"
       inputMode="numeric"
-      placeholder={placeholder}
+      placeholder={placeholder ?? "0"}
       value={mostrado}
-      onFocus={(e) => { try { e.target.select(); } catch (err) {} }}
-      onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+      // con un monto ya escrito, al tocar se selecciona todo para poder reemplazarlo rápido
+      onFocus={(e) => { if (!esCero) { try { e.target.select(); } catch (err) {} } }}
+      onBlur={() => setEscribiendo(false)}
+      onKeyDown={(e) => { if (e.key === "Enter" && onEnter) { e.preventDefault(); onEnter(e); } }}
+      onChange={(e) => { setEscribiendo(true); onChange(e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "")); }}
     />
   );
 }
@@ -69,6 +76,11 @@ export function MetodoPills({ selected, onSelect }) {
 
 /** Bloque desplegable (un mes, una sección): la cabecera siempre se ve, el contenido se abre al tocar.
  * `abierto` puede ser controlado desde fuera; si no, empieza según `inicialAbierto`. */
+/** Flecha de desplegables: SIEMPRE la misma en toda la app, y gira al abrir (nada de ▲ ▼ ˅ ˄ en texto). */
+export function Chevron({ abierto, size = 16, style }) {
+  return <ChevronDown size={size} aria-hidden style={{ flexShrink: 0, transition: "transform .24s cubic-bezier(.32,.72,0,1)", transform: abierto ? "rotate(180deg)" : "none", ...style }} />;
+}
+
 export function Acordeon({ titulo, resumen, inicialAbierto = false, children }) {
   const [abierto, setAbierto] = useState(inicialAbierto);
   return (
@@ -78,7 +90,7 @@ export function Acordeon({ titulo, resumen, inicialAbierto = false, children }) 
           <span style={styles.acordeonTitulo}>{titulo}</span>
           {resumen && <span style={styles.acordeonResumen}>{resumen}</span>}
         </span>
-        <ChevronDown size={18} style={{ flexShrink: 0, transition: "transform .32s cubic-bezier(.32,.72,0,1)", transform: abierto ? "rotate(180deg)" : "none" }} />
+        <Chevron abierto={abierto} size={18} />
       </button>
       {abierto && <div className="despliega" style={styles.acordeonBody}>{children}</div>}
     </div>
