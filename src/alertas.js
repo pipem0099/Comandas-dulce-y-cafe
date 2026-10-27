@@ -13,7 +13,7 @@ const DIAS_AVISO_VENCE = 7;
 const n0 = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const listaCorta = (nombres, max = 4) => (nombres.length <= max ? nombres.join(", ") : `${nombres.slice(0, max).join(", ")} y ${nombres.length - max} más`);
 
-export function calcularAlertas({ turnoAbierto, cuentas = [], menu = [], insumos = [], errores = [], ahora = Date.now() }) {
+export function calcularAlertas({ turnoAbierto, cuentas = [], menu = [], insumos = [], errores = [], config = {}, ahora = Date.now() }) {
   const alertas = [];
   const hoy = dayKey(ahora);
 
@@ -90,6 +90,15 @@ export function calcularAlertas({ turnoAbierto, cuentas = [], menu = [], insumos
       detalle: `Último: ${String(recientes[0].mensaje).slice(0, 90)}. Copia el detalle y pásaselo a quien mantiene la app.`,
       vista: "respaldos", donde: "Ajustes › Respaldos y datos › Errores de la app",
     });
+  }
+
+  /* 7) Copia de seguridad completa guardada FUERA de la app */
+  const DIA = 24 * 3600 * 1000;
+  const ultima = Number(config.ultimaCopiaTs) || 0;
+  if (ultima && ahora - ultima > 30 * DIA) {
+    alertas.push({ id: "copia-vieja", nivel: "media", titulo: `Hace ${Math.floor((ahora - ultima) / DIA)} días no descargas una copia`, detalle: "Descarga una copia completa y guárdala en Drive o en tu correo; así no dependes de que Firebase esté bien.", vista: "respaldos", donde: "Ajustes › Respaldos y datos" });
+  } else if (!ultima && cuentas.some((c) => c.estado === "pagada")) {
+    alertas.push({ id: "copia-nunca", nivel: "info", titulo: "Aún no has descargado una copia completa", detalle: "Hazlo una vez al mes y guárdala fuera de la app.", vista: "respaldos", donde: "Ajustes › Respaldos y datos" });
   }
 
   const orden = { alta: 0, media: 1, info: 2 };

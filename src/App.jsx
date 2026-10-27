@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { calcularAlertas } from "./alertas.js";
 import { contextoErrores } from "./errores.js";
+import { contextoComprobante } from "./comprobante.jsx";
+import { AsistenteInicio } from "./componentes/AsistenteInicio.jsx";
 import { avisar } from "./avisos.jsx";
 import {
   AlertTriangle,
@@ -325,6 +327,14 @@ export default function App() {
 
   const turnoAbierto = turnos.find((t) => t.estado === "abierto") || null;
 
+  // Asistente de primer ingreso: aparece solo en un negocio nuevo (menú todavía de fábrica) y para el administrador
+  const [verAsistente, setVerAsistente] = useState(false);
+  const asistenteOfrecido = useRef(false);
+  useEffect(() => {
+    if (!loaded || !usuarioActual || !tieneRol(usuarioActual, "admin") || asistenteOfrecido.current) return;
+    if (config.asistenteTerminado !== true && menu === DEFAULT_MENU) { asistenteOfrecido.current = true; setVerAsistente(true); }
+  }, [loaded, usuarioActual, config, menu]);
+
   // Errores que la propia app registró (solo el administrador los lee): últimos 7 días
   const [errores, setErrores] = useState([]);
   useEffect(() => {
@@ -337,13 +347,15 @@ export default function App() {
     contextoErrores({ uid: usuarioActual ? usuarioActual.uid : "", rol: usuarioActual ? Object.keys(usuarioActual.roles || {}).filter((r) => usuarioActual.roles[r]).join(",") : "", vista: vista || role });
   }, [usuarioActual, role, vista]);
 
+  useEffect(() => { contextoComprobante({ config, mesas }); }, [config, mesas]);
+
   // Alertas del administrador (se recalculan cada minuto y cuando cambian los datos)
   const esAdminActual = !!usuarioActual && tieneRol(usuarioActual, "admin");
   const minutoActual = Math.floor(Date.now() / 60000);
   const alertas = useMemo(
-    () => (esAdminActual ? calcularAlertas({ turnoAbierto, cuentas, menu, insumos, errores }) : []),
+    () => (esAdminActual ? calcularAlertas({ turnoAbierto, cuentas, menu, insumos, errores, config }) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [esAdminActual, turnoAbierto, cuentas, menu, insumos, errores, minutoActual]
+    [esAdminActual, turnoAbierto, cuentas, menu, insumos, errores, config, minutoActual]
   );
   // Una alerta urgente NUEVA se anuncia con un aviso (la primera carga no, para no recibir una avalancha al entrar)
   const alertasVistas = useRef(null);
@@ -411,6 +423,10 @@ export default function App() {
 
   return (
     <div style={styles.app}>
+      {verAsistente && (
+        <AsistenteInicio config={config} menu={menu} menuDeFabrica={menu === DEFAULT_MENU} persistConfig={persistConfig} persistMenu={persistMenu} persistMesas={persistMesas}
+          onIrEquipo={() => setVista("equipo")} onCerrar={() => setVerAsistente(false)} />
+      )}
       {movil && !ocultarNav && <TopBar config={config} usuarioActual={usuarioActual} online={online} alertas={alertas} onIrAlerta={irDesdeAlerta} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: movil ? "column" : "row" }}>
         {!movil && !ocultarNav && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online} alertas={alertas} onIrAlerta={irDesdeAlerta} ancho={dispositivo === "escritorio"} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
@@ -434,7 +450,7 @@ export default function App() {
         <>
           {vista === "menu" && <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} insumos={insumos} onClose={() => setVista(null)} />}
           {vista === "mesas" && <MesasEditor mesas={mesas} persistMesas={persistMesas} cuentas={cuentas} orders={orders} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} onClose={() => setVista(null)} />}
-          {vista === "ajustes" && <div style={styles.screen}><AjustesPanel config={config} persistConfig={persistConfig} menu={menu} onClose={() => setVista(null)} /></div>}
+          {vista === "ajustes" && <div style={styles.screen}><AjustesPanel config={config} persistConfig={persistConfig} menu={menu} onClose={() => setVista(null)} onAbrirAsistente={() => setVerAsistente(true)} /></div>}
           {vista === "equipo" && <div style={styles.screen}><Equipo config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} onClose={() => setVista(null)} /></div>}
           {vista === "respaldos" && (
             <div style={styles.screen}>

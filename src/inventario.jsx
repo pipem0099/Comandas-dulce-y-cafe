@@ -6,6 +6,7 @@ import {
 import { uid, money, fmtNum, UNIDADES, estadoStock } from "./logica.js";
 import { vibrar } from "./theme.js";
 import { K, x, CampoNumero, CampoPesos, EmptyState } from "./extras.jsx";
+import { Chevron } from "./componentes/Comunes.jsx";
 import { imprimir, Hoja, Seccion, Kpis, Tabla, Firmas } from "./impresion.jsx";
 import { tieneRol } from "./utilidades.js";
 
@@ -24,6 +25,17 @@ import { tieneRol } from "./utilidades.js";
 const CATEGORIAS = ["Ingredientes", "Bebidas", "Empaques y desechables", "Limpieza", "Barra y café", "Utensilios y equipos", "Otros"];
 const MOTIVOS_SALIDA = ["Merma / vencido", "Derrame o daño", "Consumo interno", "Cortesía", "Otro"];
 const DIAS_AVISO_VENCE = 7;
+const SINGULAR = { unidades: "unidad", porciones: "porción", paquetes: "paquete", cajas: "caja", bolsas: "bolsa", botellas: "botella", latas: "lata", docenas: "docena", rollos: "rollo", frascos: "frasco" };
+const unidadSing = (u) => SINGULAR[u] || u;
+/** Campo con su nombre SIEMPRE visible (los textos de ayuda dentro del campo se cortan y desaparecen al escribir). */
+function Campo({ et, children }) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 0 }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: K.sub }}>{et}</span>
+      {children}
+    </label>
+  );
+}
 const num = (v) => { const n = parseFloat(String(v).replace(",", ".")); return Number.isFinite(n) ? n : 0; };
 const t = (v) => (v === undefined || v === null ? "" : String(v).trim());
 
@@ -90,20 +102,34 @@ function FormInsumo({ v, set, categorias, nuevo, ocupado, onCancel, onGuardar, t
       </div>
 
       <div style={x.row}>
-        <select style={{ ...x.select, flex: 1 }} value={v.unidadSel} onChange={(e) => set({ ...v, unidadSel: e.target.value })}>
-          {UNIDADES.map((o) => <option key={o} value={o}>{o}</option>)}
-          <option value="__otra">otra unidad…</option>
-        </select>
-        {nuevo && <CampoNumero style={{ ...x.input, flex: 1 }} placeholder="Stock actual" value={v.stock} onChange={(val) => set({ ...v, stock: val })} />}
+        <Campo et="Se mide en">
+          <select style={x.select} value={v.unidadSel} onChange={(e) => set({ ...v, unidadSel: e.target.value })}>
+            {UNIDADES.map((o) => <option key={o} value={o}>{o}</option>)}
+            <option value="__otra">otra unidad…</option>
+          </select>
+        </Campo>
+        {nuevo && (
+          <Campo et="Cuánto tienes hoy">
+            <CampoNumero style={x.input} placeholder="0" value={v.stock} onChange={(val) => set({ ...v, stock: val })} />
+          </Campo>
+        )}
       </div>
       {v.unidadSel === "__otra" && <input style={x.input} placeholder="¿Cuál unidad? (ej: sobres, galones, bandejas)" value={v.unidadOtra} onChange={(e) => set({ ...v, unidadOtra: e.target.value })} />}
 
       <div style={x.row}>
-        <CampoNumero style={{ ...x.input, flex: 1 }} placeholder="Avisar cuando baje de…" value={v.minimo} onChange={(val) => set({ ...v, minimo: val })} />
-        <CampoNumero style={{ ...x.input, flex: 1 }} placeholder="Stock ideal (para pedir)" value={v.ideal} onChange={(val) => set({ ...v, ideal: val })} />
+        <Campo et="Mínimo (avisar si baja de)">
+          <CampoNumero style={x.input} placeholder="0" value={v.minimo} onChange={(val) => set({ ...v, minimo: val })} />
+        </Campo>
+        <Campo et="Ideal (comprar hasta)">
+          <CampoNumero style={x.input} placeholder="0" value={v.ideal} onChange={(val) => set({ ...v, ideal: val })} />
+        </Campo>
       </div>
-      <CampoPesos style={x.input} placeholder={`Costo por ${u} $`} value={v.costo} onChange={(val) => set({ ...v, costo: val })} />
-      <div style={x.hint}>El costo sirve para calcular el costo de cada producto según su receta y el valor de tu inventario. El stock ideal es lo que quieres tener: la lista de compras te sugiere pedir hasta ahí.</div>
+      <Campo et={`Costo por ${unidadSing(u)} ($)`}>
+        <CampoPesos style={x.input} placeholder="0" value={v.costo} onChange={(val) => set({ ...v, costo: val })} />
+      </Campo>
+      <div style={x.hint}>
+        <b>Mínimo:</b> la app te avisa cuando quede igual o menos que esto. <b>Ideal:</b> cuánto quieres tener al llenar la despensa; la lista de compras te sugiere pedir lo que falte para llegar ahí. Ej.: harina, mínimo 2 kg e ideal 10 kg → con 1 kg te sugiere comprar 9.
+      </div>
 
       <button style={{ ...x.btnGhost, justifyContent: "space-between" }} onClick={() => setMas(!masDetalles)}>
         <span>Más detalles (proveedor, ubicación, vencimiento…)</span>{masDetalles ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -150,6 +176,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
   const [verCompras, setVerCompras] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const [ocupado, setOcupado] = useState(false);
+  const [expandido, setExpandido] = useState(null); // una tarjeta abierta a la vez (el resto va compacto)
 
   const registrar = (txt) => persistConfig({ ...config, auditLog: [{ ts: Date.now(), accion: txt, actor: usuarioActual.nombre }, ...(config.auditLog || [])].slice(0, 500) });
   const asentar = (ins, mov) => updateInsumo(ins.id, { movs: [{ ts: Date.now(), por: usuarioActual.nombre, ...mov }, ...(ins.movs || [])].slice(0, 40) });
@@ -272,7 +299,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
   const filtros = [["todos", "Todos"], ["alertas", `Alertas${nAlertas ? ` (${nAlertas})` : ""}`], ["vencen", `Por vencer${nVencen ? ` (${nVencen})` : ""}`]];
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "8px 16px 28px", display: "flex", flexDirection: "column", gap: 12, color: K.ink }}>
+    <div className="col-fija" style={{ flex: 1, overflowY: "auto", padding: "8px 16px 28px", display: "flex", flexDirection: "column", gap: 12, color: K.ink }}>
       {/* Resumen */}
       {insumos.length > 0 && (
         <div style={s.resumen}>
@@ -368,34 +395,45 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
         const pct = Math.max(0, Math.min(100, (stock / techo) * 100));
         const a = accion && accion.id === ins.id ? accion : null;
         const detalles = [ins.proveedor && [Truck, ins.proveedor], ins.ubicacion && [MapPin, ins.ubicacion]].filter(Boolean);
+        const abierto = expandido === ins.id || !!a || confirmDel === ins.id;
         return (
           <div key={ins.id} style={x.invCard} className="anim-in">
-            <div style={{ ...x.row, justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>{ins.nombre}</div>
-                {ins.categoria && <span style={s.catTag}>{ins.categoria}</span>}
+            <button style={s.cardCabeza} onClick={() => setExpandido(abierto && !a && confirmDel !== ins.id ? null : ins.id)} aria-expanded={abierto}>
+              <span style={{ minWidth: 0, flex: 1, textAlign: "left", display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: K.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ins.nombre}</span>
+                <span style={x.hint}>{ins.categoria ? `${ins.categoria} · ` : ""}Mínimo {fmtNum(ins.minimo)} {ins.unidad}</span>
+              </span>
+              <span style={{ textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+                <span style={{ ...x.invStock, fontSize: 22 }}>{fmtNum(ins.stock)} <span style={{ fontSize: 12, fontWeight: 600, color: K.muted, fontFamily: "var(--font-body)" }}>{ins.unidad}</span></span>
+                <span style={{ ...x.pill, background: meta.bg, color: meta.c }}>{meta.t}</span>
+              </span>
+              <Chevron abierto={abierto} size={17} style={{ color: K.muted }} />
+            </button>
+            {ev && !abierto && (
+              <div style={{ ...s.venceAviso, ...(ev.k === "vencido" ? s.venceRojo : s.venceAmbar) }}>
+                <CalendarClock size={13} /> {ev.k === "vencido" ? "Vencido" : ev.d === 0 ? "Vence hoy" : `Vence en ${ev.d} ${ev.d === 1 ? "día" : "días"}`}
+              </div>
+            )}
+            {abierto && (
+              <>
+                <div style={x.bar}><div style={{ width: `${pct}%`, height: "100%", background: meta.bar, transition: "width .4s ease" }} /></div>
                 <div style={x.hint}>
-                  Mínimo {fmtNum(ins.minimo)} {ins.unidad}{ins.ideal ? ` · ideal ${fmtNum(ins.ideal)}` : ""}{ins.costo ? ` · ${money(ins.costo)} c/u` : ""}{ins.costo && stock > 0 ? ` · vale ${money(stock * ins.costo)}` : ""}
+                  {ins.ideal ? `Ideal ${fmtNum(ins.ideal)} ${ins.unidad}` : "Sin stock ideal definido"}{ins.costo ? ` · ${money(ins.costo)} por ${unidadSing(ins.unidad)}` : ""}{ins.costo && stock > 0 ? ` · en stock vale ${money(stock * ins.costo)}` : ""}
                 </div>
                 {detalles.length > 0 && (
-                  <div style={{ ...x.hint, display: "flex", gap: 10, flexWrap: "wrap", marginTop: 2 }}>
+                  <div style={{ ...x.hint, display: "flex", gap: 10, flexWrap: "wrap" }}>
                     {detalles.map(([Ico, txt], i) => <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Ico size={11} /> {txt}</span>)}
                   </div>
                 )}
-              </div>
-              <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={x.invStock}>{fmtNum(ins.stock)} <span style={{ fontSize: 13, fontWeight: 600, color: K.muted, fontFamily: "var(--font-body)" }}>{ins.unidad}</span></div>
-                <span style={{ ...x.pill, background: meta.bg, color: meta.c }}>{meta.t}</span>
-              </div>
-            </div>
-            <div style={x.bar}><div style={{ width: `${pct}%`, height: "100%", background: meta.bar, transition: "width .4s ease" }} /></div>
-            {ev && (
-              <div style={{ ...s.venceAviso, ...(ev.k === "vencido" ? s.venceRojo : s.venceAmbar) }}>
-                <CalendarClock size={13} /> {ev.k === "vencido" ? `Venció el ${venceCorta(ins.vence)}` : ev.d === 0 ? "Vence hoy" : `Vence en ${ev.d} ${ev.d === 1 ? "día" : "días"} (${venceCorta(ins.vence)})`}
-              </div>
+                {ev && (
+                  <div style={{ ...s.venceAviso, ...(ev.k === "vencido" ? s.venceRojo : s.venceAmbar) }}>
+                    <CalendarClock size={13} /> {ev.k === "vencido" ? `Venció el ${venceCorta(ins.vence)}` : ev.d === 0 ? "Vence hoy" : `Vence en ${ev.d} ${ev.d === 1 ? "día" : "días"} (${venceCorta(ins.vence)})`}
+                  </div>
+                )}
+              </>
             )}
 
-            {!a && confirmDel !== ins.id && (
+            {abierto && !a && confirmDel !== ins.id && (
               <div style={{ ...x.row, flexWrap: "wrap" }}>
                 <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "entrada", valor: "", enPres: false, costoNuevo: "", vence: "", nota: "" })}><Plus size={13} /> Entrada</button>
                 <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "salida", valor: "", motivo: MOTIVOS_SALIDA[0], nota: "" })}><Minus size={13} /> Salida</button>
@@ -428,7 +466,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
                 <CampoNumero style={x.input} placeholder={a.enPres ? `Cantidad de ${t(ins.pres.n).toLowerCase() || "cajas"}` : "Cantidad que llegó"} value={a.valor} onChange={(v) => setAccion({ ...a, valor: v })} />
                 {a.enPres && num(a.valor) > 0 && <div style={x.hint}>= {fmtNum(num(a.valor) * ins.pres.c)} {ins.unidad}</div>}
                 <div style={x.row}>
-                  <CampoPesos style={{ ...x.input, flex: 1 }} placeholder={`Costo nuevo por ${ins.unidad} (opcional)`} value={a.costoNuevo} onChange={(v) => setAccion({ ...a, costoNuevo: v })} />
+                  <CampoPesos style={{ ...x.input, flex: 1 }} placeholder={`Costo nuevo por ${unidadSing(ins.unidad)} (opcional)`} value={a.costoNuevo} onChange={(v) => setAccion({ ...a, costoNuevo: v })} />
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
                     <span style={x.hint}>Vence el (opcional)</span>
                     <input style={x.input} type="date" min={hoyISO()} value={a.vence} onChange={(e) => setAccion({ ...a, vence: e.target.value })} />
@@ -585,6 +623,7 @@ function HojaInventario({ insumos, config, usuario }) {
 
 const s = {
   resumen: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", background: K.surface, border: `1px solid ${K.border}`, borderRadius: 14, overflow: "hidden" },
+  cardCabeza: { display: "flex", alignItems: "center", gap: 10, width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", color: "inherit", fontFamily: "inherit" },
   resumenItem: { display: "flex", flexDirection: "column", gap: 2, padding: "12px 12px", borderRight: `1px solid ${K.border}`, minWidth: 0 },
   resumenNum: { fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 700, color: K.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   resumenLbl: { fontSize: 11.5, color: K.muted },

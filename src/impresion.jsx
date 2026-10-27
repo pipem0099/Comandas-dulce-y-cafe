@@ -13,8 +13,8 @@ import { dateTimeLabel } from "./utilidades.js";
 
 /* ───────── motor ───────── */
 const escuchas = new Set();
-export function imprimir(nodo) {
-  escuchas.forEach((f) => f({ nodo, id: Date.now() }));
+export function imprimir(nodo, opciones = {}) {
+  escuchas.forEach((f) => f({ nodo, opciones, id: Date.now() }));
 }
 
 export function AnfitrionImpresion() {
@@ -37,7 +37,13 @@ export function AnfitrionImpresion() {
     return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener("afterprint", alTerminar); window.removeEventListener("pointerdown", alTerminar, true); document.body.classList.remove("imprimiendo"); };
   }, [trabajo]);
   const destino = typeof document !== "undefined" ? document.getElementById("hoja-impresion") : null;
-  return trabajo && destino ? createPortal(<div className="imp-hoja">{trabajo.nodo}</div>, destino) : null;
+  const recibo = trabajo && trabajo.opciones && trabajo.opciones.papel === "recibo";
+  return trabajo && destino ? createPortal(
+    <>
+      {/* el papel de recibo es angosto (80 mm) y largo; los reportes van en A4 */}
+      {recibo && <style>{"@media print { @page { size: 80mm auto; margin: 3mm; } }"}</style>}
+      <div className="imp-hoja">{trabajo.nodo}</div>
+    </>, destino) : null;
 }
 
 /* ───────── piezas ───────── */

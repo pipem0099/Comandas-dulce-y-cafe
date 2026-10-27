@@ -27,7 +27,8 @@ const configDeEntorno = env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_DATABASE_
   messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: env.VITE_FIREBASE_APP_ID,
 } : null;
-const firebaseConfig = configDeEntorno || {
+// <<CONFIG-DE-RESPALDO-INICIO>>
+const configDeRespaldo = {
   apiKey: "AIzaSyBOxKCrmZs_Osa7_TRpcndE9i69hJASYGE",
   authDomain: "dulce-y-cafe-dabf3.firebaseapp.com",
   databaseURL: "https://dulce-y-cafe-dabf3-default-rtdb.firebaseio.com",
@@ -36,10 +37,21 @@ const firebaseConfig = configDeEntorno || {
   messagingSenderId: "354247335288",
   appId: "1:354247335288:web:fe5be065ce836a50797c8d",
 };
+// <<CONFIG-DE-RESPALDO-FIN>>
+const firebaseConfig = configDeEntorno || configDeRespaldo;
+if (!firebaseConfig) {
+  const aviso = "Falta la configuración de Firebase de este negocio. Cárgala en las variables de entorno (ver docs/INSTALACION.md).";
+  if (typeof document !== "undefined") document.body.innerHTML = `<div style="font-family:system-ui;padding:32px;max-width:480px;margin:10vh auto;line-height:1.5"><h2>Falta configurar la app</h2><p>${aviso}</p></div>`;
+  throw new Error(aviso);
+}
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
+/** Prueba de que quien llama es quien dice ser (para funciones del servidor). Vacío si no hay sesión. */
+export async function obtenerIdToken() {
+  try { return auth.currentUser ? await auth.currentUser.getIdToken() : ""; } catch (e) { return ""; }
+}
 
 /*
  * ─────────────────────────────────────────────────────────────────────────

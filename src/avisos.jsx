@@ -10,8 +10,8 @@ import { Check, Info, AlertTriangle, X } from "lucide-react";
  */
 const escuchas = new Set();
 let seq = 0;
-export function avisar({ texto, detalle, tipo = "ok", deshacer, duracion }) {
-  const aviso = { id: ++seq, texto, detalle, tipo, deshacer, duracion: duracion || (deshacer ? 8000 : 4000) };
+export function avisar({ texto, detalle, tipo = "ok", deshacer, accion, duracion }) {
+  const aviso = { id: ++seq, texto, detalle, tipo, deshacer, accion, duracion: duracion || (deshacer || accion ? 9000 : 4000) };
   escuchas.forEach((f) => f(aviso));
   return aviso.id;
 }
@@ -41,9 +41,10 @@ function Aviso({ a, cerrar }) {
         <b>{a.texto}</b>
         {a.detalle && <span className="aviso-detalle"> · {a.detalle}</span>}
       </span>
+      {a.accion && <button className="aviso-btn" onClick={() => { a.accion.fn(); cerrar(); }}>{a.accion.texto}</button>}
       {a.deshacer && <button className="aviso-btn" onClick={deshacer} disabled={haciendo}>{haciendo ? "Deshaciendo…" : "Deshacer"}</button>}
       <button className="aviso-x" onClick={cerrar} aria-label="Cerrar aviso"><X size={14} /></button>
-      {a.deshacer && !haciendo && <span className="aviso-barra" style={{ animationDuration: `${a.duracion}ms`, animationPlayState: pausa ? "paused" : "running" }} />}
+      {(a.deshacer || a.accion) && !haciendo && <span className="aviso-barra" style={{ animationDuration: `${a.duracion}ms`, animationPlayState: pausa ? "paused" : "running" }} />}
     </div>
   );
 }

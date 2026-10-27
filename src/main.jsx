@@ -7,6 +7,7 @@ import App from "./App.jsx";
 import { LimiteErrores } from "./componentes/LimiteErrores.jsx";
 import { AnfitrionImpresion } from "./impresion.jsx";
 import { AnfitrionAvisos } from "./avisos.jsx";
+import { AnfitrionComprobante } from "./comprobante.jsx";
 import { instalarCapturaDeErrores } from "./errores.js";
 
 // Marca (color y tipografía) de este negocio, desde el primer instante
@@ -21,7 +22,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 });
 
 instalarCapturaDeErrores();
-ReactDOM.createRoot(document.getElementById("root")).render(<LimiteErrores><App /><AnfitrionImpresion /><AnfitrionAvisos /></LimiteErrores>);
+ReactDOM.createRoot(document.getElementById("root")).render(<LimiteErrores><App /><AnfitrionImpresion /><AnfitrionAvisos /><AnfitrionComprobante /></LimiteErrores>);
 // La pantalla de carga ya cubre todo con el mismo color; recién entonces se suelta el color de arranque.
 requestAnimationFrame(() => requestAnimationFrame(() => { const a = document.getElementById("arranque"); if (a) a.remove(); }));
 

@@ -371,13 +371,19 @@ export function ProductoConfig({ item, config, insumos, onSave, onClose }) {
 
 /* ───────── 3. Ajustes del negocio: marca, estaciones, inventario ───────── */
 
-export function AjustesPanel({ config, persistConfig, menu, onClose }) {
+export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsistente }) {
   const marca = { ...MARCA_POR_DEFECTO, ...(config.marca || {}) };
   const estaciones = getEstaciones(config);
   const categorias = [...new Set(menu.map((m) => m.cat))];
   const [nuevaEst, setNuevaEst] = useState("");
   const [nombreNegocio, setNombreNegocio] = useState(config.businessName || "");
   const [nombreGuardado, setNombreGuardado] = useState(false);
+  const [datosNeg, setDatosNeg] = useState({ nit: "", direccion: "", telefono: "", mensaje: "", ...(config.datosNegocio || {}) });
+  const [datosGuardados, setDatosGuardados] = useState(false);
+  const guardarDatosNeg = async () => {
+    await persistConfig({ ...config, datosNegocio: { nit: datosNeg.nit.trim(), direccion: datosNeg.direccion.trim(), telefono: datosNeg.telefono.trim(), mensaje: datosNeg.mensaje.trim() } });
+    setDatosGuardados(true); setTimeout(() => setDatosGuardados(false), 1800);
+  };
   const guardarNombre = async () => {
     const n = nombreNegocio.trim();
     if (!n) return;
@@ -436,6 +442,25 @@ export function AjustesPanel({ config, persistConfig, menu, onClose }) {
           <button style={{ ...x.btnDark, opacity: nombreNegocio.trim() && nombreNegocio.trim() !== (config.businessName || "") ? 1 : 0.5 }} disabled={!nombreNegocio.trim() || nombreNegocio.trim() === (config.businessName || "")} onClick={guardarNombre}>
             {nombreGuardado ? <><Check size={15} /> Guardado</> : "Guardar nombre"}
           </button>
+        </div>
+
+        {onAbrirAsistente && (
+          <div style={x.card}>
+            <div style={x.eyebrow}>Asistente de configuración</div>
+            <div style={x.hint}>Carga un menú de ejemplo según tu tipo de negocio y crea las mesas en pocos pasos. Sirve para empezar rápido o para mostrar la app. Si el menú ya tiene productos, solo agrega los que falten.</div>
+            <button style={x.btnGhost} onClick={onAbrirAsistente}>Abrir el asistente</button>
+          </div>
+        )}
+
+        {/* Datos del comprobante */}
+        <div style={x.card}>
+          <div style={x.eyebrow}>Datos que salen en el comprobante</div>
+          <input style={x.input} placeholder="NIT o cédula (opcional)" value={datosNeg.nit} onChange={(e) => setDatosNeg({ ...datosNeg, nit: e.target.value })} />
+          <input style={x.input} placeholder="Dirección (opcional)" value={datosNeg.direccion} onChange={(e) => setDatosNeg({ ...datosNeg, direccion: e.target.value })} />
+          <input style={x.input} inputMode="tel" placeholder="Teléfono o WhatsApp (opcional)" value={datosNeg.telefono} onChange={(e) => setDatosNeg({ ...datosNeg, telefono: e.target.value })} />
+          <input style={x.input} placeholder="Mensaje final (ej: ¡Gracias por tu visita!)" value={datosNeg.mensaje} onChange={(e) => setDatosNeg({ ...datosNeg, mensaje: e.target.value })} />
+          <div style={x.hint}>Salen en la cuenta y en el comprobante de venta, que se imprimen en papel de 80 mm o se envían por WhatsApp. El comprobante dice que no es factura electrónica.</div>
+          <button style={x.btnDark} onClick={guardarDatosNeg}>{datosGuardados ? <><Check size={15} /> Guardado</> : "Guardar datos"}</button>
         </div>
 
         {/* Marca */}
