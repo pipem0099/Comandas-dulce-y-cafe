@@ -2,6 +2,10 @@
   command = "npm run build"
   publish = "dist"
 
+# Funciones del servidor (guardan las claves secretas lejos del celular): hoy, "menú desde una foto"
+[functions]
+  directory = "netlify/functions"
+
 # La app es de una sola página: cualquier ruta devuelve index.html
 [[redirects]]
   from = "/*"
