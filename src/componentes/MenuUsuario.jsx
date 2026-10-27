@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { X, Sun, Moon, Palette, UserRound, Settings, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup } from "lucide-react";
+import { X, Sun, Moon, Palette, UserRound, Settings, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup, BookOpen } from "lucide-react";
+import { AyudaRoles } from "./AyudaRoles.jsx";
 import { guardarTema, temaGuardado, vibrar } from "../theme.js";
 import { enviarCorreoCambioClave } from "../firebase.js";
 import { rolesLabel } from "../utilidades.js";
@@ -25,6 +26,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   const [aviso, setAviso] = useState("");
   const esAdminU = usuarioActual.roles.includes("admin");
   const [seccion, setSeccion] = useState(esAdminU ? "admin" : "cuenta"); // pastilla activa
+  const [verAyuda, setVerAyuda] = useState(false);
   const [confirmClave, setConfirmClave] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [puedeInstalar, setPuedeInstalar] = useState(!!window.__instalarApp);
@@ -62,6 +64,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
     </button>
   );
 
+  if (verAyuda) return <AyudaRoles usuario={usuarioActual} config={config} onCerrar={() => setVerAyuda(false)} />;
   return (
     <Hoja onCerrar={onCerrar} ancho={440} gap={10} label="Mi cuenta" z={70} centro>
       {({ cerrar }) => {
@@ -105,6 +108,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
         {seccion === "cuenta" && (
           <div className="despliega" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={s.grupo}>
+              <Fila icon={BookOpen} titulo="Cómo se usa la app" sub="Guía corta según tu rol" onClick={() => setVerAyuda(true)} />
               <Fila icon={KeyRound} titulo="Cambiar mi clave" sub="Te enviamos un enlace a tu correo" onClick={() => { setConfirmClave(true); setAviso(""); setConfirmSalir(false); }} />
               {puedeInstalar && <Fila icon={Download} titulo="Instalar la app" sub="Ábrela desde tu pantalla de inicio" onClick={instalar} />}
               <Fila icon={LogOut} titulo="Cerrar sesión" peligro onClick={() => { setConfirmSalir(true); setAviso(""); setConfirmClave(false); }} />
