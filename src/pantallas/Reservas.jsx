@@ -58,7 +58,7 @@ function TarjetaReserva({ r, mesas, cambiarEstado, onEditar }) {
       )}
       <div style={rv.acciones}>
         {r.estado === "pendiente" && <button style={rv.btn} onClick={() => cambiarEstado(r, "confirmada")}>Confirmar</button>}
-        {ACTIVA(r) && <button style={{ ...rv.btn, ...rv.btnOk }} onClick={() => cambiarEstado(r, "llego")}><Check size={14} /> Llegó</button>}
+        {ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "llego")}>Ya llegó</button>}
         {ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "no_asistio")}>No llegó</button>}
         {ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "cancelada")}>Cancelar</button>}
         {!ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "pendiente")}>Reabrir</button>}
@@ -201,7 +201,7 @@ const rv = {
   contacto: { display: "flex", gap: 14, flexWrap: "wrap" },
   link: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--accent-t)", textDecoration: "none", fontWeight: 600 },
   acciones: { display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px solid var(--c-ede7d8-o)", paddingTop: 10 },
-  btn: { flex: "1 1 auto", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "9px 12px", borderRadius: 11, border: "1px solid var(--c-e4dfce-o)", background: "transparent", color: "var(--c-242019-t)", fontSize: 13, fontWeight: 600, cursor: "pointer" },
+  btn: { flex: "1 1 auto", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "9px 12px", minHeight: 40, borderRadius: 12, border: "none", background: "var(--c-ede7d8-b)", color: "var(--c-242019-t)", fontSize: 13, fontWeight: 600, cursor: "pointer" },
   btnOk: { background: "var(--c-e4eee1-b)", borderColor: "var(--ok-border)", color: "var(--pago-ok)" },
   vacio: { display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "40px 16px", borderRadius: 16, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", color: "var(--c-242019-t)", textAlign: "center" },
   hojaHead: { display: "flex", alignItems: "center", justifyContent: "space-between" },

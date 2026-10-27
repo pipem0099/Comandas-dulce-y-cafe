@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
-import { Plus, Check, Trash2, Settings2, Search, X, ChevronDown } from "lucide-react";
+import { Plus, Check, Trash2, Settings2, Search, X, ChevronDown, Camera } from "lucide-react";
 import { tieneOpciones, getEstaciones, costoReceta, uid, money } from "../logica.js";
 import { ProductoConfig } from "../extras.jsx";
 import { CampoMonto, Acordeon } from "../componentes/Comunes.jsx";
+import { MenuDesdeFoto } from "../componentes/MenuDesdeFoto.jsx";
 import { styles } from "../estilos.js";
 
 export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, insumos, onClose }) {
@@ -14,6 +15,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [editingItemId, setEditingItemId] = useState(null);
   const [editPriceValue, setEditPriceValue] = useState("");
+  const [verFoto, setVerFoto] = useState(false);
   const [editCostValue, setEditCostValue] = useState("");
   const [configId, setConfigId] = useState(null); // producto cuyo panel de opciones / receta está abierto
   const [filtro, setFiltro] = useState("__todas__"); // categoría activa en la lista
@@ -81,7 +83,11 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
   return (
     <div style={styles.screen}>
       <CabeceraAdmin titulo="Menú y precios" onClose={onClose} />
-      <div className="ancho" style={styles.menuScroll}>
+      <div className="ancho" style={{ ...styles.menuScroll, paddingTop: 0 }}>
+        {verFoto && <MenuDesdeFoto menu={menu} persistMenu={persistMenu} onCerrar={() => setVerFoto(false)} />}
+        <button style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", minHeight: 46, margin: "10px 0 0", borderRadius: 12, border: "1px dashed var(--c-c7bfa0-o)", background: "transparent", color: "var(--c-242019-t)", fontSize: 14, fontWeight: 600, cursor: "pointer" }} onClick={() => setVerFoto(true)}>
+          <Camera size={17} /> Crear el menú desde una foto
+        </button>
 
         {/* Barra fija de navegación: buscador + categorías en pastillas */}
         <div style={m.sticky}>
@@ -183,7 +189,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
 
 // estilos propios de esta pantalla
 const m = {
-  sticky: { position: "sticky", top: 0, zIndex: 6, background: "var(--c-f7f4ec-b)", paddingBottom: 10, marginBottom: 4 },
+  sticky: { position: "sticky", top: 0, zIndex: 6, background: "var(--c-f7f4ec-b)", paddingTop: 8, paddingBottom: 10, marginBottom: 4 },
   buscador: { display: "flex", alignItems: "center", gap: 8, padding: "0 12px", height: 44, borderRadius: 14, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", marginBottom: 10 },
   buscadorInput: { flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontSize: 15, color: "var(--c-242019-t)" },
   limpiar: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 13, border: "none", background: "rgba(128,138,150,.18)", color: "var(--c-8a8272-t)", cursor: "pointer" },

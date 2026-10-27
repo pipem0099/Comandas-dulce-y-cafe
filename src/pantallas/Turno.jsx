@@ -438,11 +438,13 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, pers
     if (descargarPendiente.current && historialCompleto) {
       descargarPendiente.current = false;
       descargarRespaldo({ menu, orders: ordersParaHistorial, cuentas: cuentasParaHistorial, config, turnos, mesas });
+      persistConfig({ ...config, ultimaCopiaTs: Date.now() }); // para recordarte la próxima copia
     }
   }, [historialCompleto]);
   const onClickDescargar = () => {
     if (historialCompleto) {
       descargarRespaldo({ menu, orders: ordersParaHistorial, cuentas: cuentasParaHistorial, config, turnos, mesas });
+      persistConfig({ ...config, ultimaCopiaTs: Date.now() }); // para recordarte la próxima copia
     } else {
       descargarPendiente.current = true;
       cargarHistorialCompleto();

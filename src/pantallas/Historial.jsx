@@ -7,6 +7,7 @@ import { styles } from "../estilos.js";
 import { exportarExcel } from "../exportar.js";
 import { imprimir } from "../impresion.jsx";
 import { Chevron } from "../componentes/Comunes.jsx";
+import { mostrarComprobante } from "../comprobante.jsx";
 import { HojaDia } from "../hojas.jsx";
 import { buildHistory, dateTimeLabel, dayKey, dayLabel, mesaNombre, monthLabel, tieneRol, timeLabel } from "../utilidades.js";
 
@@ -215,6 +216,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
               <span style={styles.cierrePedidos}>{c.itemCount} ítems</span>
               <span style={styles.cierreTotal}>{money(c.total)}</span>
             </button>
+            <button style={styles.comprobanteLink} onClick={() => { const real = (cuentasParaHistorial || []).find((x) => x.id === c.id); if (real) mostrarComprobante({ tipo: "comprobante", cuenta: real, orders: ordersParaHistorial || [] }); }}>Ver comprobante</button>
             {dividida && isExpanded && (
               <div style={styles.pagosRegistradosBox}>
                 {c.pagos.map((p) => {

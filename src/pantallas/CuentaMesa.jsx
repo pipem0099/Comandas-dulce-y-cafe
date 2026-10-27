@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { itemNombre, TIPO_META, esExterna, uid, money } from "../logica.js";
 import { avisar } from "../avisos.jsx";
+import { mostrarComprobante } from "../comprobante.jsx";
 
 // Enter dentro de un monto = pulsar el botón principal del cobro (si está disponible)
 const confirmarConEnter = () => {
@@ -119,12 +120,14 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
         }
       }
       const propina = vueltaTotal > 0 ? { pct: null, monto: ((cuenta.propina && cuenta.propina.monto) || 0) + vueltaTotal } : (cuenta.propina || null);
-      await saveCuenta({ ...cuenta, propina, pagos: nuevosPagos, splitMode: effectiveModo || cuenta.splitMode || null, estado: completo ? "pagada" : "abierta", pagadaTs: completo ? Date.now() : cuenta.pagadaTs, ...(completo && !esExterna(cuenta) ? { liberada: false } : {}) });
+      const cuentaGuardada = { ...cuenta, propina, pagos: nuevosPagos, splitMode: effectiveModo || cuenta.splitMode || null, estado: completo ? "pagada" : "abierta", pagadaTs: completo ? Date.now() : cuenta.pagadaTs, ...(completo && !esExterna(cuenta) ? { liberada: false } : {}) };
+      await saveCuenta(cuentaGuardada);
       setMetodoSel(null); setEfectivoRecibido(""); setVueltaPropina(false); setMontoMixto(""); setCart({}); setEtiqueta(""); limpiarCombinado();
       const montoRegistrado = nuevos.reduce((s, p) => s + p.monto, 0);
       avisar({
         texto: completo ? "Cuenta cobrada" : "Pago registrado",
         detalle: completo ? `${mesaNombre(mesas, cuenta.mesa)} · ${money(totalNuevo)}` : `${money(montoRegistrado)} · falta ${money(Math.max(0, totalNuevo - totalPagado))}`,
+        accion: completo ? { texto: "Comprobante", fn: () => mostrarComprobante({ tipo: "comprobante", cuenta: cuentaGuardada, orders }) } : undefined,
         deshacer: async () => {
           if (ordenesAntes.length > 0) await saveOrdersMap(Object.fromEntries(ordenesAntes.map((o) => [o.id, o])));
           await saveCuenta(cuentaAntes);
@@ -452,6 +455,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
           )}
 
           <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Total a cobrar</span><span>{money(total)}</span></div>
+          <button style={styles.cuentaClienteBtn} onClick={() => mostrarComprobante({ tipo: "cuenta", cuenta, orders })}><Receipt size={14} /> Cuenta para el cliente</button>
 
           {total === 0 && pagos.length === 0 && (
             <div style={styles.cerrarVaciaBox}>

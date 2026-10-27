@@ -291,9 +291,18 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
                     </div>
                     {it.mods && it.mods.length > 0 && <div style={styles.ticketItemMods}>{it.mods.map((m) => m.n).join(" · ")}</div>}
                     {it.nota && <div style={styles.ticketItemNote}>↳ {it.nota}</div>}
+                    {it.cambioDe && <div style={styles.ticketItemNote}>↳ cambió de producto (antes: {it.cambioDe})</div>}
                   </div>
                 );
               })}
+              {/* Lo que el mesero quitó o cambió se queda en la comanda, tachado, para que cocina lo vea sin tener que adivinar */}
+              {(o.historialCambios || []).filter((h) => enEstacion(h)).slice(-5).map((h, i) => (
+                <div key={`h${i}`} style={styles.ticketCambio}>
+                  <span style={{ textDecoration: "line-through" }}>{h.qty}× {h.name}</span>
+                  <span style={styles.ticketCambioTag}>{h.tipo === "cambio" ? "CAMBIÓ DE PRODUCTO" : "QUITADO"}</span>
+                  {h.tipo === "cambio" && <span style={{ color: "var(--c-242019-t)", fontWeight: 600 }}>→ {h.aQty}× {h.aName}</span>}
+                </div>
+              ))}
               {o.nota && <div style={styles.ticketNote}>"{o.nota}"</div>}
               {(() => {
                 const yaListos = o.items.filter((it) => enEstacion(it) && itemListos(o, it) >= it.qty).length;

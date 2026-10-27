@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, PencilLine, ShoppingBag, Bike, Phone, MapPin, Search, X } from "lucide-react";
+import { Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, PencilLine, ShoppingBag, Bike, Phone, MapPin, Search, X, Trash2, Repeat, MoreHorizontal } from "lucide-react";
+import { avisar } from "../avisos.jsx";
 import { vibrar } from "../theme.js";
 import { claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
 import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
@@ -13,19 +14,39 @@ import { reservaProxima, NOMBRES_EXTERNOS, conProgreso, cuentaCubre, cuentaDeMes
 import { Hoja } from "../componentes/Hoja.jsx";
 /* ---------------- MESERO ---------------- */
 
-/** Texto corto de qué cambió entre la versión enviada y la nueva (para avisar a cocina). */
-function resumenCambio(antes, despues) {
+/**
+ * Qué cambió entre la versión enviada y la nueva, para avisar a cocina:
+ *  · textos: frases cortas para el aviso ("Se quitó 1× Fresas", "Cambió de producto: …")
+ *  · detalle: lo que cocina verá TACHADO en el pedido (quitado / cambió de producto)
+ *  · items: los productos nuevos que reemplazan a otro quedan marcados con "cambioDe"
+ * Un producto quitado + un producto nuevo en la misma modificación se cuenta como "cambió de producto".
+ */
+function analizarCambios(antes, despues) {
   const previos = new Map(antes.map((i) => [i.id, i]));
-  const out = [];
+  const textos = []; const quitados = []; const agregados = [];
   despues.forEach((it) => {
     const p = previos.get(it.id);
-    if (!p) out.push(`Nuevo: ${it.qty}× ${itemNombre(it)}`);
-    else if (it.qty !== p.qty) out.push(`${itemNombre(it)}: ${p.qty} → ${it.qty}`);
-    else if ((it.nota || "") !== (p.nota || "")) out.push(`${itemNombre(it)}: nota cambió`);
+    if (!p) agregados.push(it);
+    else if (it.qty < p.qty) { textos.push(`${itemNombre(it)}: ${p.qty} → ${it.qty}`); quitados.push({ ...p, qty: p.qty - it.qty }); }
+    else if (it.qty > p.qty) textos.push(`${itemNombre(it)}: ${p.qty} → ${it.qty}`);
+    else if ((it.nota || "") !== (p.nota || "")) textos.push(`${itemNombre(it)}: nota cambió`);
     previos.delete(it.id);
   });
-  previos.forEach((p) => out.push(`Se quitó ${p.qty}× ${itemNombre(p)}`));
-  return out;
+  previos.forEach((p) => quitados.push(p));
+  const ts = Date.now(); const detalle = []; const marcas = new Map();
+  quitados.forEach((q, i) => {
+    const a = agregados[i];
+    if (a) {
+      textos.push(`Cambió de producto: ${q.qty}× ${itemNombre(q)} → ${a.qty}× ${itemNombre(a)}`);
+      detalle.push({ ts, tipo: "cambio", name: itemNombre(q), qty: q.qty, estacion: q.estacion || "", aName: itemNombre(a), aQty: a.qty });
+      marcas.set(a.id, itemNombre(q));
+    } else {
+      textos.push(`Se quitó ${q.qty}× ${itemNombre(q)}`);
+      detalle.push({ ts, tipo: "quito", name: itemNombre(q), qty: q.qty, estacion: q.estacion || "" });
+    }
+  });
+  agregados.slice(quitados.length).forEach((a) => textos.push(`Nuevo: ${a.qty}× ${itemNombre(a)}`));
+  return { textos, detalle, items: despues.map((it) => (marcas.has(it.id) ? { ...it, cambioDe: marcas.get(it.id) } : it)) };
 }
 
 export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual, config, mesas, persistMesas, saveOrder, saveOrdersMap, saveCuenta, persistMenu, persistConfig, insumos, ajustarInventario }) {
@@ -89,6 +110,9 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const [mesasJuntas, setMesasJuntas] = useState([]); // mesas juntadas ANTES del primer pedido (aún sin cuenta)
   const [vistaMesas, setVistaMesas] = useState("grid"); // 'grid' | 'plano'
   const [modalItem, setModalItem] = useState(null);       // producto con opciones que se está personalizando
+  const [lineaAbierta, setLineaAbierta] = useState(null); // { orderId, idx }: producto de un pedido con sus acciones rápidas abiertas
+  const [cambiando, setCambiando] = useState(null);       // { orderId, idx, q }: eligiendo por cuál producto cambiarlo
+  const [cambioOpc, setCambioOpc] = useState(null);       // cambio pendiente de elegir opciones (productos con opciones)
   const [nuevoExterno, setNuevoExterno] = useState(null); // 'llevar' | 'domicilio'
 
   const [liberarCuenta, setLiberarCuenta] = useState(null); // mesa ya pagada que se está por liberar
@@ -190,6 +214,64 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     await saveOrder(conProgreso(order, items));
   };
 
+  /* ─── Modificar un pedido ya enviado (compartido por "Editar" y por las acciones rápidas de cada producto) ─── */
+  const aplicarEdicion = async (original, items, nota) => {
+    const conservados0 = items.map((it) => {
+      const prev = original.items.find((x) => x.id === it.id);
+      if (!prev) return it;
+      const l = Math.min(itemListos(original, prev), it.qty);
+      return { ...it, listos: l, servidos: Math.min(itemServidos(original, prev), l), ...(prev.cambioDe && !it.cambioDe ? { cambioDe: prev.cambioDe } : {}) };
+    });
+    const { textos, detalle, items: conservados } = analizarCambios(original.items, conservados0);
+    const consumoNuevo = consumoDeItems(conservados, menu);
+    const dif = difConsumo(consumoNuevo, original.consumo || {});
+    if (Object.keys(dif).length > 0) await ajustarInventario(negar(dif));
+    if ((original.nota || "") !== nota) textos.push("nota general");
+    const aviso = textos.length > 0
+      ? { cambio: { ts: Date.now(), por: meseroActual, texto: textos.join(" · ") }, cambioVisto: false, historialCambios: [...(original.historialCambios || []), ...detalle].slice(-30) }
+      : {};
+    await saveOrder(conProgreso({ ...original, nota, editado: true, consumo: consumoNuevo, ...aviso }, conservados));
+    return { dif };
+  };
+  const construirItem = (m, mods = [], qty, nota = "") => ({ id: claveLinea(m.id, mods), baseId: m.id, name: m.name, price: precioUnitario(m, mods), cost: m.cost || 0, qty, nota, mods, estacion: estacionDe(m, config) });
+
+  // Acciones rápidas sobre UN producto de un pedido: quitar 1, quitar el producto o cambiarlo por otro.
+  // Lo ya servido nunca se toca. Queda un aviso con "Deshacer" por si fue un toque equivocado.
+  const modificarLinea = async (order, idx, accion, nuevo) => {
+    const it = order.items[idx];
+    if (!it) return;
+    const sv = itemServidos(order, it);
+    const pendientes = it.qty - sv;
+    if (pendientes <= 0) return;
+    const nuevos = order.items.map((x) => ({ ...x }));
+    let texto = "";
+    if (accion === "menos") {
+      nuevos[idx].qty = it.qty - 1;
+      if (nuevos[idx].qty <= 0) nuevos.splice(idx, 1);
+      texto = `Quitaste 1× ${itemNombre(it)}`;
+    } else if (accion === "quitar") {
+      if (sv > 0) nuevos[idx].qty = sv; else nuevos.splice(idx, 1);
+      texto = `Quitaste ${pendientes}× ${itemNombre(it)}`;
+    } else if (accion === "cambiar") {
+      const reemplazo = construirItem(nuevo.m, nuevo.mods || [], nuevo.qty || pendientes, nuevo.nota || "");
+      if (sv > 0) nuevos[idx].qty = sv; else nuevos.splice(idx, 1);
+      const igual = nuevos.find((x) => x.id === reemplazo.id);
+      if (igual) igual.qty += reemplazo.qty; else nuevos.splice(Math.min(idx, nuevos.length), 0, reemplazo);
+      texto = `Cambiaste ${itemNombre(it)} por ${itemNombre(reemplazo)}`;
+    }
+    if (nuevos.length === 0) { setConfirmCancelId(order.id); return; } // era lo único del pedido: se pide confirmar la cancelación
+    setLineaAbierta(null);
+    const { dif } = await aplicarEdicion(order, nuevos, order.nota || "");
+    vibrar(12);
+    avisar({
+      texto, detalle: "cocina ya fue avisada", tipo: "info",
+      deshacer: async () => {
+        if (Object.keys(dif).length > 0) await ajustarInventario(dif);
+        await saveOrder(order);
+      },
+    });
+  };
+
   const enviandoRef = useRef(false);
   const buscadorProdRef = useRef(null);
   const enviarAtajoRef = useRef(null);
@@ -228,27 +310,13 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
 
       if (editingOrderId) {
         const original = orders.find((o) => o.id === editingOrderId);
-        if (original) {
-          const conservados = items.map((it) => {
-            const prev = original.items.find((x) => x.id === it.id);
-            if (!prev) return it;
-            const l = Math.min(itemListos(original, prev), it.qty);
-            return { ...it, listos: l, servidos: Math.min(itemServidos(original, prev), l) };
-          });
-          const consumoNuevo = consumoDeItems(conservados, menu);
-          const dif = difConsumo(consumoNuevo, original.consumo || {});
-          if (Object.keys(dif).length > 0) await ajustarInventario(negar(dif));
-          const cambios = resumenCambio(original.items, conservados);
-          if ((original.nota || "") !== note.trim()) cambios.push("nota general");
-          const aviso = cambios.length > 0 ? { cambio: { ts: Date.now(), por: meseroActual, texto: cambios.join(" · ") }, cambioVisto: false } : {};
-          await saveOrder(conProgreso({ ...original, nota: note.trim(), editado: true, consumo: consumoNuevo, ...aviso }, conservados));
-        }
+        if (original) await aplicarEdicion(original, items, note.trim());
       } else {
         let cuenta = cuentaAbiertaDe(mesaNum);
         // un pedido para llevar / domicilio ya cobrado no se puede seguir llenando
         if (!cuenta && String(mesaNum).startsWith("ext-")) { exitMesa(); return; }
         if (!cuenta) {
-          for (const vieja of cuentas.filter((c) => mesaMatch(c.mesa, mesaNum) && esPorLiberar(c))) await saveCuenta({ ...vieja, liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual });
+          for (const vieja of cuentas.filter((c) => cuentaCubre(c, mesaNum) && esPorLiberar(c))) await saveCuenta({ ...vieja, liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual });
           const extras = mesasJuntas.filter((id) => !cuentaDeMesa(cuentas, id));
           cuenta = { id: uid(), mesa: mesaNum, ts: Date.now(), estado: "abierta", mesero: meseroActual, ...(extras.length ? { mesasExtra: extras } : {}) };
           await saveCuenta(cuenta);
@@ -328,7 +396,42 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     return (
       <div style={styles.screen}>
         {avisoListo && <div style={styles.avisoListoBanner}><Volume2 size={14} /> {avisoListo.texto}</div>}
-        {modalItem && <ModalOpciones item={modalItem} onClose={() => setModalItem(null)} onAdd={(mods, qty, nota) => agregarConOpciones(modalItem, mods, qty, nota)} />}
+        {modalItem && <ModalOpciones item={modalItem} onClose={() => { setModalItem(null); setCambioOpc(null); }} onAdd={(mods, qty, nota) => {
+          if (cambioOpc) {
+            const ord = orders.find((x) => x.id === cambioOpc.orderId);
+            const m = modalItem; setModalItem(null); setCambioOpc(null);
+            if (ord) modificarLinea(ord, cambioOpc.idx, "cambiar", { m, mods, qty: null, nota });
+          } else agregarConOpciones(modalItem, mods, qty, nota);
+        }} />}
+        {cambiando && (() => {
+          const ord = orders.find((x) => x.id === cambiando.orderId);
+          const actual = ord && ord.items[cambiando.idx];
+          if (!ord || !actual) return null;
+          const q = cambiando.q.trim().toLowerCase();
+          const lista = menu.filter((m) => !q || m.name.toLowerCase().includes(q) || String(m.cat || "").toLowerCase().includes(q)).slice(0, 60);
+          return (
+            <Hoja onCerrar={() => setCambiando(null)} ancho={460} gap={10} label="Cambiar producto">
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--c-242019-t)" }}>Cambiar por otro</div>
+              <div style={{ fontSize: 13, color: "var(--c-5c5648-t)" }}>Reemplaza <b>{itemNombre(actual)}</b> ({actual.qty - itemServidos(ord, actual)} pendiente{actual.qty - itemServidos(ord, actual) > 1 ? "s" : ""}). Cocina verá el cambio.</div>
+              <div style={{ position: "relative" }}>
+                <Search size={17} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--c-8a8272-t)", pointerEvents: "none" }} />
+                <input autoFocus data-enter="blur" style={{ ...styles.searchInput, width: "100%", boxSizing: "border-box", paddingLeft: 40 }} placeholder="Buscar el producto nuevo…" value={cambiando.q} onChange={(e) => setCambiando({ ...cambiando, q: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: "46dvh", overflowY: "auto" }}>
+                {lista.length === 0 && <div style={{ fontSize: 13, color: "var(--c-8a8272-t)", padding: 10 }}>No encontré ese producto.</div>}
+                {lista.map((m) => (
+                  <button key={m.id} disabled={m.agotado} style={{ ...styles.lineaAccion, justifyContent: "space-between", width: "100%", opacity: m.agotado ? 0.45 : 1, minHeight: 44 }}
+                    onClick={() => {
+                      if (tieneOpciones(m)) { setCambioOpc({ orderId: ord.id, idx: cambiando.idx }); setModalItem(m); setCambiando(null); }
+                      else { const o2 = ord, i2 = cambiando.idx; setCambiando(null); modificarLinea(o2, i2, "cambiar", { m, mods: [], qty: null, nota: "" }); }
+                    }}>
+                    <span style={{ textAlign: "left" }}>{m.name}{m.agotado ? " · agotado" : ""}</span><span style={{ color: "var(--c-8a8272-t)", fontWeight: 600 }}>{money(m.price)}</span>
+                  </button>
+                ))}
+              </div>
+            </Hoja>
+          );
+        })()}
         <div className="ancho" style={styles.subHeader}>
           <button style={styles.backBtn} onClick={exitMesa}>← Mesas</button>
           <div style={styles.mesaTitleWrap}>
@@ -412,7 +515,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           </div>
         )}
 
-        <div style={styles.cuerpoScroll}>
+        <div className="col-fija" style={styles.cuerpoScroll}>
         {pending.length > 0 && (() => {
           const activos = pending.filter((o) => o.estado !== "servido");
           const enCocinaU = activos.reduce((a, o) => a + o.items.reduce((x, it) => x + (it.qty - itemListos(o, it)), 0), 0);
@@ -470,21 +573,44 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                         {o.items.map((it, idx) => {
                           const l = itemListos(o, it), sv = itemServidos(o, it);
                           const disponibles = l - sv;
+                          const pendientes = it.qty - sv;
+                          const abierta = !!lineaAbierta && lineaAbierta.orderId === o.id && lineaAbierta.idx === idx;
                           return (
-                            <div key={idx} style={styles.itemEstadoRow}>
-                              <span style={styles.itemEstadoName}>
-                                {it.qty}× {itemNombre(it)}
-                                <span style={{ ...styles.itemEstadoTag, color: sv >= it.qty ? "var(--c-5b7553-t)" : disponibles > 0 ? "var(--c-2f6690-t)" : "var(--c-8a8272-t)" }}>
-                                  {sv >= it.qty ? "servido" : disponibles > 0 ? `${disponibles} listo${disponibles > 1 ? "s" : ""} para servir` : "en cocina"}
-                                  {it.qty > 1 && ` · ${sv}/${it.qty} servidos`}
+                            <div key={idx} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              <div style={styles.itemEstadoRow}>
+                                <span style={styles.itemEstadoName}>
+                                  {it.qty}× {itemNombre(it)}
+                                  <span style={{ ...styles.itemEstadoTag, color: sv >= it.qty ? "var(--c-5b7553-t)" : disponibles > 0 ? "var(--c-2f6690-t)" : "var(--c-8a8272-t)" }}>
+                                    {sv >= it.qty ? "servido" : disponibles > 0 ? `${disponibles} listo${disponibles > 1 ? "s" : ""} para servir` : "en cocina"}
+                                    {it.qty > 1 && ` · ${sv}/${it.qty} servidos`}
+                                  </span>
+                                  {it.cambioDe && <span style={{ ...styles.itemEstadoTag, color: "var(--c-b98a2e-t)" }}>↳ cambió de producto (antes: {it.cambioDe})</span>}
                                 </span>
-                              </span>
-                              {disponibles > 0 && (
-                                <button style={styles.marcarServidoBtn} onClick={() => servirItem(o.id, idx)}><Check size={12} /> Servir{it.qty > 1 ? " 1" : ""}</button>
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                  {disponibles > 0 && (
+                                    <button style={styles.marcarServidoBtn} onClick={() => servirItem(o.id, idx)}><Check size={12} /> Servir{it.qty > 1 ? " 1" : ""}</button>
+                                  )}
+                                  {puedeModificar && pendientes > 0 && (
+                                    <button style={{ ...styles.iconBtn, ...(abierta ? { background: "var(--seg-on-bg)", color: "var(--seg-on-fg)" } : {}) }} aria-label="Quitar o cambiar este producto" aria-expanded={abierta} onClick={() => setLineaAbierta(abierta ? null : { orderId: o.id, idx })}><MoreHorizontal size={15} /></button>
+                                  )}
+                                </span>
+                              </div>
+                              {abierta && (
+                                <div className="despliega" style={styles.lineaAcciones}>
+                                  {it.qty - sv > 1 && <button style={styles.lineaAccion} onClick={() => modificarLinea(o, idx, "menos")}><Minus size={14} /> Quitar 1</button>}
+                                  <button style={{ ...styles.lineaAccion, color: "var(--c-c1442d-t)" }} onClick={() => modificarLinea(o, idx, "quitar")}><Trash2 size={14} /> {sv > 0 ? "Quitar pendientes" : "Quitar"}</button>
+                                  <button style={styles.lineaAccion} onClick={() => { setLineaAbierta(null); setCambiando({ orderId: o.id, idx, q: "" }); }}><Repeat size={14} /> Cambiar por otro</button>
+                                </div>
                               )}
                             </div>
                           );
                         })}
+                        {(o.historialCambios || []).slice(-4).map((h, i) => (
+                          <div key={`h${i}`} style={styles.cambioLinea}>
+                            <s>{h.qty}× {h.name}</s>
+                            <span style={styles.cambioTag}>{h.tipo === "cambio" ? `cambió de producto → ${h.aName}` : "quitado"}</span>
+                          </div>
+                        ))}
                         {porServir(o) > 1 && (
                           <button style={{ ...styles.marcarServidoBtn, alignSelf: "flex-start" }} onClick={() => servirTodoListo(o.id)}><Check size={12} /> Servir todo lo listo ({porServir(o)})</button>
                         )}
@@ -651,6 +777,10 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
             <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: "var(--c-242019-t)" }}>{mesaNombre(mesas, liberarCuenta.mesa)} ya pagó</div>
             <div style={{ fontSize: 13.5, color: "var(--c-5c5648-t)", lineHeight: 1.5 }}>La cuenta está cobrada y la mesa sigue ocupada hasta que se libere. Libérala cuando el cliente ya se haya ido.</div>
             <button style={styles.sendBtn} onClick={() => liberarMesa(liberarCuenta)}>Liberar mesa</button>
+            <button style={{ ...styles.cancelEditBtn, width: "100%", flexDirection: "column", gap: 2 }} onClick={() => { const m = liberarCuenta.mesa; setLiberarCuenta(null); enterMesa(m); }}>
+              <span style={{ fontWeight: 700, color: "var(--c-242019-t)" }}>Siguen aquí · quieren pedir más</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-8a8272-t)" }}>Se abre una cuenta nueva; la que ya pagaron se libera sola.</span>
+            </button>
             <button style={styles.cancelEditBtn} onClick={cerrarHoja}>Cancelar</button>
           </>
 )}
@@ -676,7 +806,10 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                 {g.lineas.map((l) => (
                   <div key={`${l.orderId}-${l.idx}`} style={styles.paraServirLinea}>
                     <span style={styles.paraServirTxt}><b>{l.n}×</b> {l.nombre}{l.faltan > 0 ? <span style={styles.paraServirFaltan}> · faltan {l.faltan} en cocina</span> : null}</span>
-                    <button style={styles.marcarServidoBtn} onClick={() => servirLinea(l.orderId, l.idx)}><Check size={12} /> Servir{l.n > 1 ? ` ${l.n}` : ""}</button>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      {l.n > 1 && <button style={styles.servirTodasBtn} onClick={() => servirLinea(l.orderId, l.idx)} title="Servir todas las que están listas">Todas ({l.n})</button>}
+                      <button style={styles.marcarServidoBtn} onClick={() => servirItem(l.orderId, l.idx)}><Check size={12} /> Servir{l.n > 1 ? " 1" : ""}</button>
+                    </span>
                   </div>
                 ))}
               </div>
