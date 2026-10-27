@@ -34,5 +34,14 @@ separados de los de los demás y un problema en uno no afecta a otro. Tiempo est
 - Anota en un lugar seguro: correo del propietario, proyecto de Firebase, sitio de Netlify.
 
 ## Al entregarle la app a otro negocio
-- En `src/firebase.js` **borra el objeto de configuración de respaldo** (el de Dulce & Café) para que el sistema use solo las variables de entorno de ese negocio.
-- Nunca reutilices el proyecto de Firebase de otro cliente.
+Mira `docs/ENTREGA.md`: hay una herramienta que prepara una copia limpia (sin tu configuración de Firebase ni tu marca).
+Nunca reutilices el proyecto de Firebase de otro cliente.
+
+## Opcional: crear el menú desde una foto
+Esta función usa una IA que lee la foto de la carta. Necesita una clave que **va solo en Netlify** (nunca en el código):
+1. Crea una cuenta en https://console.anthropic.com, agrega saldo y crea una **clave de API**.
+2. En Netlify → Site configuration → Environment variables, crea `ANTHROPIC_API_KEY` con esa clave.
+3. Vuelve a desplegar el sitio. Ya aparece funcionando en **Menú y precios → Crear el menú desde una foto**.
+
+Cada foto cuesta unos pocos centavos de dólar (consulta la tarifa vigente de la IA). Quién paga ese consumo —el negocio o tú— lo decides tú al venderla. Si no activas la clave, la app sigue funcionando: la opción de **pegar el texto de la carta** no usa IA ni cuesta nada.
+Solo un administrador puede usarla, y se limita a 12 usos por hora por persona.
