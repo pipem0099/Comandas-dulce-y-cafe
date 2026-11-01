@@ -136,24 +136,26 @@ globalThis.fetch = async (url, opciones = {}) => {
   }
   throw new Error("Llamada inesperada: " + url);
 };
-const FOTO = "A".repeat(400);
+const FOTO = "/9j/4AAQSkZJRg" + "A".repeat(400);          // empieza como un JPEG de verdad (la función revisa los primeros bytes)
+const FOTO_PNG = "iVBORw0KGgo" + "A".repeat(400);
 const pedir = (cuerpo, { metodo = "POST", token = crearToken({ exp: Math.floor(Date.now() / 1000) + 3600, iat: Math.floor(Date.now() / 1000) - 10 }) } = {}) =>
   manejador(new Request("https://sitio.netlify.app/.netlify/functions/menu-desde-foto", { method: metodo, headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: metodo === "POST" ? JSON.stringify(cuerpo) : undefined }));
 { const r = await pedir({}, { metodo: "GET" }); ok(r.status === 405, "GET → 405"); }
 { const r = await pedir({ tipo: "image/jpeg", datos: FOTO }, { token: "basura" }); ok(r.status === 401, "sesión falsa → 401"); }
 { perfilActual = { activo: true, roles: { mesero: true } }; const r = await pedir({ tipo: "image/jpeg", datos: FOTO }); ok(r.status === 403, "un mesero → 403"); perfilActual = { activo: true, roles: { admin: true } }; }
 { const r = await pedir({ tipo: "application/pdf", datos: FOTO }); ok(r.status === 400, "un PDF (no es imagen) → 400"); }
-{ const r = await pedir({ tipo: "image/jpeg", datos: "A".repeat(5_100_000) }); ok(r.status === 413, "foto demasiado pesada → 413"); }
+{ const r = await pedir({ tipo: "image/png", datos: FOTO }); ok(r.status === 400, "un JPEG que dice ser PNG (tipo falso) → 400"); }
+{ const r = await pedir({ tipo: "image/jpeg", datos: "/9j/4AAQSkZJRg" + "A".repeat(5_100_000) }); ok(r.status === 413, "foto demasiado pesada → 413"); }
 { const r = await pedir({ tipo: "image/jpeg", datos: FOTO }); const j = await r.json();
   ok(r.status === 200 && j.total === 2 && j.categorias[0].productos[1].precio === 6500, "administrador + foto válida → menú ordenado");
   ok(ultimaLlamadaIA.cabeceras["x-api-key"] === "sk-prueba" && ultimaLlamadaIA.cabeceras["anthropic-version"] === "2023-06-01", "manda la clave y la versión de la API");
   ok(ultimaLlamadaIA.cuerpo.model === "claude-sonnet-5-5" && ultimaLlamadaIA.cuerpo.messages[0].content[0].type === "image" && ultimaLlamadaIA.cuerpo.messages[0].content[0].source.media_type === "image/jpeg", "manda el modelo y la imagen en el formato correcto"); }
-{ respuestaIA = { estado: 200, texto: "{\"categorias\":[]}" }; const r = await pedir({ tipo: "image/png", datos: FOTO }); ok(r.status === 422, "la IA no encontró productos → 422 con mensaje claro"); }
-{ respuestaIA = { estado: 401, texto: "" }; const r = await pedir({ tipo: "image/png", datos: FOTO }); const j = await r.json(); ok(r.status === 502 && j.error === "clave", "clave de IA mala o sin saldo → mensaje para el instalador"); }
-{ respuestaIA = { lanzar: true }; const r = await pedir({ tipo: "image/png", datos: FOTO }); ok(r.status === 504, "la IA tarda demasiado → 504 con consejo"); }
-{ respuestaIA = { estado: 429, texto: "" }; const r = await pedir({ tipo: "image/png", datos: FOTO }); ok(r.status === 429, "la IA está ocupada → 429"); }
-{ delete process.env.ANTHROPIC_API_KEY; const r = await pedir({ tipo: "image/png", datos: FOTO }); ok(r.status === 503, "sin clave configurada → 503 \"no activada\""); process.env.ANTHROPIC_API_KEY = "sk-prueba"; }
-{ respuestaIA = { estado: 200, texto: "{\"categorias\":[{\"nombre\":\"A\",\"productos\":[{\"nombre\":\"x\",\"precio\":1000}]}]}" }; let ult = 0; for (let i = 0; i < 12; i++) { const r = await pedir({ tipo: "image/png", datos: FOTO }); ult = r.status; } ok(ult === 429, "pasada la cuota por hora → 429"); }
+{ respuestaIA = { estado: 200, texto: "{\"categorias\":[]}" }; const r = await pedir({ tipo: "image/png", datos: FOTO_PNG }); ok(r.status === 422, "la IA no encontró productos → 422 con mensaje claro"); }
+{ respuestaIA = { estado: 401, texto: "" }; const r = await pedir({ tipo: "image/png", datos: FOTO_PNG }); const j = await r.json(); ok(r.status === 502 && j.error === "clave", "clave de IA mala o sin saldo → mensaje para el instalador"); }
+{ respuestaIA = { lanzar: true }; const r = await pedir({ tipo: "image/png", datos: FOTO_PNG }); ok(r.status === 504, "la IA tarda demasiado → 504 con consejo"); }
+{ respuestaIA = { estado: 429, texto: "" }; const r = await pedir({ tipo: "image/png", datos: FOTO_PNG }); ok(r.status === 429, "la IA está ocupada → 429"); }
+{ delete process.env.ANTHROPIC_API_KEY; const r = await pedir({ tipo: "image/png", datos: FOTO_PNG }); ok(r.status === 503, "sin clave configurada → 503 \"no activada\""); process.env.ANTHROPIC_API_KEY = "sk-prueba"; }
+{ respuestaIA = { estado: 200, texto: "{\"categorias\":[{\"nombre\":\"A\",\"productos\":[{\"nombre\":\"x\",\"precio\":1000}]}]}" }; let ult = 0; for (let i = 0; i < 12; i++) { const r = await pedir({ tipo: "image/png", datos: FOTO_PNG }); ult = r.status; } ok(ult === 429, "pasada la cuota por hora → 429"); }
 
 console.log(`\n${total - fallas} de ${total} pruebas cumplen lo esperado.`);
 if (fallas > 0) { console.error(`✘ ${fallas} prueba(s) fallaron.`); process.exit(1); }

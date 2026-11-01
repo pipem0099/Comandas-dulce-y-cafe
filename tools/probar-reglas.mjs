@@ -16,7 +16,8 @@ const aqui = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const archivo = args.includes("--reglas") ? args[args.indexOf("--reglas") + 1] : join(aqui, "..", "database.rules.json");
 const informativo = args.includes("--informativo");
-const REGLAS = JSON.parse(readFileSync(archivo, "utf8")).rules;
+let REGLAS = JSON.parse(readFileSync(archivo, "utf8")).rules;
+import { generarReglas } from "./generar-reglas.mjs";
 
 /* ───────── árbol de datos (null = no existe; las listas se guardan como objetos con claves 0,1,2…) ───────── */
 const normalizar = (v) => {
@@ -57,9 +58,9 @@ function evaluar(expr, { raiz, datos, nuevos, auth, vars }) {
   const clave = expr + "|" + nombres.join(",");
   if (!compiladas.has(clave)) {
     const codigo = expr.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, "__v_$1");
-    compiladas.set(clave, new Function("root", "data", "newData", "auth", ...nombres.map((n) => "__v_" + n), `return (${codigo});`));
+    compiladas.set(clave, new Function("root", "data", "newData", "auth", "now", ...nombres.map((n) => "__v_" + n), `return (${codigo});`));
   }
-  try { return !!compiladas.get(clave)(new Snap(raiz), new Snap(datos), new Snap(nuevos), auth, ...nombres.map((n) => vars[n])); }
+  try { return !!compiladas.get(clave)(new Snap(raiz), new Snap(datos), new Snap(nuevos), auth, Date.now(), ...nombres.map((n) => vars[n])); }
   catch (e) { throw new Error(`Regla con error: ${expr.slice(0, 90)}… → ${e.message}`); }
 }
 const hijoDeRegla = (nodo, clave) => {
@@ -146,6 +147,7 @@ const BASE = normalizar({
   sistema: { inicializado: true, marca: { nombre: "Dulce" } },
   menu: [{ id: "m1", name: "Limonada", price: 9000 }],
   config: { businessName: "Dulce", auditLog: [{ ts: 1, accion: "x", actor: "Dueño" }] },
+  auditoria: { a0: { ts: 1000, uid: "cajero", nombre: "Pedro", accion: "descuento", monto: 1000 } },
   orders: { o1: { id: "o1", cuentaId: "c1", mesa: "1", ts: 1000, estado: "pendiente", items: [{ id: "m1", name: "Limonada", qty: 1, price: 9000 }] } },
   cuentas: {
     c1: { id: "c1", mesa: "1", ts: 1000, estado: "abierta", mesero: "Ana" },
@@ -243,6 +245,37 @@ caso("Abusos", "admin2", "modificar al propietario", "update", "perfiles/dueno",
 caso("Abusos", "admin2", "darle propiedad a otra persona", "update", "perfiles/mesero", { propietario: true }, NO);
 caso("Abusos", "dueno", "guardar un perfil con permisos que no son sí/no", "set", "perfiles/nuevo", { nombre: "N", activo: true, roles: { mesero: "si" } }, NO);
 
+/* — Integridad de pedidos y tamaños — */
+const o1 = BASE.orders.o1;
+const conItem = (cambio) => ({ ...o1, items: [{ ...o1.items[0], ...cambio }] });
+caso("Pedidos", "cocina", "NO puede cambiar el precio de un ítem", "set", "orders/o1", conItem({ price: 1 }), NO);
+caso("Pedidos", "cocina", "NO puede cambiar la cantidad de un ítem", "set", "orders/o1", conItem({ qty: 9 }), NO);
+caso("Pedidos", "cocina", "NO puede cambiar el nombre de un ítem", "set", "orders/o1", conItem({ name: "Otra cosa" }), NO);
+caso("Pedidos", "cocina", "NO puede mover el pedido a otra cuenta o mesa", "set", "orders/o1", { ...o1, cuentaId: "c2", mesa: "9" }, NO);
+caso("Pedidos", "cocina", "NO puede agregar ítems al pedido", "set", "orders/o1", { ...o1, items: [o1.items[0], { id: "m1", name: "Limonada", qty: 1, price: 0 }] }, NO);
+caso("Pedidos", "cocina", "NO puede crear pedidos nuevos", "set", "orders/o9", { id: "o9", cuentaId: "c1", mesa: "1", ts: 6, estado: "pendiente", items: [] }, NO);
+caso("Pedidos", "cocina", "SÍ puede avisar que vio un cambio y cambiar el estado", "set", "orders/o1", { ...o1, estado: "listo", listoTs: 5, cambioVisto: true }, SI);
+caso("Pedidos", "mesero", "NO puede guardar un precio negativo", "set", "orders/o1", conItem({ price: -5 }), NO);
+caso("Pedidos", "mesero", "NO puede guardar una cantidad absurda", "set", "orders/o1", conItem({ qty: 100000 }), NO);
+caso("Pedidos", "mesero", "SÍ puede editar la cantidad de un ítem (cambio normal del mesero)", "set", "orders/o1", conItem({ qty: 2 }), SI);
+caso("Tamaños", "admin2", "NO puede guardar un logo gigante en la pantalla pública", "update", "sistema", { marca: { nombre: "D", logo: "x".repeat(600001) } }, NO);
+caso("Tamaños", "admin2", "SÍ puede guardar un logo normal", "update", "sistema", { marca: { nombre: "D", logo: "x".repeat(5000) } }, SI);
+caso("Tamaños", "admin2", "NO puede guardar un logo gigante en la configuración", "update", "config", { marca: { logo: "x".repeat(600001) } }, NO);
+
+/* — Bitácora de control (auditoría) y personas por cuenta — */
+const ev = (extra = {}) => ({ ts: Date.now(), uid: "mesero", nombre: "Marta", accion: "descuento", cuentaId: "c1", mesa: "1", monto: 5000, motivo: "cliente frecuente", responsable: "Marta", ...extra });
+caso("Auditoría", "cajero", "SÍ puede dejar constancia de un descuento", "set", "auditoria/a1", ev({ uid: "cajero", nombre: "Pedro" }), SI);
+caso("Auditoría", "admin2", "SÍ puede dejar constancia de una cancelación", "set", "auditoria/a2", ev({ uid: "admin2", accion: "cancelar_cuenta" }), SI);
+caso("Auditoría", "mesero", "NO puede firmar el evento con el uid de otra persona", "set", "auditoria/a3", ev({ uid: "cajero" }), NO);
+caso("Auditoría", "cajero", "NO puede inventar un tipo de acción", "set", "auditoria/a4", ev({ uid: "cajero", accion: "borrar_todo" }), NO);
+caso("Auditoría", "cajero", "NO puede poner una fecha de otro día", "set", "auditoria/a5", ev({ uid: "cajero", ts: Date.now() - 86400000 }), NO);
+caso("Auditoría", "cajero", "NO puede guardar un monto negativo", "set", "auditoria/a6", ev({ uid: "cajero", monto: -1 }), NO);
+caso("Auditoría", "cajero", "NO puede meter datos extra", "set", "auditoria/a7", ev({ uid: "cajero", truco: 1 }), NO);
+caso("Auditoría", "admin2", "NO puede borrar un evento ya registrado (ni el administrador)", "set", "auditoria/a0", null, NO);
+caso("Auditoría", "admin2", "NO puede editar un evento ya registrado (ni el administrador)", "set", "auditoria/a0", ev({ uid: "admin2", monto: 1 }), NO);
+caso("Cuentas", "cajero", "SÍ puede anotar cuántas personas eran", "update", "cuentas/c1", { personas: 3 }, SI);
+caso("Cuentas", "cajero", "NO puede anotar 0 ni 500 personas", "update", "cuentas/c1", { personas: 500 }, NO);
+
 /* — Registro de errores de la app — */
 caso("Errores de la app", "mesero", "reporta un error", "set", "errores/e1", { ts: 5, mensaje: "x is undefined", vista: "mesero", version: "2.6" }, SI);
 caso("Errores de la app", "cocina", "reporta un error", "set", "errores/e2", { ts: 5, mensaje: "boom" }, SI);
@@ -268,6 +301,9 @@ const lecturas = [
   ["admin2", "perfiles", SI, "el administrador ve al equipo"],
   ["admin2", "respaldos", SI, "y los respaldos"],
   ["admin2", "errores", SI, "y los errores"],
+  ["admin2", "auditoria", SI, "y la bitácora de control"],
+  ["cajero", "auditoria", NO, "la bitácora no la ve la caja"],
+  ["mesero", "auditoria", NO, "ni el mesero"],
 ];
 
 /* ───────── ejecutar ───────── */
@@ -305,6 +341,30 @@ for (const [quien, ruta, debe, texto] of lecturas) {
   console.log("\n── Primer ingreso ──");
   console.log(`${b1 ? "✔" : "✘"} con la base vacía, la primera persona se crea como propietaria`);
   console.log(`${b2 ? "✔" : "✘"} una segunda persona ya NO puede crearse como propietaria`);
+}
+
+/* reglas con las opciones de seguridad extra (propietario fijo y correo verificado) */
+{
+  const guardadas = REGLAS;
+  console.log("\n── Opciones de seguridad extra ──");
+  const prueba = (texto, cond) => { total++; if (!cond) fallas++; console.log(`${cond ? "✔" : "✘"} ${texto}`); };
+  const vacio = normalizar({});
+  const dueno = { nombre: "Dueño", activo: true, roles: { admin: true }, propietario: true };
+  const sesion = (uid, email, verificado) => ({ uid, token: { email, email_verified: verificado } });
+  REGLAS = generarReglas({ propietario: "dueno@negocio.co" }).rules;
+  prueba("primer ingreso: el correo del propietario, verificado, SÍ puede reclamar el negocio", escribir(vacio, sesion("u1", "dueno@negocio.co", true), ["perfiles", "u1"], dueno).ok === true);
+  prueba("primer ingreso: ese correo SIN verificar NO puede (alguien pudo registrarlo antes)", escribir(vacio, sesion("u1", "dueno@negocio.co", false), ["perfiles", "u1"], dueno).ok === false);
+  prueba("primer ingreso: otro correo NO puede reclamar el negocio", escribir(vacio, sesion("u2", "intruso@correo.com", true), ["perfiles", "u2"], dueno).ok === false);
+  REGLAS = generarReglas({ propietario: "dueno@negocio.co", exigirVerificado: true }).rules;
+  const mesero = (v) => sesion("mesero", "ana@negocio.co", v);
+  prueba("correo verificado exigido: un mesero verificado SÍ trabaja", escribir(clonar(BASE), mesero(true), ["reservas", "r9"], { id: "r9", nombre: "Ana", personas: 2 }).ok === true);
+  prueba("correo verificado exigido: un mesero SIN verificar NO puede escribir", escribir(clonar(BASE), mesero(false), ["reservas", "r9"], { id: "r9", nombre: "Ana", personas: 2 }).ok === false);
+  prueba("correo verificado exigido: un mesero SIN verificar NO lee las cuentas", puedeLeer(BASE, ["cuentas"], mesero(false)) === false);
+  prueba("correo verificado exigido: un administrador SIN verificar NO crea perfiles", escribir(clonar(BASE), sesion("admin2", "a@negocio.co", false), ["perfiles", "nuevo"], { nombre: "N", activo: true, roles: { mesero: true } }).ok === false);
+  prueba("correo verificado exigido: un administrador verificado SÍ crea perfiles", escribir(clonar(BASE), sesion("admin2", "a@negocio.co", true), ["perfiles", "nuevo"], { nombre: "N", activo: true, roles: { mesero: true } }).ok === true);
+  let lanzo = false; try { generarReglas({ propietario: "x' || true || '@a.co" }); } catch (e) { lanzo = true; }
+  prueba("un correo con comillas no se cuela dentro de las reglas", lanzo);
+  REGLAS = guardadas;
 }
 
 console.log(`\n${total - fallas} de ${total} pruebas cumplen lo esperado.`);
