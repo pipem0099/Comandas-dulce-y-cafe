@@ -4,7 +4,10 @@
  */
 
 export function uid() {
-  return Math.random().toString(36).slice(2, 10);
+  // Identificador impredecible (16 caracteres hexadecimales) en vez de Math.random().
+  const bytes = new Uint8Array(8);
+  (globalThis.crypto || { getRandomValues: (b) => b.map(() => Math.floor(Math.random() * 256)) }).getRandomValues(bytes);
+  return Array.from(bytes, (x) => x.toString(16).padStart(2, "0")).join("");
 }
 export function money(n) {
   return `$${Math.round(n || 0).toLocaleString("es-CO")}`;

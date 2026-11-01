@@ -21,6 +21,7 @@ import { ReservasView } from "./pantallas/Reservas.jsx";
 import { MesasEditor } from "./pantallas/Mesas.jsx";
 import { Equipo } from "./pantallas/Equipo.jsx";
 import { Respaldos } from "./pantallas/Respaldos.jsx";
+import { Analisis } from "./pantallas/Analisis.jsx";
 import { guardarMarcaCache } from "./marcaCache.js";
 import { DEFAULT_CONFIG, DEFAULT_MENU, DEFAULT_MESAS, VENTANA_MS } from "./constantes.js";
 import { styles } from "./estilos.js";
@@ -134,7 +135,9 @@ export default function App() {
     setPerfil(undefined);
     return subscribeShared(`perfiles/${sesion.uid}`, null, setPerfil);
   }, [sesion]);
-  const accesoOk = !!(sesion && perfil && perfil.activo === true);
+  // Si las reglas exigen correo verificado (VITE_EXIGIR_CORREO_VERIFICADO=1), la app lo pide antes de dejar entrar.
+  const EXIGE_CORREO = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_EXIGIR_CORREO_VERIFICADO === "1";
+  const accesoOk = !!(sesion && perfil && perfil.activo === true && (!EXIGE_CORREO || sesion.emailVerified === true));
   useEffect(() => { if (accesoOk) return subscribeCollection("equipo", setEquipo); }, [accesoOk]);
   const usuarioActual = useMemo(
     () => (accesoOk ? { uid: sesion.uid, nombre: perfil.nombre, correo: perfil.correo || sesion.email, roles: rolesDe(perfil), propietario: perfil.propietario === true } : null),
@@ -353,9 +356,9 @@ export default function App() {
   const esAdminActual = !!usuarioActual && tieneRol(usuarioActual, "admin");
   const minutoActual = Math.floor(Date.now() / 60000);
   const alertas = useMemo(
-    () => (esAdminActual ? calcularAlertas({ turnoAbierto, cuentas, menu, insumos, errores, config }) : []),
+    () => (esAdminActual ? calcularAlertas({ turnoAbierto, cuentas, orders, menu, insumos, errores, config }) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [esAdminActual, turnoAbierto, cuentas, menu, insumos, errores, config, minutoActual]
+    [esAdminActual, turnoAbierto, cuentas, orders, menu, insumos, errores, config, minutoActual]
   );
   // Una alerta urgente NUEVA se anuncia con un aviso (la primera carga no, para no recibir una avalancha al entrar)
   const alertasVistas = useRef(null);
@@ -419,7 +422,7 @@ export default function App() {
   const puede = (id) => items.some((i) => i.id === id);
   const cambiarRol = (r) => { setVista(null); setRole(r); };
   // Las alertas llevan a una pantalla principal (caja, mesero…) o a una de administración (respaldos…)
-  const irDesdeAlerta = (v) => { if (["menu", "mesas", "equipo", "respaldos", "ajustes"].includes(v)) setVista(v); else cambiarRol(v); };
+  const irDesdeAlerta = (v) => { if (["menu", "mesas", "equipo", "respaldos", "ajustes", "analisis"].includes(v)) setVista(v); else cambiarRol(v); };
 
   return (
     <div style={styles.app}>
@@ -452,6 +455,15 @@ export default function App() {
           {vista === "mesas" && <MesasEditor mesas={mesas} persistMesas={persistMesas} cuentas={cuentas} orders={orders} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} onClose={() => setVista(null)} />}
           {vista === "ajustes" && <div style={styles.screen}><AjustesPanel config={config} persistConfig={persistConfig} menu={menu} onClose={() => setVista(null)} onAbrirAsistente={() => setVerAsistente(true)} /></div>}
           {vista === "equipo" && <div style={styles.screen}><Equipo config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} onClose={() => setVista(null)} /></div>}
+          {vista === "analisis" && (
+            <div style={styles.screen}>
+              <Analisis
+                onClose={() => setVista(null)} menu={menu} insumos={insumos} config={config} persistConfig={persistConfig}
+                cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial}
+                cargarHistorialCompleto={cargarHistorialCompleto} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial}
+              />
+            </div>
+          )}
           {vista === "respaldos" && (
             <div style={styles.screen}>
               <Respaldos

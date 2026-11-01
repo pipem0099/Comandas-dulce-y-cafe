@@ -1,5 +1,6 @@
 import { estadoStock, money } from "./logica.js";
 import { dayKey } from "./utilidades.js";
+import { prepararVentas, alertasBaseline } from "./analitica.js";
 
 /*
  * Alertas para el dueño: cosas que conviene mirar sin tener que ir a buscarlas.
@@ -13,8 +14,9 @@ const DIAS_AVISO_VENCE = 7;
 const n0 = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const listaCorta = (nombres, max = 4) => (nombres.length <= max ? nombres.join(", ") : `${nombres.slice(0, max).join(", ")} y ${nombres.length - max} más`);
 
-export function calcularAlertas({ turnoAbierto, cuentas = [], menu = [], insumos = [], errores = [], config = {}, ahora = Date.now() }) {
+export function calcularAlertas({ turnoAbierto, cuentas = [], orders = [], menu = [], insumos = [], errores = [], config = {}, ahora = Date.now() }) {
   const alertas = [];
+  const ventas = prepararVentas(cuentas, orders); // venta neta real de cada cuenta pagada (la cuenta no guarda "total")
   const hoy = dayKey(ahora);
 
   /* 1) Caja abierta demasiado tiempo */
@@ -47,7 +49,8 @@ export function calcularAlertas({ turnoAbierto, cuentas = [], menu = [], insumos
   const conDescuento = pagadasHoy.filter((c) => n0(c.descuento && c.descuento.monto) > 0);
   if (conDescuento.length > 0) {
     const totalDesc = conDescuento.reduce((s, c) => s + n0(c.descuento.monto), 0);
-    const totalVendido = pagadasHoy.reduce((s, c) => s + n0(c.total), 0) || 1;
+    // La cuenta NO guarda su total: se calcula con los pedidos (antes salía siempre 0 y el % de descuento daba ~100%).
+    const totalVendido = ventas.filter((v) => dayKey(v.ts) === hoy).reduce((s, v) => s + v.venta, 0) || 1;
     const proporcion = totalDesc / (totalVendido + totalDesc);
     if (conDescuento.length >= 3 || (proporcion >= 0.1 && totalDesc >= 10000)) {
       alertas.push({
@@ -99,6 +102,14 @@ export function calcularAlertas({ turnoAbierto, cuentas = [], menu = [], insumos
     alertas.push({ id: "copia-vieja", nivel: "media", titulo: `Hace ${Math.floor((ahora - ultima) / DIA)} días no descargas una copia`, detalle: "Descarga una copia completa y guárdala en Drive o en tu correo; así no dependes de que Firebase esté bien.", vista: "respaldos", donde: "Ajustes › Respaldos y datos" });
   } else if (!ultima && cuentas.some((c) => c.estado === "pagada")) {
     alertas.push({ id: "copia-nunca", nivel: "info", titulo: "Aún no has descargado una copia completa", detalle: "Hazlo una vez al mes y guárdala fuera de la app.", vista: "respaldos", donde: "Ajustes › Respaldos y datos" });
+  }
+
+  /* 7) Contra lo habitual del negocio (mismo día de la semana, misma hora): ventas, ticket, cancelaciones y descuentos */
+  const sensibilidad = (config && config.alertasSensibilidad) || "normal";
+  if (sensibilidad !== "apagada") {
+    alertasBaseline(ventas, cuentas, { ahora, sensibilidad }).forEach((a) => {
+      if (!alertas.some((x) => a.id === `base-${x.id}`)) alertas.push(a); // si ya salió la alerta de umbral fijo, no se repite
+    });
   }
 
   const orden = { alta: 0, media: 1, info: 2 };

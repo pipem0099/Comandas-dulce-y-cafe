@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut } from "firebase/auth";
 import { getDatabase, ref, onValue, get, query, orderByChild, startAt, set, update, remove, increment } from "firebase/database";
 
 /*
@@ -82,11 +82,32 @@ export async function iniciarSesion(correo, clave) {
  */
 export async function crearCuentaPropietaria(correo, clave) {
   try {
-    await createUserWithEmailAndPassword(auth, correo.trim(), clave);
+    const cred = await createUserWithEmailAndPassword(auth, correo.trim(), clave);
+    // Se manda el correo de verificación: sin él, cualquiera podría registrar un correo ajeno (ver docs/SEGURIDAD.md).
+    try { await sendEmailVerification(cred.user); } catch (_) { /* se puede reenviar desde la pantalla de acceso */ }
     return { ok: true };
   } catch (e) {
     return { ok: false, code: e.code || "error" };
   }
+}
+/** Deja constancia (que nadie puede editar ni borrar) de una cancelación, descuento o anulación: quién, cuándo y cuánto. */
+export async function registrarAuditoria(evento) {
+  try {
+    const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    const limpio = {};
+    Object.entries({ ts: Date.now(), ...evento }).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") limpio[k] = typeof v === "string" ? v.slice(0, 300) : v; });
+    return await saveRecord("auditoria", id, limpio);
+  } catch (e) { return false; } // la bitácora nunca debe impedir cobrar
+}
+/** Reenvía el correo para confirmar que la dirección es de quien inició sesión. */
+export async function reenviarVerificacion() {
+  try { if (!auth.currentUser) return { ok: false, code: "auth/no-user" }; await sendEmailVerification(auth.currentUser); return { ok: true }; }
+  catch (e) { return { ok: false, code: e.code || "error" }; }
+}
+/** Vuelve a leer la cuenta (y renueva su prueba de sesión) para saber si ya verificó el correo. */
+export async function sesionVerificada() {
+  try { if (!auth.currentUser) return false; await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); return auth.currentUser.emailVerified === true; }
+  catch (e) { return false; }
 }
 export async function cerrarSesion() {
   try { await signOut(auth); } catch (e) { console.error("Error al cerrar sesión:", e); }
@@ -112,7 +133,9 @@ export async function crearCuentaEmpleado(correo, clave) {
   try {
     let uid;
     try {
-      uid = (await createUserWithEmailAndPassword(secAuth, correo.trim(), clave)).user.uid;
+      const cred = await createUserWithEmailAndPassword(secAuth, correo.trim(), clave);
+      uid = cred.user.uid;
+      try { await sendEmailVerification(cred.user); } catch (_) { /* el empleado puede pedirlo de nuevo al entrar */ }
     } catch (e) {
       // Si la cuenta ya existe (por ejemplo, un intento anterior que se cortó antes de crear
       // el perfil) y la clave es la misma, se reutiliza en vez de dejar al empleado a medias.

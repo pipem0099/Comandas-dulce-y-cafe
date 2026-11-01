@@ -146,20 +146,28 @@ aplicarMarca(MARCA_POR_DEFECTO);
 /** Reduce una imagen subida (logo) conservando su proporción, para guardarla en base64 en la config. */
 export function reducirLogo(file, ladoMax = 480) {
   return new Promise((resolve, reject) => {
+    if (!file || !/^image\/(png|jpeg|webp|gif)$/.test(file.type || "")) { reject(new Error("Usa una imagen PNG, JPG, WEBP o GIF.")); return; }
+    if (file.size > 10_000_000) { reject(new Error("La imagen pesa más de 10 MB. Elige una más pequeña.")); return; }
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
     reader.onload = () => {
       const img = new Image();
       img.onerror = () => reject(new Error("La imagen no es válida"));
       img.onload = () => {
-        const escala = Math.min(1, ladoMax / Math.max(img.width, img.height));
-        const w = Math.max(1, Math.round(img.width * escala)), h = Math.max(1, Math.round(img.height * escala));
-        const canvas = document.createElement("canvas");
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/png"));
+        let escala = Math.min(1, ladoMax / Math.max(img.width, img.height));
+        // El logo se guarda en la base de datos (y la pantalla de ingreso lo lee sin sesión): se achica hasta que pese poco.
+        for (let intento = 0; intento < 6; intento++) {
+          const w = Math.max(1, Math.round(img.width * escala)), h = Math.max(1, Math.round(img.height * escala));
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          const url = canvas.toDataURL("image/png");
+          if (url.length <= 500000) { resolve(url); return; }
+          escala *= 0.7;
+        }
+        reject(new Error("La imagen es demasiado pesada. Prueba con un logo más simple."));
       };
       img.src = reader.result;
     };
