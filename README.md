@@ -42,10 +42,10 @@ que suficiente para un negocio de este tamaño.
    `firebaseConfig` de ejemplo por el que copiaste.
 
 Sobre seguridad: el archivo `database.rules.json` que incluí deja la base
-abierta (cualquiera con la URL puede leer/escribir), lo cual es aceptable
-para una herramienta interna pequeña — la URL no es pública en ningún lado.
-Si más adelante quieres cerrarla más, en la consola de Firebase puedes pegar
-reglas más estrictas en Realtime Database → Reglas.
+**cerrada**: solo entra quien tenga cuenta activa y cada rol escribe únicamente lo suyo.
+Publícalo en Realtime Database → Reglas antes de usar la app, y para un negocio nuevo
+genéralo con `npm run reglas:generar -- --propietario tucorreo@dominio.com`
+(ver `docs/SEGURIDAD.md`). Nunca dejes la base en "modo de prueba".
 
 ## Paso 2 — Subir el proyecto a Netlify
 

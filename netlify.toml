@@ -1,6 +1,8 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  [build.environment]
+    NODE_VERSION = "22"
 
 # Funciones del servidor (guardan las claves secretas lejos del celular): hoy, "menú desde una foto"
 [functions]
@@ -32,7 +34,7 @@
     # Está en modo "solo reportar" a propósito: no bloquea nada, pero deja avisos en la consola del navegador
     # si algo se saldría de la lista. Después de probar la app completa (docs/MANTENIMIENTO.md, sección
     # "Activar la política de contenido"), cambia el nombre a "Content-Security-Policy" para que se aplique.
-    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com; frame-src https://*.firebaseio.com https://*.firebaseapp.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' https://api.pwnedpasswords.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com; frame-src https://*.firebaseio.com https://*.firebaseapp.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
 # El service worker y la página principal nunca se guardan en caché: así cada actualización llega sola
 [[headers]]

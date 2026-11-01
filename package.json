@@ -9,8 +9,10 @@
     "preview": "vite preview",
     "reglas:generar": "node tools/generar-reglas.mjs",
     "reglas:probar": "node tools/probar-reglas.mjs",
-    "verificar": "node tools/probar-reglas.mjs && node tools/probar-menu-foto.mjs && vite build",
+    "verificar": "node tools/probar-reglas.mjs && node tools/probar-menu-foto.mjs && node tools/probar-seguridad.mjs && node tools/probar-analitica.mjs && vite build",
     "menu-foto:probar": "node tools/probar-menu-foto.mjs",
+    "seguridad:probar": "node tools/probar-seguridad.mjs",
+    "analitica:probar": "node tools/probar-analitica.mjs",
     "preparar-entrega": "node tools/preparar-entrega.mjs"
   },
   "dependencies": {
