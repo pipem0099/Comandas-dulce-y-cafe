@@ -6,6 +6,7 @@ import {
 import { itemNombre, TIPO_META, esExterna, uid, money } from "../logica.js";
 import { avisar } from "../avisos.jsx";
 import { mostrarComprobante } from "../comprobante.jsx";
+import { registrarAuditoria } from "../firebase.js";
 
 // Enter dentro de un monto = pulsar el botón principal del cobro (si está disponible)
 const confirmarConEnter = () => {
@@ -146,14 +147,23 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
     const monto = pct === "custom" ? Math.round(parseFloat(propinaCustom) || 0) : Math.round((subtotal * pct) / 100);
     await patchCuenta({ propina: { pct: pct === "custom" ? null : pct, monto } });
   };
+  // Bitácora de control: queda quién (su uid real), cuándo y cuánto. No frena la operación si falla.
+  const auditar = (accion, monto, motivo) => registrarAuditoria({
+    accion, monto: Math.max(0, Math.round(monto || 0)), motivo: motivo || "", cuentaId: cuenta.id, mesa: cuenta.mesa,
+    responsable: cuenta.mesero || "", uid: usuarioActual.uid, nombre: usuarioActual.nombre,
+    rol: tieneRol(usuarioActual, "admin") ? "admin" : tieneRol(usuarioActual, "cajero") ? "cajero" : "mesero",
+  });
   const aplicarDescuento = async () => {
     if (!esAdmin) return;
     const monto = Math.round(parseFloat(descMonto) || 0);
     if (monto <= 0) return;
-    await patchCuenta({ descuento: { monto, motivo: descMotivo.trim() || "Sin motivo especificado", aplicadoPor: usuarioActual.nombre } });
+    const motivoDesc = descMotivo.trim() || "Sin motivo especificado";
+    await patchCuenta({ descuento: { monto, motivo: motivoDesc, aplicadoPor: usuarioActual.nombre } });
+    auditar("descuento", monto, motivoDesc);
     setMostrarDescuento(false); setDescMonto(""); setDescMotivo("");
   };
-  const quitarDescuento = async () => { if (esAdmin) patchCuenta({ descuento: null }); };
+  const quitarDescuento = async () => { if (esAdmin) { auditar("quitar_descuento", cuenta.descuento && cuenta.descuento.monto, cuenta.descuento && cuenta.descuento.motivo); patchCuenta({ descuento: null }); } };
+  const cambiarPersonas = (n) => { const v = Math.max(1, Math.min(50, n)); if (v !== cuenta.personas) patchCuenta({ personas: v }); };
   const quitarPropina = async () => { if (pagos.length === 0) patchCuenta({ propina: null }); };
 
   // Al cancelar la cuenta, también hay que cancelar sus pedidos activos —
@@ -192,6 +202,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
         estado: "cancelada", canceladaTs: Date.now(), canceladaPor: usuarioActual.nombre,
         motivoCancelacion: motivoCancelacion.trim(), montoCancelado: total,
       });
+      auditar("cancelar_cuenta", total, motivoCancelacion.trim());
     } else {
       previo = await cancelarPedidosDeCuenta();
       await patchCuenta({ estado: "cancelada", canceladaTs: Date.now(), canceladaPor: usuarioActual.nombre, montoCancelado: 0 });
@@ -386,6 +397,16 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
             ))}
           </div>
 
+          {!esExterna(cuenta) && (
+            <div style={styles.subtotalRow}>
+              <span>Personas en la mesa</span>
+              <div style={styles.stepper}>
+                <button style={styles.stepBtn} aria-label="Una persona menos" onClick={() => cambiarPersonas((cuenta.personas || 2) - 1)}><Minus size={14} /></button>
+                <span style={styles.stepVal}>{cuenta.personas || "—"}</span>
+                <button style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} aria-label="Una persona más" onClick={() => cambiarPersonas((cuenta.personas || 0) + 1)}><Plus size={14} /></button>
+              </div>
+            </div>
+          )}
           <div style={styles.subtotalRow}>
             <span>Subtotal</span><span>{money(subtotal)}</span>
           </div>

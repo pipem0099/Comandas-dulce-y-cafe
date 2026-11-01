@@ -5,6 +5,7 @@ import { subscribeCollection, saveRecord, updateRecord, updateShared, enviarCorr
 import { ROLES_ORDEN } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { msgAuth } from "../pantallas/Acceso.jsx";
+import { claveFiltrada, MENSAJE_CLAVE_FILTRADA } from "../clavesSeguras.js";
 import { Acordeon } from "../componentes/Comunes.jsx";
 import { agruparPorMes, dateTimeLabel, rolLabel, rolesAMapa, rolesDe, rolesLabel, tieneRol } from "../utilidades.js";
 
@@ -42,13 +43,14 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
     if (rolesNuevo.length === 0) { setError("Elige al menos un rol."); return; }
     if (lista.some((u) => (u.correo || "").toLowerCase() === mail)) { setError("Ya hay una cuenta con ese correo."); return; }
     setCreando(true);
+    if (await claveFiltrada(clave)) { setCreando(false); setError(MENSAJE_CLAVE_FILTRADA); return; }
     const r = await crearCuentaEmpleado(mail, clave);
     if (!r.ok) { setCreando(false); setError(msgAuth(r.code)); return; }
     const ok = await saveRecord("perfiles", r.uid, { uid: r.uid, nombre: nombre.trim(), correo: mail, roles: rolesAMapa(rolesNuevo), activo: true, creado: Date.now(), creadoPor: usuarioActual.nombre });
     setCreando(false);
     if (!ok) { setError("La cuenta se creó pero no se pudo guardar su perfil. Vuelve a intentarlo con el mismo correo y la misma clave."); return; }
     await log(`Creó la cuenta de "${nombre.trim()}" (${rolesNuevo.map(rolLabel).join(" + ")})`);
-    setExito(`Cuenta creada. Dale a ${nombre.trim()} este correo y esta clave: ${mail} · ${clave}. Podrá cambiar la clave con "Olvidé mi clave".`);
+    setExito(`Cuenta creada. Dale a ${nombre.trim()} este correo y esta clave: ${mail} · ${clave}. Le llegó un correo para confirmar su dirección: debe abrirlo. Podrá cambiar la clave con "Olvidé mi clave".`);
     setNombre(""); setCorreo(""); setClave(""); setRolesNuevo(["mesero"]);
   };
 

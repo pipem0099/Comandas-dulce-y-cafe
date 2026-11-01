@@ -7,10 +7,11 @@ import { money } from "../logica.js";
 import { MontoSigno, FilaTabs } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { cuentaGranTotal, cuentaOrders, dateTimeLabel, hourLabel, tieneRol } from "../utilidades.js";
+import { prepararVentas, rentabilidad, rangosComparables, resumenPeriodo, comparar } from "../analitica.js";
 
 /* ---------------- Reportes ---------------- */
 
-export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu, usuarioActual, onIr, config, cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargarHistorialCompleto }) {
+export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu, insumos = [], usuarioActual, onIr, config, cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargarHistorialCompleto }) {
   const [rango, setRango] = useState("hoy");
   // Lo de "en vivo" solo trae los últimos ~35 días: para el mes pasado se pide el historial completo (una sola vez).
   const necesitaHistorial = rango === "mesPasado";
@@ -52,21 +53,30 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
   });
 
   const productoMap = {};
-  let ventaProductos = 0, costoProductos = 0, huboCostosCargados = false;
+  let ventaProductos = 0;
   pagadasRango.forEach((c) => cuentaOrders(orders, c.id).filter((o) => o.estado !== "cancelado").forEach((o) => o.items.forEach((it) => {
     if (!productoMap[it.name]) productoMap[it.name] = { qty: 0, subtotal: 0 };
     productoMap[it.name].qty += it.qty; productoMap[it.name].subtotal += it.qty * it.price;
     ventaProductos += it.qty * it.price;
-    // Los pedidos nuevos ya guardan su propio costo (congelado al momento de
-    // la venta). Los pedidos viejos, de antes de este cambio, no lo tienen —
-    // para esos usamos el costo actual del menú como mejor estimado posible.
-    const costoUnit = (it.cost !== undefined && it.cost !== null) ? it.cost : (costoPorId[it.id] || 0);
-    if (costoUnit > 0) huboCostosCargados = true;
-    costoProductos += it.qty * costoUnit;
   })));
+  // Margen: el costo sale de la venta, de la receta o del % estimado por categoría (src/analitica.js). Lo que no tiene
+  // costo NO se cuenta como costo 0 (inventaba margen) y los descuentos se restan del margen.
+  const rentab = rentabilidad(prepararVentas(pagadasRango, orders), menu, { insumos, plantilla: (config && config.plantillaCostos) || {} });
+  const huboCostosCargados = rentab.ventaConCosto > 0;
+  const costoProductos = rentab.ventaConCosto - rentab.margenTotal;
   const topProductos = Object.entries(productoMap).sort((a, b) => b[1].qty - a[1].qty).slice(0, 5);
-  const margenRango = ventaProductos - costoProductos;
-  const margenPct = ventaProductos > 0 ? Math.round((margenRango / ventaProductos) * 100) : 0;
+  const margenRango = rentab.margenTotal;
+  const margenPct = rentab.margenPct !== null ? Math.round(rentab.margenPct) : 0;
+  const aprox = rentab.hayEstimado ? "~" : "";
+  const coberturaPct = Math.round(rentab.cobertura * 100);
+  // Comparación con el mismo momento del período anterior (solo "hoy" y "7 días": caben en lo que ya está cargado en vivo;
+  // para el mes está la pantalla Análisis y control, que carga todo el historial).
+  const claveCmp = rango === "hoy" ? "hoy" : rango === "semana" ? "semana" : null;
+  let cmpInfo = null;
+  if (esAdmin && claveCmp) {
+    const todas = prepararVentas(cuentasVivas, ordersVivos); const rc = rangosComparables(claveCmp);
+    cmpInfo = { ...comparar(resumenPeriodo(todas, rc.A), resumenPeriodo(todas, rc.B)), etiqueta: rc.etiqueta };
+  }
 
   const totalRango = pagadasRango.reduce((s, c) => s + cuentaGranTotal(orders, c), 0);
   const propinasRango = pagadasRango.reduce((s, c) => s + ((c.propina && c.propina.monto) || 0), 0);
@@ -108,10 +118,15 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
       <div style={styles.cajaTotalCard}>
         <span style={styles.cajaTotalLabel}>Total vendido</span>
         <span style={styles.cajaTotalValue}>{money(totalRango)}</span>
-        <span style={styles.turnoEsperadoLabel}>{pagadasRango.length} {pagadasRango.length === 1 ? "cuenta" : "cuentas"} · {money(propinasRango)} en propinas</span>
+        <span style={styles.turnoEsperadoLabel}>{pagadasRango.length} {pagadasRango.length === 1 ? "cuenta" : "cuentas"} · {money(propinasRango)} en propinas (venta sin propinas: {money(totalRango - propinasRango)})</span>
+        {cmpInfo && cmpInfo.nivel !== "sin-base" && (
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: cmpInfo.nivel === "sube" ? "#7BD88F" : cmpInfo.nivel === "baja" ? "#FF8A75" : "#9BA4B0" }}>
+            {cmpInfo.nivel === "igual" ? "≈ igual" : `${cmpInfo.pct > 0 ? "▲" : "▼"} ${Math.round(Math.abs(cmpInfo.pct))}%`} {cmpInfo.etiqueta}
+          </span>
+        )}
         {esAdmin && huboCostosCargados && (
           <div style={styles.margenRow}>
-            <span>Margen estimado: <b>{money(margenRango)}</b> ({margenPct}%)</span>
+            <span>Margen {rentab.hayEstimado ? "estimado" : "bruto"}: <b>{aprox}{money(margenRango)}</b> ({margenPct}%){coberturaPct < 100 ? ` · costos conocidos en el ${coberturaPct}% de la venta` : ""}</span>
           </div>
         )}
       </div>
@@ -133,7 +148,7 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
             {huboCostosCargados && (
               <>
                 <div style={styles.subtotalRow}><span>Costo de productos vendidos</span><span>−{money(costoProductos)}</span></div>
-                <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Margen (utilidad bruta)</span><span>{money(margenRango)} ({margenPct}%)</span></div>
+                <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Margen (utilidad bruta, ya sin descuentos)</span><span>{aprox}{money(margenRango)} ({margenPct}%)</span></div>
               </>
             )}
             <div style={styles.subtotalRow}>

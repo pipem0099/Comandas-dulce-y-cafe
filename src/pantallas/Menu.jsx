@@ -31,7 +31,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
 
   const addItem = () => {
     if (!name.trim() || !price || !cat.trim()) return;
-    const item = { id: uid(), name: name.trim(), price: parseFloat(price) || 0, cost: parseFloat(cost) || 0, cat: cat.trim() };
+    const item = { id: uid(), name: name.trim(), price: parseFloat(price) || 0, cost: parseFloat(cost) || 0, cat: cat.trim(), creadoTs: Date.now() };
     persistMenu([...menu, item]);
     registrar(`Agregó "${item.name}" al menú (${money(item.price)})`);
     setName(""); setPrice(""); setCost(""); setCatNueva(false); setNuevoAbierto(false);

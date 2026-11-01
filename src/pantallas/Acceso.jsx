@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { KeyRound, ArrowRightLeft, Eye, EyeOff, AlertCircle, ArrowRight } from "lucide-react";
 
-import { saveRecord, updateShared, subscribeShared, iniciarSesion, enviarCorreoCambioClave, crearCuentaPropietaria } from "../firebase.js";
+import { saveRecord, updateShared, subscribeShared, iniciarSesion, enviarCorreoCambioClave, crearCuentaPropietaria, reenviarVerificacion, sesionVerificada } from "../firebase.js";
+import { claveFiltrada, MENSAJE_CLAVE_FILTRADA } from "../clavesSeguras.js";
 import { aplicarMarca } from "../theme.js";
 import { leerMarcaCache } from "../marcaCache.js";
 import { VERSION } from "../constantes.js";
@@ -100,6 +101,7 @@ export function InicioSesion() {
     if (clave.length < 10) { setError("La clave debe tener mínimo 10 caracteres."); return; }
     if (clave !== clave2) { setError("Las dos claves no son iguales."); return; }
     setEnviando(true); setError("");
+    if (await claveFiltrada(clave)) { setEnviando(false); setError(MENSAJE_CLAVE_FILTRADA); return; }
     // Se recuerda el nombre para crear el perfil de propietario apenas la cuenta quede creada.
     try { sessionStorage.setItem("primera_vez_nombre", nombre.trim()); } catch (e) {}
     const r = await crearCuentaPropietaria(correo, clave);
@@ -156,6 +158,10 @@ export function SinAcceso({ sesion, perfil, onSalir }) {
   const [guardando, setGuardando] = useState(false);
   const desactivada = !!perfil && perfil.activo === false;
   const yaTienePropietario = !!sistema && sistema.inicializado === true;
+  const faltaVerificar = sesion.emailVerified === false && !desactivada; // el correo todavía no se confirmó
+  const [avisoCorreo, setAvisoCorreo] = useState("");
+  const reenviar = async () => { const r = await reenviarVerificacion(); setAvisoCorreo(r.ok ? "Listo: te enviamos otro correo. Revisa también la carpeta de spam." : "No se pudo enviar ahora. Espera un minuto e inténtalo otra vez."); };
+  const yaVerifique = async () => { if (await sesionVerificada()) window.location.reload(); else setAvisoCorreo("Todavía no aparece verificado. Abre el enlace del correo y vuelve a tocar aquí."); };
 
   const reclamar = async (nombreFinal) => {
     setGuardando(true); setError("");
@@ -177,7 +183,7 @@ export function SinAcceso({ sesion, perfil, onSalir }) {
   useEffect(() => {
     let pendiente = "";
     try { pendiente = sessionStorage.getItem("primera_vez_nombre") || ""; } catch (e) {}
-    if (pendiente && perfil === null) reclamar(pendiente);
+    if (pendiente && perfil === null && sesion.emailVerified !== false) reclamar(pendiente); // con correo sin verificar se espera
   }, []);
 
   return (
@@ -189,6 +195,14 @@ export function SinAcceso({ sesion, perfil, onSalir }) {
           ? "Un administrador desactivó tu acceso. Si crees que es un error, habla con él."
           : `Ingresaste como ${sesion.email || "tu cuenta"}, pero todavía no tienes un rol asignado. Pídele al administrador que te dé de alta.`}
       </div>
+      {faltaVerificar && (
+        <>
+          <div style={a.texto}>Antes de continuar confirma tu correo <b style={{ color: "#ECEFF3" }}>{sesion.email}</b>: te enviamos un mensaje con un enlace. Ábrelo y luego toca el botón.</div>
+          <button style={a.boton} onClick={yaVerifique}>Ya verifiqué mi correo</button>
+          <button style={a.enlace} onClick={reenviar}>Reenviar el correo</button>
+          {avisoCorreo && <div style={a.info}>{avisoCorreo}</div>}
+        </>
+      )}
       {guardando && <div style={a.info}>Configurando tu cuenta…</div>}
       {error && <div style={a.error}><AlertCircle size={15} /> <span>{error}</span></div>}
       {!desactivada && primeraVez && !yaTienePropietario && (

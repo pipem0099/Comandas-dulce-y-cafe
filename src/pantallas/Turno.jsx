@@ -402,11 +402,14 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, pers
   const onArchivoElegido = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > 50_000_000) { setError("Ese archivo es demasiado grande para ser un respaldo."); e.target.value = ""; return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (!data.menu || !data.orders || !data.cuentas || !data.config) throw new Error("Archivo incompleto");
+        if (!data || typeof data !== "object" || !data.menu || !Array.isArray(data.orders) || !Array.isArray(data.cuentas) || !data.config || typeof data.config !== "object") throw new Error("Archivo incompleto");
+        if (!data.orders.every((o) => o && typeof o === "object" && typeof o.id === "string" && typeof o.estado === "string" && typeof o.ts === "number")) throw new Error("Pedidos no válidos");
+        if (!data.cuentas.every((c) => c && typeof c === "object" && typeof c.id === "string" && typeof c.estado === "string" && typeof c.ts === "number")) throw new Error("Cuentas no válidas");
         setArchivo(data);
         setConfirmando(true);
         setError("");
