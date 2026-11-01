@@ -115,3 +115,13 @@ export function extraerJSON(texto) {
 }
 const TIPOS_OK = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 export const tipoImagenValido = (t) => TIPOS_OK.includes(t);
+/** El tipo lo declara el cliente: se comprueba que los primeros bytes del archivo de verdad sean de esa clase de imagen. */
+export function firmaImagenCoincide(tipo, datosBase64) {
+  let b;
+  try { b = Buffer.from(String(datosBase64).slice(0, 64), "base64"); } catch (e) { return false; }
+  if (tipo === "image/jpeg") return b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+  if (tipo === "image/png") return b.length >= 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (tipo === "image/gif") return b.length >= 6 && ["GIF87a", "GIF89a"].includes(b.subarray(0, 6).toString("latin1"));
+  if (tipo === "image/webp") return b.length >= 12 && b.subarray(0, 4).toString("latin1") === "RIFF" && b.subarray(8, 12).toString("latin1") === "WEBP";
+  return false;
+}
