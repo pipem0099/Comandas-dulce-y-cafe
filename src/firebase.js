@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut } from "firebase/auth";
-import { getDatabase, ref, onValue, get, query, orderByChild, startAt, set, update, remove, increment } from "firebase/database";
+import { getDatabase, ref, onValue, get, query, orderByChild, startAt, equalTo, set, update, remove, increment, runTransaction } from "firebase/database";
+import { uid as nuevoId } from "./logica.js";
 
 /*
  * ───────────────────────────────────────────────────────────
@@ -91,13 +92,20 @@ export async function crearCuentaPropietaria(correo, clave) {
   }
 }
 /** Deja constancia (que nadie puede editar ni borrar) de una cancelación, descuento o anulación: quién, cuándo y cuánto. */
+// Hora del servidor: si el reloj del celular está adelantado o atrasado, la bitácora (que valida la hora) no se pierde.
+let desfaseReloj = 0;
+try { onValue(ref(db, ".info/serverTimeOffset"), (s) => { desfaseReloj = Number(s.val()) || 0; }, () => {}); } catch (e) { /* sin red: se usa el reloj del dispositivo */ }
+export const ahoraServidor = () => Date.now() + desfaseReloj;
+
 export async function registrarAuditoria(evento) {
   try {
-    const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    const id = `${Date.now().toString(36)}${nuevoId()}`;
     const limpio = {};
-    Object.entries({ ts: Date.now(), ...evento }).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") limpio[k] = typeof v === "string" ? v.slice(0, 300) : v; });
-    return await saveRecord("auditoria", id, limpio);
-  } catch (e) { return false; } // la bitácora nunca debe impedir cobrar
+    Object.entries({ ts: ahoraServidor(), ...evento }).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") limpio[k] = typeof v === "string" ? v.slice(0, 300) : v; });
+    const ok = await saveRecord("auditoria", id, limpio);
+    if (!ok) console.error("No se pudo guardar el registro de auditoría", limpio.accion);
+    return ok;
+  } catch (e) { console.error("Auditoría:", e); return false; } // la bitácora nunca debe impedir cobrar
 }
 /** Reenvía el correo para confirmar que la dirección es de quien inició sesión. */
 export async function reenviarVerificacion() {
@@ -156,16 +164,21 @@ export async function crearCuentaEmpleado(correo, clave) {
  * vez que cambie — desde este dispositivo o cualquier otro.
  * Devuelve una función para cancelar la suscripción.
  */
+// Claves cuya última lectura FALLÓ (permisos, sesión vencida…). Mientras tanto la pantalla muestra los datos de fábrica,
+// y se bloquea guardar encima: así nadie pisa el menú o las mesas reales con los de fábrica.
+const lecturasFallidas = new Set();
 export function subscribeShared(key, defaultValue, callback) {
   const r = ref(db, key);
   return onValue(
     r,
     (snapshot) => {
+      lecturasFallidas.delete(key);
       const val = snapshot.val();
       callback(val === null || val === undefined ? defaultValue : val);
     },
     (error) => {
       console.error(`Error leyendo "${key}" desde Firebase:`, error);
+      lecturasFallidas.add(key);
       callback(defaultValue);
     }
   );
@@ -206,6 +219,7 @@ function sanitizeForFirebase(value) {
  * para listas que crecen sin parar (pedidos, cuentas, turnos) usa las
  * funciones de "colección" de más abajo, que guardan registro por registro. */
 export async function saveShared(key, value) {
+  if (lecturasFallidas.has(key)) { ultimoErrorEscritura = "READ_FAILED"; console.error(`No se guarda "${key}": no se pudo leer y se pisarían los datos reales.`); return false; }
   try {
     await rastreado(() => set(ref(db, key), sanitizeForFirebase(value)));
     return true;
@@ -304,6 +318,20 @@ export async function deleteRecord(path, id) {
 
 /** Reemplaza una colección completa de una sola vez — solo para restaurar un
  * respaldo (operación rara y manual, no el guardado normal del día a día). */
+/** Agrega o reemplaza registros de una colección SIN borrar los demás (a diferencia de saveCollectionArray).
+ * Se usa al restaurar las cuentas pendientes de un respaldo: no debe borrar las deudas ya saldadas que sirven de historial. */
+export async function mergeCollectionArray(path, arrayOfRecords) {
+  try {
+    const map = {};
+    (arrayOfRecords || []).forEach((rec, i) => { if (rec) map[rec.id || String(i)] = sanitizeForFirebase(rec); });
+    if (Object.keys(map).length > 0) await rastreado(() => update(ref(db, path), map));
+    return true;
+  } catch (e) {
+    console.error(`Error restaurando colección \"${path}\":`, e);
+    return false;
+  }
+}
+
 export async function saveCollectionArray(path, arrayOfRecords) {
   try {
     const map = {};
@@ -340,6 +368,23 @@ export function subscribeCollectionSince(path, tsField, sinceTs, callback) {
     },
     (error) => {
       console.error(`Error leyendo ventana reciente de "${path}":`, error);
+      callback([]);
+    }
+  );
+}
+
+/** Se suscribe en vivo solo a los registros cuyo campo `campo` vale `valor` (requiere `.indexOn` de ese campo en las reglas).
+ * Se usa para las cuentas pendientes: solo se descargan las que siguen sin cobrar, sin importar cuántas deudas ya saldadas haya. */
+export function subscribeCollectionWhere(path, campo, valor, callback) {
+  const q = query(ref(db, path), orderByChild(campo), equalTo(valor));
+  return onValue(
+    q,
+    (snapshot) => {
+      const val = snapshot.val();
+      callback(val ? Object.values(val) : []);
+    },
+    (error) => {
+      console.error(`Error leyendo \"${path}\" filtrado por ${campo}:`, error);
       callback([]);
     }
   );
@@ -400,6 +445,61 @@ export async function ajustarStock(id, delta) {
     return true;
   } catch (e) {
     console.error(`Error ajustando stock de "${id}":`, e);
+    return false;
+  }
+}
+
+/**
+ * Cambia una cuenta SOBRE LA VERSIÓN MÁS RECIENTE del servidor (transacción): si otro dispositivo la tocó hace un instante,
+ * su cambio no se pierde. `mutador(actual)` recibe la cuenta tal como está y devuelve la nueva, o `undefined` para cancelar.
+ * Con { permitirNuevo: true } el mutador recibe null cuando la cuenta no existe (para crearla solo si nadie más lo hizo).
+ * Devuelve { ok, valor } (valor = la cuenta como quedó o como estaba si se canceló).
+ */
+export async function actualizarCuenta(id, mutador, { permitirNuevo = false } = {}) {
+  try {
+    const res = await rastreado(() => runTransaction(ref(db, `cuentas/${id}`), (actual) => {
+      if (actual === null && !permitirNuevo) return actual; // aún no llegó del servidor: Firebase reintenta con el valor real
+      const nuevo = mutador(actual);
+      return nuevo === undefined || nuevo === null ? undefined : sanitizeForFirebase(nuevo);
+    }));
+    return { ok: !!res.committed, valor: res.snapshot ? res.snapshot.val() : null };
+  } catch (e) {
+    ultimoErrorEscritura = (e && e.code) || "";
+    console.error(`Error actualizando la cuenta "${id}":`, e);
+    return { ok: false, valor: null, error: e };
+  }
+}
+
+/**
+ * Cambia una deuda (cuenta pendiente) SOBRE LA VERSIÓN MÁS RECIENTE del servidor, igual que actualizarCuenta:
+ * si otro cajero la cobró un instante antes, el mutador la recibe ya cobrada y puede rechazar el cambio.
+ * `mutador(actual)` devuelve la deuda nueva, o `undefined` para cancelar. Con { permitirNuevo: true } recibe null si no existe.
+ */
+export async function actualizarDeuda(id, mutador, { permitirNuevo = false } = {}) {
+  try {
+    const res = await rastreado(() => runTransaction(ref(db, `deudas/${id}`), (actual) => {
+      if (actual === null && !permitirNuevo) return actual; // aún no llegó del servidor: Firebase reintenta con el valor real
+      const nuevo = mutador(actual);
+      return nuevo === undefined || nuevo === null ? undefined : sanitizeForFirebase(nuevo);
+    }));
+    return { ok: !!res.committed, valor: res.snapshot ? res.snapshot.val() : null };
+  } catch (e) {
+    ultimoErrorEscritura = (e && e.code) || "";
+    console.error(`Error actualizando la deuda "${id}":`, e);
+    return { ok: false, valor: null, error: e };
+  }
+}
+
+/** Guarda un pedido y mueve el inventario en UNA sola escritura: o pasan las dos cosas o ninguna. */
+export async function guardarPedidoYStock(order, deltas = {}) {
+  try {
+    const cambios = { [`orders/${order.id}`]: sanitizeForFirebase(order) };
+    Object.entries(deltas).forEach(([insumoId, d]) => { if (d) cambios[`inventario/${insumoId}/stock`] = increment(d); });
+    await rastreado(() => update(ref(db), cambios));
+    return true;
+  } catch (e) {
+    ultimoErrorEscritura = (e && e.code) || "";
+    console.error(`Error guardando el pedido "${order.id}":`, e);
     return false;
   }
 }

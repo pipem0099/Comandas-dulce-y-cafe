@@ -33,9 +33,9 @@ export const x = {
   btnDanger: { width: 36, height: 36, display: "inline-flex", alignItems: "center", justifyContent: "center", background: K.soft, color: "var(--c-c1442d-t)", border: "none", borderRadius: 10, cursor: "pointer", flexShrink: 0 },
   row: { display: "flex", alignItems: "center", gap: 8 },
   stepper: { display: "flex", alignItems: "center", gap: 10 },
-  stepBtn: { width: 34, height: 34, borderRadius: 9, border: `1px solid ${K.border}`, background: K.surface, color: K.ink, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
-  stepBtnPlus: { background: K.inkBg, color: K.cream, border: `1px solid ${K.inkBorder}` },
-  stepVal: { minWidth: 22, textAlign: "center", fontWeight: 700, fontSize: 15, color: K.ink },
+  stepBtn: { width: 44, height: 44, borderRadius: 8, border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", color: "var(--btn2-fg)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 },
+  stepBtnPlus: {},
+  stepVal: { minWidth: 32, textAlign: "center", fontWeight: 600, fontSize: 15, color: K.ink, fontVariantNumeric: "tabular-nums" },
   groupTitle: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
   groupName: { fontSize: 14, fontWeight: 700, color: K.ink },
   groupHint: { fontSize: 11.5, color: K.muted },
@@ -174,7 +174,7 @@ export function ModalOpciones({ item, onClose, onAdd }) {
             <div style={x.sheetTitle}>{item.name}</div>
             <div style={x.sheetSub}>Desde {money(item.price)}</div>
           </div>
-          <button style={x.btnIcon} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
+          <button className="toque44" style={x.btnIcon} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
         </div>
 
         {grupos.map((g) => (grupoCant && g.id === grupoCant.id) ? (
@@ -188,7 +188,7 @@ export function ModalOpciones({ item, onClose, onAdd }) {
                     <span style={{ fontWeight: 600 }}>{o.nombre}</span>
                     {o.precio > 0 && <span style={x.optPrice}>+{money(o.precio)}</span>}
                   </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {q > 0 && <button style={x.stepBtn} onClick={() => cambiarCant(o.id, -1)} aria-label="Menos"><Minus size={15} /></button>}
                     {q > 0 && <span style={x.stepVal}>{q}</span>}
                     <button style={{ ...x.stepBtn, ...x.stepBtnPlus }} onClick={() => cambiarCant(o.id, 1)} aria-label="Más"><Plus size={15} /></button>
@@ -292,7 +292,7 @@ export function ProductoConfig({ item, config, insumos, onSave, onClose }) {
         <div key={g.id} style={{ ...x.card, padding: 12 }}>
           <div style={x.row}>
             <input style={{ ...x.input, flex: 1, fontWeight: 600 }} placeholder="Nombre del grupo (ej: Tamaño)" value={g.nombre} onChange={(e) => upG(g.id, { nombre: e.target.value })} />
-            <button style={x.btnDanger} onClick={() => setGrupos((gs) => gs.filter((v) => v.id !== g.id))} aria-label="Quitar grupo"><Trash2 size={14} /></button>
+            <button className="toque44" style={x.btnDanger} onClick={() => setGrupos((gs) => gs.filter((v) => v.id !== g.id))} aria-label="Quitar grupo"><Trash2 size={14} /></button>
           </div>
           <div style={{ ...x.row, flexWrap: "wrap" }}>
             <div style={x.segmented}>
@@ -311,7 +311,7 @@ export function ProductoConfig({ item, config, insumos, onSave, onClose }) {
             <div key={o.id} style={x.row}>
               <input style={{ ...x.input, flex: 1.4 }} placeholder="Opción (ej: Grande)" value={o.nombre} onChange={(e) => upO(g.id, o.id, { nombre: e.target.value })} />
               <CampoPesos style={{ ...x.input, flex: 1 }} placeholder="+ precio" value={o.precio || ""} onChange={(v) => upO(g.id, o.id, { precio: v })} />
-              <button style={x.btnDanger} onClick={() => setGrupos((gs) => gs.map((v) => (v.id === g.id ? { ...v, opciones: v.opciones.filter((q) => q.id !== o.id) } : v)))} aria-label="Quitar opción"><X size={14} /></button>
+              <button className="toque44" style={x.btnDanger} onClick={() => setGrupos((gs) => gs.map((v) => (v.id === g.id ? { ...v, opciones: v.opciones.filter((q) => q.id !== o.id) } : v)))} aria-label="Quitar opción"><X size={14} /></button>
             </div>
           ))}
           <button style={x.btnSmall} onClick={() => setGrupos((gs) => gs.map((v) => (v.id === g.id ? { ...v, opciones: [...v.opciones, { id: uid(), nombre: "", precio: 0 }] } : v)))}><Plus size={13} /> Agregar opción</button>
@@ -352,7 +352,7 @@ export function ProductoConfig({ item, config, insumos, onSave, onClose }) {
                 </select>
                 <CampoNumero style={{ ...x.input, flex: 0.8, minWidth: 0 }} placeholder="Cant." value={r.cant} onChange={(v) => setReceta((rs) => rs.map((q, j) => (j === i ? { ...q, cant: v } : q)))} />
                 <span style={{ ...x.hint, width: 52 }}>{ins ? ins.unidad : ""}</span>
-                <button style={x.btnDanger} onClick={() => setReceta((rs) => rs.filter((_, j) => j !== i))} aria-label="Quitar"><X size={14} /></button>
+                <button className="toque44" style={x.btnDanger} onClick={() => setReceta((rs) => rs.filter((_, j) => j !== i))} aria-label="Quitar"><X size={14} /></button>
               </div>
             );
           })}
@@ -508,7 +508,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
           {estaciones.map((e) => (
             <div key={e.id} style={x.row}>
               <input style={{ ...x.input, flex: 1 }} defaultValue={e.nombre} onBlur={(ev) => renombrar(e.id, ev.target.value)} />
-              {estaciones.length > 1 && <button style={x.btnDanger} onClick={() => borrarEstacion(e.id)} aria-label="Quitar estación"><Trash2 size={14} /></button>}
+              {estaciones.length > 1 && <button className="toque44" style={x.btnDanger} onClick={() => borrarEstacion(e.id)} aria-label="Quitar estación"><Trash2 size={14} /></button>}
             </div>
           ))}
           <div style={x.row}>
@@ -568,7 +568,7 @@ export function NuevoPedidoExterno({ tipo, onCancel, onCrear }) {
             <div style={x.sheetTitle}>{TIPO_META[tipo].label}</div>
             <div style={x.sheetSub}>{esDom ? "Datos para que el domiciliario llegue" : "Pedido sin mesa — el cliente lo recoge"}</div>
           </div>
-          <button style={x.btnIcon} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
+          <button className="toque44" style={x.btnIcon} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
         </div>
         <input style={x.input} autoFocus placeholder={esDom ? "Nombre del cliente" : "Nombre del cliente (opcional)"} value={nombre} onChange={(e) => setNombre(e.target.value)} />
         <input style={x.input} type="tel" inputMode="tel" placeholder={esDom ? "Teléfono" : "Teléfono (opcional)"} value={telefono} onChange={(e) => setTelefono(e.target.value)} />

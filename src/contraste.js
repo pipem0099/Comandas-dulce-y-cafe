@@ -1,0 +1,26 @@
+/*
+ * Contraste de color (WCAG): sirve para que el texto de los botones y chips activos se lea sobre CUALQUIER color de marca.
+ * Pura, sin pantalla: se prueba con `npm run diseno:probar`.
+ */
+const canal = (c) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+
+export function luminancia(hex) {
+  const h = String(hex).replace("#", "");
+  const n = h.length === 3 ? h.split("").map((x) => x + x).join("") : h;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16));
+  return 0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b);
+}
+
+/** Relación de contraste entre dos colores (1 a 21). Para texto normal se recomienda 4,5 o más. */
+export function contraste(a, b) {
+  const la = luminancia(a), lb = luminancia(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+export const TEXTO_OSCURO = "#08130E";
+export const TEXTO_CLARO = "#FFFFFF";
+
+/** Blanco o casi negro, el que mejor se lea sobre `fondo`. Siempre da 4,5 o más (el punto de cruce está en ~4,6). */
+export function textoSobre(fondo) {
+  return contraste(TEXTO_OSCURO, fondo) >= contraste(TEXTO_CLARO, fondo) ? TEXTO_OSCURO : TEXTO_CLARO;
+}

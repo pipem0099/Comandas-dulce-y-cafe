@@ -1,4 +1,7 @@
 import { itemNombre } from "./logica.js";
+import { orderTotal, cuentaOrders, cuentaSubtotal, cuentaGranTotal, pagosDe, pagosTotal, dayKey } from "./dinero.js";
+// Estas funciones se movieron a dinero.js (para poder probarlas sin el navegador); se siguen ofreciendo desde aquí.
+export { orderTotal, cuentaOrders, cuentaSubtotal, cuentaGranTotal, pagosDe, pagosTotal, dayKey };
 import { ROLES_ORDEN, ROL_LABELS } from "./constantes.js";
 
 // Los roles se guardan en la base como mapa { admin: true } (las reglas lo leen así).
@@ -98,29 +101,10 @@ export function conProgreso(o, items) {
 export function porServir(o) {
   return o.items.reduce((a, it) => a + Math.max(0, itemListos(o, it) - itemServidos(o, it)), 0);
 }
-export function orderTotal(order) {
-  return order.items.reduce((sum, it) => sum + it.price * it.qty, 0);
-}
-export function cuentaOrders(orders, cuentaId) {
-  return orders.filter((o) => o.cuentaId === cuentaId);
-}
-export function cuentaSubtotal(orders, cuentaId) {
-  return cuentaOrders(orders, cuentaId)
-    .filter((o) => o.estado !== "cancelado")
-    .reduce((sum, o) => sum + orderTotal(o), 0);
-}
 export function cuentaItemCount(orders, cuentaId) {
   return cuentaOrders(orders, cuentaId)
     .filter((o) => o.estado !== "cancelado")
     .reduce((sum, o) => sum + o.items.reduce((a, i) => a + i.qty, 0), 0);
-}
-// Total a cobrar de una cuenta = subtotal - descuento + propina
-export function cuentaGranTotal(orders, cuenta) {
-  const subtotal = cuentaSubtotal(orders, cuenta.id);
-  const descuento = (cuenta.descuento && cuenta.descuento.monto) || 0;
-  const propina = (cuenta.propina && cuenta.propina.monto) || 0;
-  const envio = Number(cuenta.costoEnvio) || 0;
-  return Math.max(0, subtotal - descuento + propina + envio);
 }
 export function itemsAgregados(orders, cuentaId) {
   const map = {};
@@ -134,12 +118,6 @@ export function itemsAgregados(orders, cuentaId) {
       })
     );
   return Object.values(map);
-}
-export function pagosDe(cuenta) {
-  return cuenta.pagos || [];
-}
-export function pagosTotal(cuenta) {
-  return pagosDe(cuenta).reduce((s, p) => s + p.monto, 0);
 }
 export function qtyAsignadaPorProducto(cuenta) {
   const map = {};
@@ -168,10 +146,6 @@ export function dateTimeLabel(ts) {
   const d = new Date(ts);
   const date = d.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
   return `${date} · ${timeLabel(ts)}`;
-}
-export function dayKey(ts) {
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 export function monthKey(ts) {
   const d = new Date(ts);

@@ -126,22 +126,27 @@ export function HojaDia({ d, orders, mesas, canceladas = [], config, usuario }) 
 }
 
 /* ═════════════════════════ 2) Reporte de un período (Reportes) ═════════════════════════ */
-export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = [], costoPorId = {}, tiempoCocina, config, usuario }) {
+export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = [], costoPorId = {}, tiempoCocina, config, usuario, rentab = null }) {
   const total = pagadas.reduce((s, c) => s + cuentaGranTotal(orders, c), 0);
   const propinas = pagadas.reduce((s, c) => s + n0(c.propina && c.propina.monto), 0);
   const descuentos = pagadas.reduce((s, c) => s + n0(c.descuento && c.descuento.monto), 0);
   const bruto = total + descuentos - propinas;
 
   const productos = {};
-  let venta = 0, costo = 0, hayCostos = false, unidades = 0;
+  let venta = 0, costo = 0, ventaCosto = 0, hayCostos = false, unidades = 0;
   pagadas.forEach((c) => cuentaOrders(orders, c.id).filter((o) => o.estado !== "cancelado").forEach((o) => o.items.forEach((it) => {
-    const p = (productos[it.name] = productos[it.name] || { qty: 0, venta: 0, costo: 0 });
-    const cu = it.cost !== undefined && it.cost !== null ? it.cost : (costoPorId[it.id] || 0);
-    if (cu > 0) hayCostos = true;
-    p.qty += it.qty; p.venta += it.qty * it.price; p.costo += it.qty * cu;
-    venta += it.qty * it.price; costo += it.qty * cu; unidades += it.qty;
+    const p = (productos[it.name] = productos[it.name] || { qty: 0, venta: 0, costo: 0, ventaCosto: 0 });
+    const cu = it.cost !== undefined && it.cost !== null && it.cost > 0 ? it.cost : (costoPorId[it.id] || 0);
+    // Lo que NO tiene costo no cuenta como costo 0 (inventaba margen): solo entra al margen lo que tiene costo.
+    if (cu > 0) { hayCostos = true; p.costo += it.qty * cu; p.ventaCosto += it.qty * it.price; costo += it.qty * cu; ventaCosto += it.qty * it.price; }
+    p.qty += it.qty; p.venta += it.qty * it.price;
+    venta += it.qty * it.price; unidades += it.qty;
   })));
-  const margen = venta - costo;
+  // Con `rentab` (el mismo cálculo de la pantalla: ya sin descuentos y con costos por receta o estimados) las cifras coinciden con Reportes.
+  const margen = rentab ? rentab.margenTotal : ventaCosto - costo;
+  const baseMargen = rentab ? rentab.ventaConCosto : ventaCosto;
+  const aprox = rentab && rentab.hayEstimado ? "~" : "";
+  if (rentab) hayCostos = rentab.ventaConCosto > 0;
   const listaProductos = Object.entries(productos).sort((a, b) => b[1].venta - a[1].venta);
 
   const metodos = {}; const pagosCont = {};
@@ -171,7 +176,7 @@ export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = 
         { t: "Cuentas", v: String(pagadas.length), s: pagadas.length ? `Promedio por cuenta ${money(total / pagadas.length)}` : undefined },
         { t: "Productos vendidos", v: String(unidades), s: "unidades" },
         { t: "Propinas", v: money(propinas) },
-        { t: hayCostos ? "Margen estimado" : "Descuentos", v: hayCostos ? money(margen) : money(descuentos), s: hayCostos ? `${venta > 0 ? Math.round((margen / venta) * 100) : 0}% de las ventas` : undefined },
+        { t: hayCostos ? "Margen estimado" : "Descuentos", v: hayCostos ? aprox + money(margen) : money(descuentos), s: hayCostos ? `${baseMargen > 0 ? Math.round((margen / baseMargen) * 100) : 0}% de lo vendido con costo` : undefined },
         { t: "Mejor día", v: mejorDia ? money(mejorDia[1].total) : "—", s: mejorDia ? dayLabel(mejorDia[1].ts) : undefined },
       ]} />
 
@@ -181,8 +186,8 @@ export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = 
           ["Descuentos y cortesías", `− ${money(descuentos)}`],
           ["Propinas", `+ ${money(propinas)}`],
           ["Total cobrado", <b key="t">{money(total)}</b>],
-          hayCostos && ["Costo de productos vendidos", `− ${money(costo)}`],
-          hayCostos && ["Margen (utilidad bruta)", <b key="m">{money(margen)} ({venta > 0 ? Math.round((margen / venta) * 100) : 0}%)</b>],
+          hayCostos && ["Costo de productos vendidos", `− ${money(rentab ? baseMargen - margen : costo)}`],
+          hayCostos && ["Margen (utilidad bruta)", <b key="m">{aprox}{money(margen)} ({baseMargen > 0 ? Math.round((margen / baseMargen) * 100) : 0}%)</b>],
           ["Cuentas canceladas sin cobrar", `${canceladas.length} · ${money(totalCancelado)}`],
           tiempoCocina && ["Tiempo promedio de cocina", `${tiempoCocina.min} min (${tiempoCocina.n} pedidos)`],
         ]} />
@@ -219,13 +224,13 @@ export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = 
         />
       </Seccion>
 
-      <Seccion titulo="Productos vendidos" nota={hayCostos ? "Costo y margen calculados con el costo de cada producto al momento de la venta." : "Ordenados de mayor a menor venta."} salto>
+      <Seccion titulo="Productos vendidos" nota={hayCostos ? "Costo y margen solo de los productos con costo (el de la venta o el de su receta); \"—\" = sin costo. Valores antes de descuentos." : "Ordenados de mayor a menor venta."} salto>
         <Tabla
           cols={hayCostos
-            ? [{ t: "#", w: "5%", v: (_f, i) => i + 1 }, { t: "Producto", v: (f) => f[0] }, { t: "Cant.", d: true, v: (f) => f[1].qty }, { t: "Venta", d: true, v: (f) => money(f[1].venta) }, { t: "Costo", d: true, v: (f) => money(f[1].costo) }, { t: "Margen", d: true, v: (f) => money(f[1].venta - f[1].costo) }, { t: "% ventas", d: true, v: (f) => pctDe(f[1].venta, venta) }]
+            ? [{ t: "#", w: "5%", v: (_f, i) => i + 1 }, { t: "Producto", v: (f) => f[0] }, { t: "Cant.", d: true, v: (f) => f[1].qty }, { t: "Venta", d: true, v: (f) => money(f[1].venta) }, { t: "Costo", d: true, v: (f) => (f[1].ventaCosto > 0 ? money(f[1].costo) : "—") }, { t: "Margen", d: true, v: (f) => (f[1].ventaCosto > 0 ? money(f[1].ventaCosto - f[1].costo) : "—") }, { t: "% ventas", d: true, v: (f) => pctDe(f[1].venta, venta) }]
             : [{ t: "#", w: "6%", v: (_f, i) => i + 1 }, { t: "Producto", v: (f) => f[0] }, { t: "Cant.", d: true, v: (f) => f[1].qty }, { t: "Venta", d: true, v: (f) => money(f[1].venta) }, { t: "% ventas", d: true, v: (f) => pctDe(f[1].venta, venta) }]}
           filas={listaProductos}
-          pie={hayCostos ? ["", "Total", unidades, money(venta), money(costo), money(margen), "100%"] : ["", "Total", unidades, money(venta), venta > 0 ? "100%" : "—"]}
+          pie={hayCostos ? ["", "Total", unidades, money(venta), money(costo), money(ventaCosto - costo), "100%"] : ["", "Total", unidades, money(venta), venta > 0 ? "100%" : "—"]}
         />
       </Seccion>
 

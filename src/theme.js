@@ -8,8 +8,10 @@
  * de datos y es la misma para todos los dispositivos.
  */
 
+import { textoSobre } from "./contraste.js";
+
 // variable → [modo claro, modo oscuro]
-const PALETA = {
+export const PALETA = {
   // Superficies (neutros sin tinte azul)
   "--c-f7f4ec-b": ["#F5F5F7", "#121316"],   // fondo de página
   "--c-fffdf8-b": ["#FFFFFF", "#1B1D21"],   // tarjetas
@@ -43,6 +45,20 @@ const PALETA = {
   "--c-b98a2e-t": ["#B07514", "#E0A93E"],
   "--c-fbefd9-b": ["#FDF3E0", "#2A2214"],
   "--c-2f6690-t": ["#2A62C9", "#8AB0F0"],
+  // Botones secundarios, chips y líneas de gráficos (modo oscuro: grises mate; el acento solo en lo activo)
+  "--btn2-bg": ["#EAEAEF", "#1E1E1E"],
+  "--btn2-bg-hi": ["#DFDFE5", "#252525"],
+  "--btn2-line": ["rgba(0,0,0,.06)", "rgba(255,255,255,.06)"],
+  "--btn2-fg": ["#1C1C1E", "#F2F3F5"],
+  "--btn2-mute": ["#5F636B", "#9AA0A8"],
+  "--chip-bg": ["#EAEAEF", "#1E1E1E"],
+  "--chip-fg": ["#5F636B", "#9AA0A8"],
+  "--detalle-op": ["0.66", "0.56"],
+  "--chip-on-fg": ["#08130E", "#08130E"],
+  "--grid-line": ["rgba(0,0,0,.06)", "rgba(255,255,255,.05)"],
+  "--tile-bg": ["rgba(0,0,0,.03)", "rgba(255,255,255,.035)"],
+  "--tile-line": ["rgba(0,0,0,.10)", "rgba(255,255,255,.09)"],
+  "--link": ["#2A62C9", "#8AB0F0"],
   // Barras, hojas y sombras
   "--chrome-solid": ["#F5F5F7", "#121316"],
   "--chrome-line": ["rgba(0,0,0,.08)", "rgba(255,255,255,.08)"],
@@ -134,7 +150,7 @@ export function aplicarMarca(marca) {
   // en oscuro el acento usado como TEXTO se aclara para que se lea bien
   let st = document.getElementById("marca-css");
   if (!st) { st = document.createElement("style"); st.id = "marca-css"; document.head.appendChild(st); }
-  st.textContent = `:root{--accent-t:${ac.c};}:root[data-theme="dark"]{--accent-t:${ac.t};}@media print{:root[data-theme="dark"]{--accent-t:${ac.c};}}`;
+  st.textContent = `:root{--accent-t:${ac.c};--chip-on-fg:${textoSobre(ac.c)};}:root[data-theme="dark"]{--accent-t:${ac.t};}@media print{:root[data-theme="dark"]{--accent-t:${ac.c};}}`;
   // tipografías (Google Fonts) — IBM Plex Mono se usa siempre para etiquetas y horas
   const href = `https://fonts.googleapis.com/css2?${fu.google}&family=IBM+Plex+Mono:wght@400;500;600&display=swap`;
   let link = document.getElementById("fuente-marca");

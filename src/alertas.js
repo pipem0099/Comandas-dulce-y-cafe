@@ -1,6 +1,7 @@
 import { estadoStock, money } from "./logica.js";
 import { dayKey } from "./utilidades.js";
 import { prepararVentas, alertasBaseline } from "./analitica.js";
+import { diasDesde, totalPendiente } from "./deudas.js";
 
 /*
  * Alertas para el dueño: cosas que conviene mirar sin tener que ir a buscarlas.
@@ -10,11 +11,13 @@ import { prepararVentas, alertasBaseline } from "./analitica.js";
 const HORAS_TURNO_MEDIA = 12;
 const HORAS_TURNO_ALTA = 18;
 const DIAS_AVISO_VENCE = 7;
+export const DIAS_DEUDA_VIEJA = 7;
+const DIAS_DEUDA_ALTA = 30;
 
 const n0 = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const listaCorta = (nombres, max = 4) => (nombres.length <= max ? nombres.join(", ") : `${nombres.slice(0, max).join(", ")} y ${nombres.length - max} más`);
 
-export function calcularAlertas({ turnoAbierto, cuentas = [], orders = [], menu = [], insumos = [], errores = [], config = {}, ahora = Date.now() }) {
+export function calcularAlertas({ turnoAbierto, cuentas = [], orders = [], menu = [], insumos = [], errores = [], config = {}, deudas = [], ahora = Date.now() }) {
   const alertas = [];
   const ventas = prepararVentas(cuentas, orders); // venta neta real de cada cuenta pagada (la cuenta no guarda "total")
   const hoy = dayKey(ahora);
@@ -30,6 +33,18 @@ export function calcularAlertas({ turnoAbierto, cuentas = [], orders = [], menu 
         vista: "caja", donde: "Caja › Resumen",
       });
     }
+  }
+
+  /* 1b) Cuentas pendientes de cobro con varios días */
+  const deudasViejas = deudas.filter((d) => d && d.estado === "pendiente" && diasDesde(d.ts, ahora) >= DIAS_DEUDA_VIEJA);
+  if (deudasViejas.length > 0) {
+    const masVieja = Math.max(...deudasViejas.map((d) => diasDesde(d.ts, ahora)));
+    alertas.push({
+      id: "deudas-viejas", nivel: masVieja >= DIAS_DEUDA_ALTA ? "alta" : "media",
+      titulo: `${deudasViejas.length} ${deudasViejas.length === 1 ? "cuenta pendiente lleva" : "cuentas pendientes llevan"} ${DIAS_DEUDA_VIEJA}+ días sin cobrar`,
+      detalle: `Suman ${money(totalPendiente(deudasViejas))}; la más antigua tiene ${masVieja} días. Conviene contactar al cliente o condonarla con motivo.`,
+      vista: "caja", tab: "pendientes", donde: "Caja  Pendientes",
+    });
   }
 
   /* 2) Cancelaciones de hoy */

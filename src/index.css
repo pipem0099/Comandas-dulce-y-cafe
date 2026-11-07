@@ -297,3 +297,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .recibo-vista { background: #fff; color: #000; border-radius: 12px; padding: 14px 12px; max-height: 44dvh; overflow-y: auto; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
 
 @keyframes giro { to { transform: rotate(360deg); } }
+
+/* Zonas táctiles: los botones de icono pequeños (24 a 36 px) conservan su tamaño visual pero reciben un área de toque
+   de al menos 44 px (recomendación de Apple/Material), sin empujar ni mover nada a su alrededor. */
+.toque44 { position: relative; }
+.toque44::after { content: ""; position: absolute; inset: -9px; }

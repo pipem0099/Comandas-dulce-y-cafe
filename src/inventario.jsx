@@ -328,7 +328,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
         <div style={x.card} className="anim-in">
           <div style={{ ...x.row, justifyContent: "space-between" }}>
             <div style={x.eyebrow}>Lista de compras sugerida</div>
-            <button style={x.btnIcon} onClick={() => setVerCompras(false)} aria-label="Cerrar"><X size={15} /></button>
+            <button className="toque44" style={x.btnIcon} onClick={() => setVerCompras(false)} aria-label="Cerrar"><X size={15} /></button>
           </div>
           {porComprar.length === 0 ? (
             <div style={x.hint}>Todo está por encima del mínimo. Cuando algo se agote o baje del mínimo aparece aquí con la cantidad sugerida.</div>
@@ -361,7 +361,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
           <div style={s.buscador}>
             <Search size={16} color="var(--c-8a8272-t)" />
             <input style={s.buscadorInput} placeholder="Buscar por nombre, categoría, proveedor…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-            {busca && <button style={s.buscadorX} onClick={() => setBusca("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
+            {busca && <button className="toque44" style={s.buscadorX} onClick={() => setBusca("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
           </div>
           <div style={s.chips}>
             {filtros.map(([id, label]) => <button key={id} style={{ ...s.chip, ...(filtro === id ? s.chipOn : {}) }} onClick={() => setFiltro(id)}>{label}</button>)}
@@ -439,8 +439,8 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
                 <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "salida", valor: "", motivo: MOTIVOS_SALIDA[0], nota: "" })}><Minus size={13} /> Salida</button>
                 <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "conteo", valor: "" })}><Check size={13} /> Contar</button>
                 <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "editar", f: formDe(ins) })}><Pencil size={13} /> Editar</button>
-                <button style={x.btnIcon} onClick={() => setAccion({ id: ins.id, tipo: "historial" })} aria-label="Historial"><History size={14} /></button>
-                <button style={{ ...x.btnDanger, marginLeft: "auto" }} onClick={() => setConfirmDel(ins.id)} aria-label="Eliminar"><Trash2 size={14} /></button>
+                <button className="toque44" style={x.btnIcon} onClick={() => setAccion({ id: ins.id, tipo: "historial" })} aria-label="Historial"><History size={14} /></button>
+                <button className="toque44" style={{ ...x.btnDanger, marginLeft: "auto" }} onClick={() => setConfirmDel(ins.id)} aria-label="Eliminar"><Trash2 size={14} /></button>
               </div>
             )}
             {confirmDel === ins.id && (
@@ -519,7 +519,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
               <div style={s.panelAccion}>
                 <div style={{ ...x.row, justifyContent: "space-between" }}>
                   <div style={x.eyebrow}>Historial</div>
-                  <button style={x.btnIcon} onClick={() => setAccion(null)} aria-label="Cerrar"><X size={15} /></button>
+                  <button className="toque44" style={x.btnIcon} onClick={() => setAccion(null)} aria-label="Cerrar"><X size={15} /></button>
                 </div>
                 {(ins.movs || []).length === 0 ? (
                   <div style={x.hint}>Todavía no hay movimientos a mano. Aquí se anotan las entradas, salidas, mermas y conteos. Lo que descuentan los pedidos no se lista (es automático).</div>

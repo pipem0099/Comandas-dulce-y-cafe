@@ -13,11 +13,14 @@
 export const DIA = 86400000;
 export const DIAS_SEMANA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
+import { costoReceta } from "./logica.js";
+import { dayKey } from "./dinero.js";
+
 const n0 = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 export const inicioDia = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const haceDias = (ts, k) => { const d = new Date(ts); d.setDate(d.getDate() - k); return d.getTime(); };
 const enRango = (ts, r) => ts >= r[0] && ts < r[1];
-const claveDia = (ts) => { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+const claveDia = dayKey; // mismo formato que el resto de la app (dinero.js)
 
 export function mediana(valores) { return percentil(valores, 50); }
 export function percentil(valores, p) {
@@ -130,10 +133,7 @@ export const precioSugerido = (costo, margenObjetivoPct) => {
   return costo > 0 && m > 0 && m < 1 ? costo / (1 - m) : null;
 };
 
-const costoRecetaDe = (receta, insumos) => (receta || []).reduce((a, r) => {
-  const ins = (insumos || []).find((i) => i.id === r.insumoId);
-  return a + (ins ? n0(Number(ins.costo)) * n0(r.cant) : 0);
-}, 0);
+const costoRecetaDe = costoReceta; // la misma cuenta que usa el inventario (logica.js)
 
 /** Costo de UNA unidad de la línea vendida y de dónde sale ("real" · "estimado" · "sin"). */
 export function costoDeLinea(it, menuItem, insumos, plantilla) {

@@ -2,34 +2,43 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { calcularAlertas } from "./alertas.js";
 import { contextoErrores } from "./errores.js";
 import { contextoComprobante } from "./comprobante.jsx";
-import { AsistenteInicio } from "./componentes/AsistenteInicio.jsx";
 import { avisar } from "./avisos.jsx";
 import {
   AlertTriangle,
 } from "lucide-react";
 import { aplicarMarca } from "./theme.js";
 import { esExterna, etiquetaExterna } from "./logica.js";
-import { subscribeShared, saveShared, subscribeCollection, subscribeCollectionSince, getCollectionAll, getCollectionRange, getRecord, saveRecord, saveRecords, deleteRecord, updateRecord, ajustarStock, observarSesion, cerrarSesion, updateShared, ultimoErrorDeEscritura, observarPendientes, borrarColeccion } from "./firebase.js";
+import { subscribeShared, saveShared, subscribeCollection, subscribeCollectionWhere, subscribeCollectionSince, getCollectionAll, getCollectionRange, getRecord, saveRecord, saveRecords, deleteRecord, updateRecord, ajustarStock, guardarPedidoYStock, observarSesion, cerrarSesion, updateShared, ultimoErrorDeEscritura, observarPendientes, borrarColeccion } from "./firebase.js";
 import { TopBar, BarraInferior, Lateral, itemsNavegacion } from "./componentes/BarraSuperior.jsx";
 import { useDispositivo } from "./useAncho.js";
 import { instalarEnterSiguiente } from "./enterSiguiente.js";
 import { PantallaCarga } from "./componentes/PantallaCarga.jsx";
 import { AvisoRelevo } from "./pantallas/RelevoCaja.jsx";
 import { AjustesPanel } from "./extras.jsx";
-import { MenuEditor } from "./pantallas/Menu.jsx";
-import { ReservasView } from "./pantallas/Reservas.jsx";
-import { MesasEditor } from "./pantallas/Mesas.jsx";
-import { Equipo } from "./pantallas/Equipo.jsx";
-import { Respaldos } from "./pantallas/Respaldos.jsx";
-import { Analisis } from "./pantallas/Analisis.jsx";
 import { guardarMarcaCache } from "./marcaCache.js";
 import { DEFAULT_CONFIG, DEFAULT_MENU, DEFAULT_MESAS, VENTANA_MS } from "./constantes.js";
 import { styles } from "./estilos.js";
 import { AccesoDenegado, InicioSesion, SinAcceso } from "./pantallas/Acceso.jsx";
-import { CajaView } from "./pantallas/Caja.jsx";
-import { CocinaView } from "./pantallas/Cocina.jsx";
-import { MeseroView } from "./pantallas/Mesero.jsx";
 import { NOMBRES_EXTERNOS, dayKey, rolesDe, tieneRol } from "./utilidades.js";
+import { perezoso } from "./cargaDiferida.js";
+
+// Cada pantalla se descarga solo cuando se usa: un mesero no baja la caja, los reportes, el Excel ni la administración.
+const AsistenteInicio = perezoso(() => import("./componentes/AsistenteInicio.jsx"), "AsistenteInicio");
+const MenuEditor = perezoso(() => import("./pantallas/Menu.jsx"), "MenuEditor");
+const ReservasView = perezoso(() => import("./pantallas/Reservas.jsx"), "ReservasView");
+const MesasEditor = perezoso(() => import("./pantallas/Mesas.jsx"), "MesasEditor");
+const Equipo = perezoso(() => import("./pantallas/Equipo.jsx"), "Equipo");
+const Respaldos = perezoso(() => import("./pantallas/Respaldos.jsx"), "Respaldos");
+const Analisis = perezoso(() => import("./pantallas/Analisis.jsx"), "Analisis");
+const CajaView = perezoso(() => import("./pantallas/Caja.jsx"), "CajaView");
+const CocinaView = perezoso(() => import("./pantallas/Cocina.jsx"), "CocinaView");
+const MeseroView = perezoso(() => import("./pantallas/Mesero.jsx"), "MeseroView");
+
+function mergeConVentana(base, ventana) {
+  const byId = Object.fromEntries(base.map((r) => [r.id, r]));
+  ventana.forEach((r) => { byId[r.id] = r; });
+  return Object.values(byId);
+}
 
 export default function App() {
   const [role, setRole] = useState("mesero");
@@ -41,6 +50,8 @@ export default function App() {
   const insumosRef = useRef([]);
   const [orders, setOrders] = useState([]);
   const [cuentas, setCuentas] = useState([]);
+  const [abrirTabCaja, setAbrirTabCaja] = useState(null); // pestaña de la caja que pidió abrir una alerta
+  const [deudas, setDeudas] = useState([]);   // cuentas pendientes de cobro (solo las que siguen sin cobrar)
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [turnos, setTurnos] = useState([]);
   const [reservas, setReservas] = useState([]);
@@ -139,6 +150,9 @@ export default function App() {
   const EXIGE_CORREO = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_EXIGIR_CORREO_VERIFICADO === "1";
   const accesoOk = !!(sesion && perfil && perfil.activo === true && (!EXIGE_CORREO || sesion.emailVerified === true));
   useEffect(() => { if (accesoOk) return subscribeCollection("equipo", setEquipo); }, [accesoOk]);
+  const veDeudas = accesoOk && (rolesDe(perfil).includes("admin") || rolesDe(perfil).includes("cajero"));
+  // Solo cajero y administrador leen las deudas (las reglas lo exigen); se descargan únicamente las pendientes.
+  useEffect(() => { if (veDeudas) return subscribeCollectionWhere("deudas", "estado", "pendiente", setDeudas); setDeudas([]); }, [veDeudas]);
   const usuarioActual = useMemo(
     () => (accesoOk ? { uid: sesion.uid, nombre: perfil.nombre, correo: perfil.correo || sesion.email, roles: rolesDe(perfil), propietario: perfil.propietario === true } : null),
     [accesoOk, sesion, perfil]
@@ -180,7 +194,8 @@ export default function App() {
       }),
       subscribeShared("mesas", DEFAULT_MESAS, (v) => { setMesas(v && v.length > 0 ? v : DEFAULT_MESAS); markLoaded("mesas"); }),
     ];
-    const clock = setInterval(() => forceTick((t) => t + 1), 1000);
+    // Se repinta cada 15 s (no cada segundo): los tiempos en pantalla se muestran en minutos, y así no se re-dibuja toda la app 60 veces por minuto.
+    const clock = setInterval(() => forceTick((t) => t + 1), 15000);
     return () => { unsubs.forEach((unsub) => unsub && unsub()); clearInterval(clock); };
   }, [ventanaEpoch, accesoOk]);
 
@@ -208,13 +223,28 @@ export default function App() {
   }, [historialCompleto, cargandoHistorial]);
   // Combina el historial completo (si ya se pidió) con la ventana en vivo,
   // dejando que la ventana en vivo "gane" por ser más reciente.
-  const mergeConVentana = (base, ventana) => {
-    const byId = Object.fromEntries(base.map((r) => [r.id, r]));
-    ventana.forEach((r) => { byId[r.id] = r; });
-    return Object.values(byId);
-  };
-  const ordersParaHistorial = historialCompleto ? mergeConVentana(historialCompleto.orders, orders) : orders;
-  const cuentasParaHistorial = historialCompleto ? mergeConVentana(historialCompleto.cuentas, cuentas) : cuentas;
+  // (memorizado: con años de historial, rehacer esta unión en cada render era muy costoso)
+  const ordersParaHistorial = useMemo(() => (historialCompleto ? mergeConVentana(historialCompleto.orders, orders) : orders), [historialCompleto, orders]);
+  const cuentasParaHistorial = useMemo(() => (historialCompleto ? mergeConVentana(historialCompleto.cuentas, cuentas) : cuentas), [historialCompleto, cuentas]);
+
+  // Para "Análisis y control": solo los últimos 120 días (el campo ts está indexado), no TODO el historial, que con los años pesa mucho.
+  const [histReciente, setHistReciente] = useState(null);
+  const [cargandoReciente, setCargandoReciente] = useState(false);
+  const cargarHistorialReciente = useCallback(async (dias = 120) => {
+    if (histReciente || cargandoReciente || historialCompleto) return;
+    setCargandoReciente(true);
+    try {
+      const desde = Date.now() - dias * 86400000, hasta = Date.now() + 86400000;
+      const [os, cs] = await Promise.all([getCollectionRange("orders", "ts", desde, hasta), getCollectionRange("cuentas", "ts", desde, hasta)]);
+      setHistReciente({ orders: os, cuentas: cs });
+    } catch (e) {
+      console.error("No se pudo cargar el historial reciente", e);
+      setHistReciente({ orders: [], cuentas: [], error: true }); // evita reintentar sin fin
+    } finally { setCargandoReciente(false); }
+  }, [histReciente, cargandoReciente, historialCompleto]);
+  const baseAnalisis = historialCompleto || histReciente;
+  const ordersAnalisis = useMemo(() => (baseAnalisis ? mergeConVentana(baseAnalisis.orders, orders) : orders), [baseAnalisis, orders]);
+  const cuentasAnalisis = useMemo(() => (baseAnalisis ? mergeConVentana(baseAnalisis.cuentas, cuentas) : cuentas), [baseAnalisis, cuentas]);
 
   // Respaldo automático diario: cada vez que un administrador abre la app,
   // revisa si ya existe una copia del día de AYER (el de hoy todavía no ha
@@ -231,14 +261,15 @@ export default function App() {
       if (cancelado || yaExiste) return;
       const inicioDia = new Date(ayer); inicioDia.setHours(0, 0, 0, 0);
       const finDia = new Date(ayer); finDia.setHours(23, 59, 59, 999);
-      const [cuentasDia, ordersDia] = await Promise.all([
+      const [cuentasDia, ordersDia, deudasDia] = await Promise.all([
         getCollectionRange("cuentas", "ts", inicioDia.getTime(), finDia.getTime()),
         getCollectionRange("orders", "ts", inicioDia.getTime(), finDia.getTime()),
+        getCollectionRange("deudas", "ts", inicioDia.getTime(), finDia.getTime()),
       ]);
       if (cancelado) return;
       await saveShared(`respaldos/${dk}`, {
         hecho: true, generadoTs: Date.now(), dia: dk,
-        cuentas: cuentasDia, orders: ordersDia, menu, mesas, config,
+        cuentas: cuentasDia, orders: ordersDia, deudas: deudasDia, menu, mesas, config,
       });
     })();
     return () => { cancelado = true; };
@@ -265,9 +296,19 @@ export default function App() {
   const persistMesas = useCallback(async (next) => { setMesas(next); const ok = await saveShared("mesas", next); if (!ok) avisarErrorGuardado(MSG_SIN_CONEXION); }, [avisarErrorGuardado]);
 
   // Guardan UN registro a la vez (pedido / cuenta / turno), no la lista completa.
-  const saveOrder = useCallback(async (order) => {
+  // saveOrder(order, deltaStock): con `deltaStock` ({insumoId: cantidad, negativa = descontar}) el pedido y el inventario se
+  // guardan en UNA sola escritura: o pasan los dos o ninguno (antes el stock se descontaba aunque el pedido no se guardara).
+  const saveOrder = useCallback(async (order, deltaStock) => {
     setOrders((prev) => { const i = prev.findIndex((o) => o.id === order.id); if (i === -1) return [...prev, order]; const next = [...prev]; next[i] = order; return next; });
-    const ok = await saveRecord("orders", order.id, order);
+    const existentes = new Set((insumosRef.current || []).map((i) => i.id)); // solo insumos que existen (uno borrado no reaparece)
+    const deltas = Object.fromEntries(Object.entries(deltaStock || {}).filter(([id, d]) => d && existentes.has(id)));
+    let ok;
+    if (Object.keys(deltas).length > 0) {
+      setInsumos((prev) => prev.map((i) => (deltas[i.id] ? { ...i, stock: (Number(i.stock) || 0) + deltas[i.id] } : i)));
+      ok = await guardarPedidoYStock(order, deltas);
+    } else {
+      ok = await saveRecord("orders", order.id, order);
+    }
     if (!ok) avisarErrorGuardado(MSG_SIN_CONEXION);
   }, [avisarErrorGuardado]);
   const saveOrdersMap = useCallback(async (recordsById) => {
@@ -356,9 +397,9 @@ export default function App() {
   const esAdminActual = !!usuarioActual && tieneRol(usuarioActual, "admin");
   const minutoActual = Math.floor(Date.now() / 60000);
   const alertas = useMemo(
-    () => (esAdminActual ? calcularAlertas({ turnoAbierto, cuentas, orders, menu, insumos, errores, config }) : []),
+    () => (esAdminActual ? calcularAlertas({ turnoAbierto, cuentas, orders, menu, insumos, errores, config, deudas }) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [esAdminActual, turnoAbierto, cuentas, orders, menu, insumos, errores, config, minutoActual]
+    [esAdminActual, turnoAbierto, cuentas, orders, deudas, menu, insumos, errores, config, minutoActual]
   );
   // Una alerta urgente NUEVA se anuncia con un aviso (la primera carga no, para no recibir una avalancha al entrar)
   const alertasVistas = useRef(null);
@@ -402,8 +443,9 @@ export default function App() {
     getRecord("sistema/inicializado").then((v) => { if (v !== true) updateShared("sistema", { inicializado: true }); });
   }, [loaded, usuarioActual]);
 
-  // nombres de los pedidos para llevar / domicilio (se usan en cocina, caja e historial)
-  cuentasParaHistorial.forEach((c) => { if (esExterna(c)) NOMBRES_EXTERNOS[c.mesa] = etiquetaExterna(c); });
+  // nombres de los pedidos para llevar / domicilio (se usan en cocina, caja e historial).
+  // Es un caché compartido que se llena de forma idempotente, y solo cuando cambian las cuentas (ya no en cada render).
+  useMemo(() => { cuentasParaHistorial.forEach((c) => { if (esExterna(c)) NOMBRES_EXTERNOS[c.mesa] = etiquetaExterna(c); }); return null; }, [cuentasParaHistorial]);
 
   if (sesion === undefined || (sesion && perfil === undefined)) {
     return <PantallaCarga />;
@@ -422,14 +464,19 @@ export default function App() {
   const puede = (id) => items.some((i) => i.id === id);
   const cambiarRol = (r) => { setVista(null); setRole(r); };
   // Las alertas llevan a una pantalla principal (caja, mesero…) o a una de administración (respaldos…)
-  const irDesdeAlerta = (v) => { if (["menu", "mesas", "equipo", "respaldos", "ajustes", "analisis"].includes(v)) setVista(v); else cambiarRol(v); };
+  const irDesdeAlerta = (v, alerta) => {
+    if (["menu", "mesas", "equipo", "respaldos", "ajustes", "analisis"].includes(v)) setVista(v);
+    else { if (v === "caja" && alerta && alerta.tab) setAbrirTabCaja({ tab: alerta.tab, n: Date.now() }); cambiarRol(v); }
+  };
 
   return (
     <div style={styles.app}>
+      <React.Suspense fallback={null}>
       {verAsistente && (
         <AsistenteInicio config={config} menu={menu} menuDeFabrica={menu === DEFAULT_MENU} persistConfig={persistConfig} persistMenu={persistMenu} persistMesas={persistMesas}
           onIrEquipo={() => setVista("equipo")} onCerrar={() => setVerAsistente(false)} />
       )}
+      </React.Suspense>
       {movil && !ocultarNav && <TopBar config={config} usuarioActual={usuarioActual} online={online} alertas={alertas} onIrAlerta={irDesdeAlerta} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: movil ? "column" : "row" }}>
         {!movil && !ocultarNav && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online} alertas={alertas} onIrAlerta={irDesdeAlerta} ancho={dispositivo === "escritorio"} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
@@ -449,6 +496,7 @@ export default function App() {
         </div>
       )}
       <div key={vista ? `v-${vista}` : `r-${role}`} className="vista-anim" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <React.Suspense fallback={<PantallaCarga />}>
       {vista && esAdminApp && (
         <>
           {vista === "menu" && <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} insumos={insumos} onClose={() => setVista(null)} />}
@@ -459,15 +507,15 @@ export default function App() {
             <div style={styles.screen}>
               <Analisis
                 onClose={() => setVista(null)} menu={menu} insumos={insumos} config={config} persistConfig={persistConfig}
-                cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial}
-                cargarHistorialCompleto={cargarHistorialCompleto} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial}
+                cuentasAnalisis={cuentasAnalisis} ordersAnalisis={ordersAnalisis}
+                cargarHistorialReciente={cargarHistorialReciente} historialListo={!!baseAnalisis} errorHistorial={!!(baseAnalisis && baseAnalisis.error)} cargandoHistorial={cargandoReciente}
               />
             </div>
           )}
           {vista === "respaldos" && (
             <div style={styles.screen}>
               <Respaldos
-                onClose={() => setVista(null)} menu={menu} orders={orders} cuentas={cuentas} config={config} turnos={turnos} mesas={mesas}
+                onClose={() => setVista(null)} menu={menu} orders={orders} cuentas={cuentas} deudas={deudas} config={config} turnos={turnos} mesas={mesas}
                 persistConfig={persistConfig} usuarioActual={usuarioActual} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial}
                 historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto}
                 errores={errores} limpiarErrores={limpiarErrores}
@@ -501,6 +549,7 @@ export default function App() {
           <AccesoDenegado mensaje="Tu usuario no tiene el rol de Cajero — esto es Caja." accion="Ir a Mesero" onAccion={() => setRole("mesero")} onCambiarUsuario={cerrarSesionYRecargar} />
         ) : (
           <CajaView
+            deudas={deudas} abrirTab={abrirTabCaja}
             menu={menu} orders={orders} cuentas={cuentas} saveCuenta={saveCuenta} saveOrdersMap={saveOrdersMap}
             turnos={turnos} turnoAbierto={turnoAbierto} saveTurno={saveTurno}
             config={config} persistConfig={persistConfig} usuarioActual={usuarioActual}
@@ -511,6 +560,7 @@ export default function App() {
           />
         )
       )}
+      </React.Suspense>
       </div>
         </div>
       </div>

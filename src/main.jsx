@@ -27,7 +27,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<LimiteErrores><App 
 requestAnimationFrame(() => requestAnimationFrame(() => { const a = document.getElementById("arranque"); if (a) a.remove(); }));
 
 // Registra el service worker para que la app se pueda "instalar" en el
-// celular (ícono propio, se abre en su ventana). No cachea datos.
+// celular (ícono propio, se abre en su ventana) y para que abra sin internet (guarda solo los archivos de la app, nunca datos).
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch((e) => console.error("Error registrando el service worker:", e));
