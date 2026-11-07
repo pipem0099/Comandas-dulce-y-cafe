@@ -90,6 +90,35 @@
         }
       }
     },
+    "deudas": {
+      ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true)",
+      ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
+      ".indexOn": [
+        "ts",
+        "estado"
+      ],
+      "$id": {
+        ".write": "(auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true) || (auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true) && newData.exists() && newData.child('estado').val() !== 'condonada' && !newData.child('condonacion').exists() && (!data.exists() || (data.child('estado').val() === 'pendiente' && newData.child('total').val() === data.child('total').val() && newData.child('cuentaId').val() === data.child('cuentaId').val() && newData.child('cliente').child('busqueda').val() === data.child('cliente').child('busqueda').val() && newData.child('registradaPor').val() === data.child('registradaPor').val() && newData.child('saldo').val() <= data.child('saldo').val())))",
+        ".validate": "newData.hasChildren(['cuentaId','ts','total','saldo','estado','cliente']) && newData.child('ts').isNumber() && newData.child('total').isNumber() && newData.child('saldo').isNumber() && newData.child('saldo').val() >= 0 && newData.child('saldo').val() <= 1000000000 && newData.child('estado').isString() && (newData.child('estado').val() === 'pendiente' || newData.child('estado').val() === 'pagada' || newData.child('estado').val() === 'condonada')",
+        "cliente": {
+          "nombre": {
+            ".validate": "newData.isString() && newData.val().length <= 120"
+          },
+          "telefono": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "doc": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "busqueda": {
+            ".validate": "newData.isString() && newData.val().length <= 300"
+          }
+        },
+        "nota": {
+          ".validate": "newData.isString() && newData.val().length <= 300"
+        }
+      }
+    },
     "turnos": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
       ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
@@ -140,7 +169,7 @@
           ".validate": "newData.isString() && newData.val().length <= 80"
         },
         "accion": {
-          ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago')"
+          ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'deshacer_cancelacion' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago' || newData.val() === 'dejar_pendiente' || newData.val() === 'cobrar_pendiente' || newData.val() === 'condonar_deuda')"
         },
         "cuentaId": {
           ".validate": "newData.isString() && newData.val().length <= 80"
