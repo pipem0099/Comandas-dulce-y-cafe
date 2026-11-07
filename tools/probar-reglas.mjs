@@ -153,6 +153,10 @@ const BASE = normalizar({
     c1: { id: "c1", mesa: "1", ts: 1000, estado: "abierta", mesero: "Ana" },
     c2: { id: "c2", mesa: "2", ts: 1000, estado: "pagada", pagadaTs: 2000, mesero: "Ana", pagos: [{ metodoPago: "efectivo", monto: 9000 }], descuento: { monto: 500, motivo: "x", aplicadoPor: "Dueño" } },
   },
+  deudas: {
+    d1: { id: "d1", cuentaId: "c5", mesa: "5", ts: 1500, total: 50000, saldo: 20000, estado: "pendiente", registradaPor: "Caja", cliente: { nombre: "Carlos", telefono: "3001234567", busqueda: "carlos 3001234567" }, cobros: [] },
+    d2: { id: "d2", cuentaId: "c6", mesa: "6", ts: 1500, total: 30000, saldo: 0, estado: "pagada", registradaPor: "Caja", cliente: { nombre: "Rosa", busqueda: "rosa" }, cobros: [{ id: "k", ts: 1600, monto: 30000, metodoPago: "efectivo" }] },
+  },
   turnos: {
     t1: { id: "t1", aperturaTs: 1, estado: "cerrado", cierreTs: 9, baseEfectivo: 100000 },
     t2: { id: "t2", aperturaTs: 10, estado: "abierto", baseEfectivo: 100000 },
@@ -202,6 +206,32 @@ caso("Uso normal", "dueno", "cambia los permisos de un administrador", "set", "p
 caso("Uso normal", "admin2", "publica la marca para la pantalla de ingreso", "update", "sistema", { marca: { nombre: "Dulce", logo: "data:..." } }, SI);
 caso("Uso normal", "admin2", "mantiene el directorio del equipo", "update", "equipo", { mesero: { uid: "mesero", nombre: "Ana", roles: { mesero: true }, activo: true } }, SI);
 caso("Uso normal", "admin2", "guarda un respaldo automático", "set", "respaldos/2026-10-21", { dia: "2026-10-21", cuentas: [] }, SI);
+
+/* — Cuentas pendientes — */
+const deuda1 = { ...(JSON.parse(JSON.stringify({ id: "d1", cuentaId: "c5", mesa: "5", ts: 1500, total: 50000, saldo: 20000, estado: "pendiente", registradaPor: "Caja", cliente: { nombre: "Carlos", telefono: "3001234567", busqueda: "carlos 3001234567" }, cobros: [] }))) };
+const deudaNueva = { id: "d9", cuentaId: "c9", mesa: "9", ts: 2000, total: 40000, saldo: 10000, estado: "pendiente", registradaPor: "Caja", cliente: { nombre: "Luis", busqueda: "luis" }, cobros: [] };
+caso("Pendientes", "cajero", "deja una cuenta como pendiente (cuenta → 'pendiente')", "set", "cuentas/c1", cuentaAbierta({ estado: "pendiente", liberada: true, deudaId: "d-c1", pendienteTs: 3000 }), SI);
+caso("Pendientes", "cajero", "registra la deuda del cliente", "set", "deudas/d9", deudaNueva, SI);
+caso("Pendientes", "mixto", "mesero + cajero: registra la deuda", "set", "deudas/d9", deudaNueva, SI);
+caso("Pendientes", "cajero", "cobra un abono (el saldo baja)", "set", "deudas/d1", { ...deuda1, saldo: 10000, cobros: [{ id: "k1", ts: 3000, monto: 10000, metodoPago: "efectivo" }] }, SI);
+caso("Pendientes", "cajero", "salda la deuda por completo", "set", "deudas/d1", { ...deuda1, saldo: 0, estado: "pagada", pagadaTs: 3000, cobros: [{ id: "k1", ts: 3000, monto: 20000, metodoPago: "tarjeta" }] }, SI);
+caso("Pendientes", "cajero", "cobra el pago tardío en la cuenta pendiente", "set", "cuentas/c1", cuentaAbierta({ estado: "pagada", pagadaTs: 3000, liberada: true, pagos: [pagoEf] }), SI);
+caso("Pendientes", "admin2", "condona una deuda (con su condonación)", "set", "deudas/d1", { ...deuda1, saldo: 0, estado: "condonada", saldoCondonado: 20000, condonacion: { ts: 3000, por: "Admin", motivo: "Cortesía", monto: 20000 } }, SI);
+caso("Pendientes", "admin2", "borra una deuda", "set", "deudas/d1", null, SI);
+caso("Pendientes", "admin2", "restaura las deudas de un respaldo", "set", "deudas", BASE.deudas, SI);
+caso("Pendientes", "cajero", "NO puede condonar una deuda", "set", "deudas/d1", { ...deuda1, saldo: 0, estado: "condonada", saldoCondonado: 20000, condonacion: { ts: 3000, por: "Caja", motivo: "x", monto: 20000 } }, NO);
+caso("Pendientes", "cajero", "NO puede perdonar bajando el saldo a mano sin cobrar y escondiéndolo como condonación", "update", "deudas/d1", { condonacion: { ts: 1, por: "Caja", motivo: "x", monto: 1 } }, NO);
+caso("Pendientes", "cajero", "NO puede borrar una deuda", "set", "deudas/d1", null, NO);
+caso("Pendientes", "cajero", "NO puede subir el saldo de una deuda", "set", "deudas/d1", { ...deuda1, saldo: 99000 }, NO);
+caso("Pendientes", "cajero", "NO puede cambiar el total de la deuda", "set", "deudas/d1", { ...deuda1, total: 1000, saldo: 500 }, NO);
+caso("Pendientes", "cajero", "NO puede cambiar a quién se le debe", "set", "deudas/d1", { ...deuda1, cliente: { nombre: "Otro", busqueda: "otro" } }, NO);
+caso("Pendientes", "cajero", "NO puede reabrir una deuda ya pagada", "set", "deudas/d2", { ...BASE.deudas.d2, saldo: 30000, estado: "pendiente" }, NO);
+caso("Pendientes", "cajero", "NO puede guardar una deuda con un estado inventado", "set", "deudas/d9", { ...deudaNueva, estado: "regalada" }, NO);
+caso("Pendientes", "cajero", "NO puede guardar una deuda sin cliente", "set", "deudas/d9", { id: "d9", cuentaId: "c9", ts: 2, total: 1, saldo: 1, estado: "pendiente" }, NO);
+caso("Pendientes", "mesero", "NO puede crear una deuda", "set", "deudas/d9", deudaNueva, NO);
+caso("Pendientes", "mesero", "NO puede dejar pendiente una cuenta", "set", "cuentas/c1", cuentaAbierta({ estado: "pendiente" }), NO);
+caso("Pendientes", "cocina", "NO puede ver ni cobrar deudas", "set", "deudas/d1", { ...deuda1, saldo: 0, estado: "pagada" }, NO);
+caso("Pendientes", "inactivo", "NO puede cobrar con la cuenta desactivada", "set", "deudas/d1", { ...deuda1, saldo: 0, estado: "pagada" }, NO);
 
 /* — Abusos que NO deben ser posibles — */
 caso("Abusos", "mesero", "marcar una cuenta como pagada", "set", "cuentas/c1", cuentaAbierta({ estado: "pagada", pagadaTs: 3000 }), NO);
@@ -267,6 +297,12 @@ const ev = (extra = {}) => ({ ts: Date.now(), uid: "mesero", nombre: "Marta", ac
 caso("Auditoría", "cajero", "SÍ puede dejar constancia de un descuento", "set", "auditoria/a1", ev({ uid: "cajero", nombre: "Pedro" }), SI);
 caso("Auditoría", "admin2", "SÍ puede dejar constancia de una cancelación", "set", "auditoria/a2", ev({ uid: "admin2", accion: "cancelar_cuenta" }), SI);
 caso("Auditoría", "mesero", "NO puede firmar el evento con el uid de otra persona", "set", "auditoria/a3", ev({ uid: "cajero" }), NO);
+caso("Auditoría", "admin2", "SÍ puede dejar constancia de que deshizo una cancelación", "set", "auditoria/a8", ev({ uid: "admin2", accion: "deshacer_cancelacion" }), SI);
+caso("Auditoría", "mesero", "SÍ puede dejar constancia de un pedido cancelado", "set", "auditoria/a9", ev({ accion: "cancelar_pedido" }), SI);
+caso("Auditoría", "cajero", "SÍ puede dejar constancia de un pago deshecho", "set", "auditoria/a10", ev({ uid: "cajero", accion: "anular_pago" }), SI);
+caso("Auditoría", "cajero", "SÍ puede dejar constancia de una cuenta dejada pendiente", "set", "auditoria/a11", ev({ uid: "cajero", accion: "dejar_pendiente" }), SI);
+caso("Auditoría", "cajero", "SÍ puede dejar constancia del cobro de una deuda", "set", "auditoria/a12", ev({ uid: "cajero", accion: "cobrar_pendiente" }), SI);
+caso("Auditoría", "admin2", "SÍ puede dejar constancia de una deuda condonada", "set", "auditoria/a13", ev({ uid: "admin2", accion: "condonar_deuda" }), SI);
 caso("Auditoría", "cajero", "NO puede inventar un tipo de acción", "set", "auditoria/a4", ev({ uid: "cajero", accion: "borrar_todo" }), NO);
 caso("Auditoría", "cajero", "NO puede poner una fecha de otro día", "set", "auditoria/a5", ev({ uid: "cajero", ts: Date.now() - 86400000 }), NO);
 caso("Auditoría", "cajero", "NO puede guardar un monto negativo", "set", "auditoria/a6", ev({ uid: "cajero", monto: -1 }), NO);
@@ -302,6 +338,11 @@ const lecturas = [
   ["admin2", "respaldos", SI, "y los respaldos"],
   ["admin2", "errores", SI, "y los errores"],
   ["admin2", "auditoria", SI, "y la bitácora de control"],
+  ["cajero", "deudas", SI, "la caja ve las cuentas pendientes"],
+  ["admin2", "deudas", SI, "el administrador ve las cuentas pendientes"],
+  ["mesero", "deudas", NO, "el mesero no ve quién debe"],
+  ["cocina", "deudas", NO, "la cocina no ve quién debe"],
+  ["anon", "deudas", NO, "sin sesión no se ve ninguna deuda"],
   ["cajero", "auditoria", NO, "la bitácora no la ve la caja"],
   ["mesero", "auditoria", NO, "ni el mesero"],
 ];

@@ -48,6 +48,11 @@ const CUENTA_ADMIN = ADMIN;
 const CUENTA_CAJERO = `${COBRA} && newData.exists() && ${igual("descuento/monto")}`;
 const CUENTA_SALA = `${SALON} && newData.exists() && (newData.child('estado').val() === data.child('estado').val() || ((!data.exists() || data.child('estado').val() === 'abierta') && (newData.child('estado').val() === 'abierta' || newData.child('estado').val() === 'fusionada'))) && ${DINERO_INTACTO}`;
 
+/* Cuentas pendientes (deudas): leen y cobran el cajero y el administrador. El cajero puede CREAR una deuda y cobrarla (el saldo solo baja),
+   pero no condonarla, no borrarla, no cambiar cuánto se debe ni a quién, y no tocar una deuda ya resuelta. Condonar y borrar: solo el administrador. */
+const DEUDA_ADMIN = ADMIN;
+const DEUDA_CAJERO = `${COBRA} && newData.exists() && newData.child('estado').val() !== 'condonada' && !newData.child('condonacion').exists() && (!data.exists() || (data.child('estado').val() === 'pendiente' && ${igual("total")} && ${igual("cuentaId")} && ${igual("cliente/busqueda")} && ${igual("registradaPor")} && newData.child('saldo').val() <= data.child('saldo').val()))`;
+
 /* Pedidos: la cocina puede marcar avance y estado, pero NO cambiar qué se pidió ni a qué precio. */
 const MAX_ITEMS = 40;
 const itemsIguales = Array.from({ length: MAX_ITEMS }, (_, i) => ["id", "name", "qty", "price"].map((c) => igual(`items/${i}/${c}`))).flat().join(" && ");
@@ -109,6 +114,22 @@ const reglas = {
         personas: { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 50" }, // cuántas personas comieron (ticket por persona)
       },
     },
+    deudas: {
+      ".read": COBRA,
+      ".write": ADMIN, // restaurar respaldos
+      ".indexOn": ["ts", "estado"],
+      $id: {
+        ".write": `(${DEUDA_ADMIN}) || (${DEUDA_CAJERO})`,
+        ".validate": "newData.hasChildren(['cuentaId','ts','total','saldo','estado','cliente']) && newData.child('ts').isNumber() && newData.child('total').isNumber() && newData.child('saldo').isNumber() && newData.child('saldo').val() >= 0 && newData.child('saldo').val() <= 1000000000 && newData.child('estado').isString() && (newData.child('estado').val() === 'pendiente' || newData.child('estado').val() === 'pagada' || newData.child('estado').val() === 'condonada')",
+        cliente: {
+          nombre: { ".validate": "newData.isString() && newData.val().length <= 120" },
+          telefono: { ".validate": "newData.isString() && newData.val().length <= 40" },
+          doc: { ".validate": "newData.isString() && newData.val().length <= 40" },
+          busqueda: { ".validate": "newData.isString() && newData.val().length <= 300" },
+        },
+        nota: { ".validate": "newData.isString() && newData.val().length <= 300" },
+      },
+    },
     turnos: {
       ".read": ACTIVO,
       ".write": ADMIN,
@@ -140,7 +161,7 @@ const reglas = {
         uid: { ".validate": "newData.isString() && newData.val().length <= 80" },
         nombre: { ".validate": "newData.isString() && newData.val().length <= 120" },
         rol: { ".validate": "newData.isString() && newData.val().length <= 80" },
-        accion: { ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago')" },
+        accion: { ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'deshacer_cancelacion' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago' || newData.val() === 'dejar_pendiente' || newData.val() === 'cobrar_pendiente' || newData.val() === 'condonar_deuda')" },
         cuentaId: { ".validate": "newData.isString() && newData.val().length <= 80" },
         mesa: { ".validate": "(newData.isString() && newData.val().length <= 80) || newData.isNumber()" },
         monto: { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000" },
