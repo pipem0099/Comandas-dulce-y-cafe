@@ -79,8 +79,8 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
             <span style={s.rol}>{rolesLabel(usuarioActual)}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, alignSelf: "flex-start" }}>
-            <button style={s.cerrarBtn} onClick={cerrar} aria-label="Cerrar"><X size={16} /></button>
-            <button style={s.cerrarBtn} onClick={() => elegirTema(tema === "oscuro" ? "claro" : "oscuro")} aria-label={tema === "oscuro" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"} title={tema === "oscuro" ? "Tema claro" : "Tema oscuro"}>
+            <button className="toque44" style={s.cerrarBtn} onClick={cerrar} aria-label="Cerrar"><X size={16} /></button>
+            <button className="toque44" style={s.cerrarBtn} onClick={() => elegirTema(tema === "oscuro" ? "claro" : "oscuro")} aria-label={tema === "oscuro" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"} title={tema === "oscuro" ? "Tema claro" : "Tema oscuro"}>
               {tema === "oscuro" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>

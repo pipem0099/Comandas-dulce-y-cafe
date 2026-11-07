@@ -46,7 +46,7 @@ export function CampanaAlertas({ alertas, onIr, tamano = 36, compacto = false })
                   {alertas.map((a) => {
                     const m = META[a.nivel]; const Icono = a.nivel === "info" ? Info : AlertTriangle;
                     return (
-                      <button key={a.id} onClick={() => { cerrar(); setTimeout(() => onIr && onIr(a.vista), 220); }} style={{ display: "flex", alignItems: "flex-start", gap: 12, textAlign: "left", padding: "12px 12px", borderRadius: 14, border: "none", background: m.fondo, cursor: "pointer", color: "var(--c-242019-t)" }}>
+                      <button key={a.id} onClick={() => { cerrar(); setTimeout(() => onIr && onIr(a.vista, a), 220); }} style={{ display: "flex", alignItems: "flex-start", gap: 12, textAlign: "left", padding: "12px 12px", borderRadius: 14, border: "none", background: m.fondo, cursor: "pointer", color: "var(--c-242019-t)" }}>
                         <span style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: m.color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}><Icono size={15} /></span>
                         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                           <span style={{ fontSize: 14.5, fontWeight: 700 }}>{a.titulo}</span>

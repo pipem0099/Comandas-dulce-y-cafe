@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
 import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { money } from "../logica.js";
@@ -13,7 +13,7 @@ export function LogoMarca({ marca, size = 22 }) {
  * SÍ entiende el punto como separador de miles (como se escribe en Colombia:
  * "50.000") — solo guarda los dígitos por dentro y siempre muestra el número
  * formateado, así que nunca se puede escribir un monto ambiguo o mal leído. */
-export function CampoMonto({ value, onChange, placeholder, style, autoFocus, onEnter }) {
+export function CampoMonto({ value, onChange, placeholder, style, autoFocus, onEnter, onBlur }) {
   // El cero "por defecto" no se muestra: el campo aparece vacío (con "0" tenue de guía), así que
   // al tocarlo no hay nada que borrar ni seleccionar — se escribe y listo.
   const [escribiendo, setEscribiendo] = useState(false);
@@ -30,7 +30,7 @@ export function CampoMonto({ value, onChange, placeholder, style, autoFocus, onE
       value={mostrado}
       // con un monto ya escrito, al tocar se selecciona todo para poder reemplazarlo rápido
       onFocus={(e) => { if (!esCero) { try { e.target.select(); } catch (err) {} } }}
-      onBlur={() => setEscribiendo(false)}
+      onBlur={(e) => { setEscribiendo(false); if (onBlur) onBlur(e); }}
       onKeyDown={(e) => { if (e.key === "Enter" && onEnter) { e.preventDefault(); onEnter(e); } }}
       onChange={(e) => { setEscribiendo(true); onChange(e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "")); }}
     />
@@ -65,7 +65,7 @@ export function MetodoPills({ selected, onSelect }) {
         const Icon = meta.icon;
         const isSel = selected === key;
         return (
-          <button key={key} style={{ ...styles.metodoPill, ...(isSel ? { background: "var(--neon)", color: "var(--neon-text)", border: "1px solid var(--neon)", boxShadow: "var(--neon-glow)", fontWeight: 800 } : {}) }} onClick={() => onSelect(key)}>
+          <button key={key} style={{ ...styles.metodoPill, ...(isSel ? { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", border: "none", boxShadow: "none", fontWeight: 700 } : {}) }} onClick={() => onSelect(key)}>
             <Icon size={14} /> {meta.label}
           </button>
         );
@@ -134,6 +134,63 @@ export function FilaTabs({ children, className, style }) {
   return (
     <div ref={ref} className={className} onScroll={medir} style={{ ...style, overflowX: "auto", WebkitMaskImage: mask, maskImage: mask }}>
       {children}
+    </div>
+  );
+}
+
+
+/*
+ * Fila de dato en dos columnas, justificada de extremo a extremo (estilo tabla de Stripe):
+ *  izquierda: nombre (peso 500) y, debajo, un detalle atenuado (12 px, opacidad .5)
+ *  derecha:   el valor (dinero, cantidad o porcentaje) alineado al borde derecho, en una sola línea y con cifras tabulares.
+ */
+export function FilaDato({ nombre, detalle, valor, valorColor, onClick, ultima }) {
+  const Tag = onClick ? "button" : "div";
+  return (
+    <Tag onClick={onClick} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, width: "100%", padding: "12px 0", background: "transparent", border: "none", borderBottom: ultima ? "none" : "1px solid var(--c-ede7d8-o)", textAlign: "left", cursor: onClick ? "pointer" : "default", color: "var(--c-242019-t)" }}>
+      <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
+        <span style={{ fontSize: 14.5, fontWeight: 500, color: "var(--c-242019-t)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombre}</span>
+        {detalle ? <span style={{ fontSize: 12, color: "var(--c-242019-t)", opacity: "var(--detalle-op)" }}>{detalle}</span> : null}
+      </span>
+      <span style={{ flexShrink: 0, marginLeft: "auto", textAlign: "right", whiteSpace: "nowrap", fontSize: 14.5, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: valorColor || "var(--c-242019-t)" }}>{valor}</span>
+    </Tag>
+  );
+}
+
+
+/*
+ * Menú contextual clásico de tres puntos (…) para acciones secundarias de una tarjeta.
+ *   <MenuContextual acciones={[{ label: "Enviar clave nueva", onClick }, { label: "Desactivar", onClick, peligro: true }]} />
+ * Se cierra al tocar fuera o con Esc. Las acciones en `false`/`null` no se muestran; sin acciones no dibuja nada.
+ */
+export function MenuContextual({ acciones, label = "Más acciones" }) {
+  const [abierto, setAbierto] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!abierto) return undefined;
+    const fuera = (e) => { if (ref.current && !ref.current.contains(e.target)) setAbierto(false); };
+    const esc = (e) => { if (e.key === "Escape") setAbierto(false); };
+    document.addEventListener("mousedown", fuera);
+    document.addEventListener("touchstart", fuera);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", fuera); document.removeEventListener("touchstart", fuera); document.removeEventListener("keydown", esc); };
+  }, [abierto]);
+  const visibles = (acciones || []).filter(Boolean);
+  if (visibles.length === 0) return null;
+  return (
+    <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
+      <button type="button" aria-label={label} aria-haspopup="menu" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}
+        style={{ width: 44, height: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "none", background: abierto ? "var(--btn2-bg)" : "transparent", color: "var(--btn2-mute)", cursor: "pointer", padding: 0 }}>
+        <MoreHorizontal size={18} />
+      </button>
+      {abierto && (
+        <div role="menu" className="anim-in" style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 40, minWidth: 210, padding: 6, background: "var(--c-fffdf8-b)", border: "1px solid var(--btn2-line)", borderRadius: 12, boxShadow: "var(--shadow-float)", display: "flex", flexDirection: "column", gap: 2 }}>
+          {visibles.map((a) => (
+            <button key={a.label} type="button" role="menuitem" onClick={() => { setAbierto(false); a.onClick(); }}
+              style={{ textAlign: "left", minHeight: 44, padding: "0 12px", borderRadius: 8, border: "none", background: "transparent", color: a.peligro ? "var(--c-c1442d-t)" : "var(--c-242019-t)", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>{a.label}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

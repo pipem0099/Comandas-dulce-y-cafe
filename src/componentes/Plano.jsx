@@ -66,8 +66,8 @@ export function PlanoSalon({ mesas, zonas = [], alto = 100, cuentas, orders, edi
         onPointerDown={() => editable && onSeleccionar && onSeleccionar(null)}
         style={{
           position: "relative", width: "100%", paddingTop: `${alto}%`, overflow: "hidden", boxSizing: "border-box", containerType: "inline-size",
-          background: "var(--c-fffdf8-b)", border: editable ? "2px dashed var(--accent)" : "1px solid var(--c-e4dfce-o)", borderRadius: 16,
-          ...(editable ? { backgroundImage: "radial-gradient(var(--c-d9cfae-o) 1px, transparent 1px)", backgroundSize: "20px 20px" } : {}),
+          background: "var(--c-fffdf8-b)", border: "1px solid var(--tile-line)", borderRadius: 16,
+          ...(editable ? { backgroundImage: "radial-gradient(var(--grid-line) 1px, transparent 1px)", backgroundSize: "20px 20px" } : {}),
         }}
       >
         {mesas.length === 0 && zonas.length === 0 && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--c-8a8272-t)", fontSize: 14 }}>Agrega mesas y zonas para ver tu plano.</div>}
@@ -83,17 +83,17 @@ export function PlanoSalon({ mesas, zonas = [], alto = 100, cuentas, orders, edi
               onPointerDown={(e) => empezar(e, "zona", z.id, "mover", { x: z.x, y: z.y, w: z.w, h: z.h })}
               style={{
                 position: "absolute", left: `${g.x}%`, top: `${g.y}%`, width: `${g.w}%`, height: `${g.h}%`, boxSizing: "border-box",
-                background: `${t.color}1F`, border: `${sel ? 2 : 1.5}px ${sel ? "solid" : "dashed"} ${sel ? t.color : t.color + "88"}`, borderRadius: 12,
+                background: "var(--tile-bg)", border: `1px solid ${sel ? "var(--accent)" : "var(--tile-line)"}`, borderRadius: 12,
                 pointerEvents: editable ? "auto" : "none", touchAction: editable ? "none" : "auto", cursor: editable ? "grab" : "default", zIndex: 0, overflow: "hidden",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px", color: t.color, fontWeight: 700, fontSize: "clamp(9px, 2.6cqw, 14px)", lineHeight: 1.1 }}>
-                <Icon style={{ width: "clamp(11px, 3cqw, 17px)", height: "clamp(11px, 3cqw, 17px)", flexShrink: 0 }} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{z.nombre}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 9px", color: "var(--btn2-mute)", fontWeight: 500, fontSize: "clamp(9px, 2.5cqw, 13px)", lineHeight: 1.1 }}>
+                <Icon strokeWidth={1.6} style={{ width: "clamp(11px, 2.8cqw, 15px)", height: "clamp(11px, 2.8cqw, 15px)", flexShrink: 0, opacity: 0.9 }} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{z.nombre}</span>
               </div>
               {editable && sel && (
                 <span
                   onPointerDown={(e) => empezar(e, "zona", z.id, "tam", { x: z.x, y: z.y, w: z.w, h: z.h })}
-                  style={{ position: "absolute", right: 2, bottom: 2, width: 24, height: 24, borderRadius: 12, background: t.color, border: "2px solid #fff", cursor: "nwse-resize", touchAction: "none" }}
+                  style={{ position: "absolute", right: 2, bottom: 2, width: 24, height: 24, borderRadius: 12, background: "var(--btn2-mute)", border: "2px solid var(--c-fffdf8-b)", cursor: "nwse-resize", touchAction: "none" }}
                 />
               )}
             </div>
@@ -102,7 +102,7 @@ export function PlanoSalon({ mesas, zonas = [], alto = 100, cuentas, orders, edi
 
         {/* Mesas juntas: una barra del color de la cuenta las une visualmente */}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1, pointerEvents: "none" }}>
-          {(cuentas || []).filter((c) => (c.mesasExtra || []).length > 0 && c.estado !== "pagada" && c.estado !== "fusionada").map((c) => {
+          {(cuentas || []).filter((c) => (c.mesasExtra || []).length > 0 && c.estado !== "pagada" && c.estado !== "fusionada" && c.estado !== "pendiente" && c.estado !== "condonada").map((c) => {
             const grupo = mesas.map((m, idx) => ({ m, idx })).filter(({ m }) => cuentaCubre(c, m.id));
             if (grupo.length < 2) return null;
             const visual = estadoVisualMesa(c, (orders || []).filter((o) => o.cuentaId === c.id));
@@ -115,7 +115,7 @@ export function PlanoSalon({ mesas, zonas = [], alto = 100, cuentas, orders, edi
         {mesas.map((m, idx) => {
           const cuenta = cuentaDeMesa(cuentas, m.id);
           const visual = estadoVisualMesa(cuenta, cuenta ? (orders || []).filter((o) => o.cuentaId === cuenta.id) : []);
-          const bg = cuenta ? visual.bg : "var(--c-fffdf8-b)";
+          const bg = cuenta ? visual.bg : "var(--tile-bg)";
           const color = cuenta ? visual.color : "var(--c-242019-t)";
           const pos = drag && drag.kind === "mesa" && drag.id === m.id && live ? live : mesaPos(m, idx);
           const base = TAM_MESA[m.tam] || TAM_MESA.m;
@@ -131,9 +131,9 @@ export function PlanoSalon({ mesas, zonas = [], alto = 100, cuentas, orders, edi
               style={{
                 position: "absolute", left: `${pos.x}%`, top: `${pos.y}%`, transform: `translate(-50%, -50%) rotate(${giro}deg)`,
                 width: `${w}%`, aspectRatio: forma === "larga" ? "1.9 / 1" : "1 / 1", boxSizing: "border-box",
-                borderRadius: forma === "redonda" ? "50%" : "clamp(8px, 2.4cqw, 16px)", border: `2px solid ${sel ? "var(--accent)" : cuenta ? bg : "var(--c-e4dfce-b)"}`,
+                borderRadius: forma === "redonda" ? "50%" : "clamp(8px, 2.4cqw, 16px)", border: `1px solid ${sel ? "var(--accent)" : cuenta ? bg : "var(--tile-line)"}`,
                 background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 2, lineHeight: 1.15,
-                fontWeight: 700, fontSize: "clamp(9px, 2.8cqw, 17px)", boxShadow: sel ? "0 0 0 4px rgba(128,138,150,.25)" : "0 2px 6px rgba(0,0,0,0.10)",
+                fontWeight: 600, fontSize: "clamp(9px, 2.8cqw, 17px)", boxShadow: sel ? "0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent)" : "none",
                 cursor: editable ? "grab" : "pointer", touchAction: editable ? "none" : "auto", zIndex: drag && drag.id === m.id ? 3 : 2, userSelect: "none", WebkitUserSelect: "none",
               }}
             >
