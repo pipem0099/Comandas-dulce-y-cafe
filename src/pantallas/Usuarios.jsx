@@ -6,7 +6,7 @@ import { ROLES_ORDEN } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { msgAuth } from "../pantallas/Acceso.jsx";
 import { claveFiltrada, MENSAJE_CLAVE_FILTRADA } from "../clavesSeguras.js";
-import { Acordeon } from "../componentes/Comunes.jsx";
+import { Acordeon, MenuContextual } from "../componentes/Comunes.jsx";
 import { agruparPorMes, dateTimeLabel, rolLabel, rolesAMapa, rolesDe, rolesLabel, tieneRol } from "../utilidades.js";
 
 export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
@@ -103,10 +103,21 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
       {perfiles === null && <div style={styles.cajaEmptyText}>Cargando equipo…</div>}
       {lista.map((u) => (
         <div key={u.uid} style={{ ...styles.usuarioRow, opacity: u.activo ? 1 : 0.6 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
           <div style={styles.usuarioRowLeft}>
             <UserCircle2 size={16} color="var(--c-8a8272-t)" />
             <span style={styles.pagoRowEtiqueta}>{u.nombre}</span>
             <span style={{ ...styles.rolBadge, ...(u.propietario ? { background: "var(--c-242019-b)", color: "#F4F6F8" } : {}) }}>{u.activo ? rolesLabel(u) : "Desactivada"}</span>
+          </div>
+          {(!u.propietario || u.uid === usuarioActual.uid) && (
+            <MenuContextual label={`Más acciones de ${u.nombre}`} acciones={[
+              { label: "Enviar clave nueva", onClick: () => enviarClave(u) },
+              !u.propietario && u.uid !== usuarioActual.uid && (u.activo
+                ? { label: "Desactivar cuenta", peligro: true, onClick: () => cambiarActivo(u, false) }
+                : { label: "Reactivar cuenta", onClick: () => cambiarActivo(u, true) }),
+              yoPropietario && !u.propietario && u.activo && { label: "Transferir propiedad", onClick: () => setConfirmTransfer(u.uid) },
+            ]} />
+          )}
           </div>
           <div style={{ fontSize: 12, color: "var(--c-8a8272-t)" }}>{u.correo}</div>
           {(!u.propietario || u.uid === usuarioActual.uid) && (
@@ -123,15 +134,6 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
                   );
                 })}
               </div>
-              <button style={styles.inlineLink} onClick={() => enviarClave(u)}>enviar clave nueva</button>
-              {!u.propietario && u.uid !== usuarioActual.uid && (
-                u.activo
-                  ? <button style={{ ...styles.inlineLink, color: "var(--c-c1442d-t)" }} onClick={() => cambiarActivo(u, false)}>desactivar</button>
-                  : <button style={styles.inlineLink} onClick={() => cambiarActivo(u, true)}>reactivar</button>
-              )}
-              {yoPropietario && !u.propietario && u.activo && (
-                <button style={styles.inlineLink} onClick={() => setConfirmTransfer(u.uid)}>transferir propiedad</button>
-              )}
             </div>
           )}
           {confirmTransfer === u.uid && (

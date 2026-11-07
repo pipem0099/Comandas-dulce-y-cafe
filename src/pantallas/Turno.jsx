@@ -3,7 +3,7 @@ import {
   AlertTriangle, Lock, Download, PlayCircle, DoorClosed, ArrowDownToLine, ArrowUpFromLine, RotateCcw, ChevronDown, ChevronUp, ArrowRightLeft, HandHelping, Printer,
 } from "lucide-react";
 import { uid, money } from "../logica.js";
-import { saveShared, getRecord, saveCollectionArray, updateRecord } from "../firebase.js";
+import { saveShared, getRecord, saveCollectionArray, mergeCollectionArray, updateRecord } from "../firebase.js";
 import { FormularioMovimiento, ListaMovimientos, RegistrarMovimiento } from "./MovimientosCaja.jsx";
 import { FlujoEntrega, TarjetaRelevoPendiente } from "./RelevoCaja.jsx";
 import { ResumenDia } from "./ResumenDia.jsx";
@@ -12,6 +12,7 @@ import { avisar } from "../avisos.jsx";
 import { HojaTurno, HojaMes } from "../hojas.jsx";
 import { responsableDe, statsTramo, tramoVigente, tramosDe } from "../relevoCaja.js";
 import { CampoMonto, Acordeon, Chevron } from "../componentes/Comunes.jsx";
+import { InfoTip } from "../componentes/InfoTip.jsx";
 import { MontoSigno } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { descargarRespaldo } from "../exportar.js";
@@ -392,7 +393,7 @@ const t = {
   detalle: { display: "flex", flexDirection: "column", gap: 2, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--c-e4dfce-o)", fontSize: 12.5, color: "var(--c-5c5648-t)" },
 };
 
-export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, persistConfig, usuarioActual, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto }) {
+export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, deudas, persistConfig, usuarioActual, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto }) {
   const [restaurando, setRestaurando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [archivo, setArchivo] = useState(null);
@@ -426,6 +427,7 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, pers
     await saveCollectionArray("orders", archivo.orders);
     await saveCollectionArray("cuentas", archivo.cuentas);
     await saveCollectionArray("turnos", archivo.turnos || []);
+    if (Array.isArray(archivo.deudas) && archivo.deudas.length > 0) await mergeCollectionArray("deudas", archivo.deudas);
     if (archivo.mesas && archivo.mesas.length > 0) await saveShared("mesas", archivo.mesas);
     const nuevoConfig = {
       ...archivo.config,
@@ -440,13 +442,13 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, pers
   useEffect(() => {
     if (descargarPendiente.current && historialCompleto) {
       descargarPendiente.current = false;
-      descargarRespaldo({ menu, orders: ordersParaHistorial, cuentas: cuentasParaHistorial, config, turnos, mesas });
+      descargarRespaldo({ menu, orders: ordersParaHistorial, cuentas: cuentasParaHistorial, config, turnos, mesas, deudas });
       persistConfig({ ...config, ultimaCopiaTs: Date.now() }); // para recordarte la próxima copia
     }
   }, [historialCompleto]);
   const onClickDescargar = () => {
     if (historialCompleto) {
-      descargarRespaldo({ menu, orders: ordersParaHistorial, cuentas: cuentasParaHistorial, config, turnos, mesas });
+      descargarRespaldo({ menu, orders: ordersParaHistorial, cuentas: cuentasParaHistorial, config, turnos, mesas, deudas });
       persistConfig({ ...config, ultimaCopiaTs: Date.now() }); // para recordarte la próxima copia
     } else {
       descargarPendiente.current = true;
@@ -460,8 +462,7 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, pers
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
 
         <div style={styles.respaldoCard}>
-          <div style={styles.respaldoTitulo}>Copia de seguridad completa</div>
-          <div style={styles.respaldoTexto}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}><div style={styles.respaldoTitulo}>Copia de seguridad completa</div><InfoTip titulo="Copia de seguridad completa">
             Guarda un archivo en este dispositivo con todo el historial del negocio:
             <ul style={styles.respaldoLista}>
               <li>Menú, productos y precios</li>
@@ -471,20 +472,19 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, pers
               <li>Ajustes del negocio: nombre, marca y registro de seguridad</li>
             </ul>
             No cambia nada en la app. <b>No incluye</b> el inventario ni las cuentas de usuario del equipo.
-          </div>
+          </InfoTip></div>
           <button style={styles.modoChoiceBtn} onClick={onClickDescargar} disabled={cargandoHistorial}>
             <Download size={15} /> {cargandoHistorial ? "Preparando respaldo completo…" : "Descargar copia de seguridad completa"}
           </button>
         </div>
 
         <div style={styles.respaldoCard}>
-          <div style={styles.respaldoTitulo}>Restaurar desde un archivo</div>
-          <div style={styles.respaldoTexto}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}><div style={styles.respaldoTitulo}>Restaurar desde un archivo</div><InfoTip titulo="Restaurar desde un archivo">
             Vuelve la app al estado de un archivo de respaldo. <b>Reemplaza</b> lo que hay ahora de: menú, pedidos, cuentas, turnos, mesas y ajustes.
             Todo lo registrado después de la fecha del archivo se pierde. No toca el inventario ni los usuarios. Recomendado: descarga una copia de lo actual antes de restaurar.
-          </div>
+          </InfoTip></div>
           {!restaurando ? (
-            <button style={styles.inlineAddLink} onClick={() => setRestaurando(true)}>Restaurar desde un archivo de respaldo</button>
+            <button style={styles.enlaceSistema} onClick={() => setRestaurando(true)}>Restaurar desde un archivo de respaldo</button>
           ) : (
             <div className="despliega" style={styles.turnoBox}>
               <div style={styles.closeConfirmText}><b>Cuidado:</b> esto no se puede deshacer. Elige el archivo .json del respaldo.</div>
@@ -546,14 +546,13 @@ export function RespaldosAutomaticosBox() {
 
   return (
     <div style={styles.respaldoCard}>
-      <div style={styles.respaldoTitulo}>Copias automáticas</div>
-      <div style={styles.respaldoTexto}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}><div style={styles.respaldoTitulo}>Copias automáticas</div><InfoTip titulo="Copias automáticas">
         Cada día, la primera vez que un administrador abre la app, se guarda sola una copia del <b>día anterior</b>: sus cuentas y pedidos, más el menú, las mesas y los ajustes.
         Aquí puedes ver y descargar las de los últimos 14 días, útiles para consultar o recuperar lo de un día puntual.
         Cada una trae <b>un solo día</b> de ventas y no incluye turnos, así que no sirven para restaurar todo el negocio (para eso usa la copia completa).
-      </div>
+      </InfoTip></div>
       {dias === null ? (
-        <button style={styles.inlineAddLink} onClick={cargarLista} disabled={cargando}>
+        <button style={styles.enlaceSistema} onClick={cargarLista} disabled={cargando}>
           {cargando ? "Buscando…" : "Ver copias automáticas de los últimos 14 días"}
         </button>
       ) : dias.length === 0 ? (
@@ -615,7 +614,7 @@ export function PanelSenalesAlerta({ cuentas, turnos }) {
   return (
     <div style={{ marginTop: 24 }}>
       <button style={styles.canceladasToggle} onClick={() => setExpandido((v) => !v)}>
-        <AlertTriangle size={13} color={hayAlertas ? "var(--c-c1442d-t)" : "var(--c-b98a2e-t)"} />
+        <AlertTriangle size={13} color={hayAlertas ? "var(--c-c1442d-t)" : "var(--btn2-mute)"} />
         <span style={{ color: hayAlertas ? "var(--c-8a3a2b-t)" : "var(--c-5c5648-t)" }}>Señales de alerta (últimos 35 días){hayAlertas ? " — hay algo que revisar" : ""}</span>
         <Chevron abierto={expandido} size={15} style={{ marginLeft: "auto" }} />
       </button>

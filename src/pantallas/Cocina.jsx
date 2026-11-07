@@ -229,7 +229,7 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
                       <span style={styles.ticketQty}>{n}×</span>
                       <span style={styles.ticketItemName}>{it.name}</span>
                       {!completa && itemListos(o, it) > itemServidos(o, it) && (
-                        <span style={styles.itemKdsActions}><button style={styles.itemKdsUndo} onClick={() => itemDeshacer(o.id, idx)} title="Deshacer">−</button></span>
+                        <span style={styles.itemKdsActions}><button className="toque44" style={styles.itemKdsUndo} onClick={() => itemDeshacer(o.id, idx)} title="Deshacer">−</button></span>
                       )}
                     </div>
                   ))}
@@ -282,7 +282,7 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
                         {/* Despachar producto por producto solo tiene sentido ya en preparación */}
                         {o.estado !== "pendiente" && it.qty > 1 && <span style={styles.itemKdsCount}>{l}/{it.qty}</span>}
                         {o.estado !== "pendiente" && l > itemServidos(o, it) && (
-                          <button style={styles.itemKdsUndo} onClick={() => itemDeshacer(o.id, idx)} title="Deshacer">−</button>
+                          <button className="toque44" style={styles.itemKdsUndo} onClick={() => itemDeshacer(o.id, idx)} title="Deshacer">−</button>
                         )}
                         {o.estado !== "pendiente" && !completo && (
                           <button style={styles.itemKdsBtn} onClick={() => itemListo(o.id, idx)}><Check size={12} /> Listo</button>

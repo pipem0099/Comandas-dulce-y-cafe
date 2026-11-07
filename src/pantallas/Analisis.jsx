@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import { FilaTabs } from "../componentes/Comunes.jsx";
+import { InfoTip } from "../componentes/InfoTip.jsx";
 import { styles } from "../estilos.js";
 import { money } from "../logica.js";
 import { dateTimeLabel } from "../utilidades.js";
@@ -228,13 +229,21 @@ function Perdidas({ ventas, cuentas, ahora }) {
         </div>
       ))}
 
-      <div style={titulo}>Bitácora de control (no editable)</div>
-      <div style={{ ...nota, color: C.suave, marginBottom: 6 }}>Cada cancelación y descuento queda firmado con el usuario real y no se puede modificar ni borrar.</div>
-      {bitacora === null ? <Vacio>Cargando…</Vacio> : bitacora.length === 0 ? <Vacio>Aún no hay registros. Empiezan a guardarse desde esta versión.</Vacio> : bitacora.map((b, i) => (
-        <div key={`${b.ts}-${i}`} style={{ padding: "6px 0", borderBottom: `1px solid ${C.borde}`, fontSize: 12.5, color: C.medio }}>
-          <b style={{ color: C.texto }}>{b.nombre || b.uid}</b> · {String(b.accion).replace("_", " ")} · {money(b.monto)} · {dateTimeLabel(b.ts)}{b.motivo ? ` · “${b.motivo}”` : ""}
-        </div>
-      ))}
+      <div style={{ ...titulo, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span>Bitácora de control</span>
+        <InfoTip titulo="Bitácora de control" render={() => (
+          <>
+            <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--c-5c5648-t)" }}>Cada cancelación y descuento queda firmado con el usuario real. No se puede modificar ni borrar.</div>
+            <div style={{ maxHeight: "50vh", overflowY: "auto" }}>
+              {bitacora === null ? <Vacio>Cargando…</Vacio> : bitacora.length === 0 ? <Vacio>Aún no hay registros.</Vacio> : bitacora.map((b, i) => (
+                <div key={`${b.ts}-${i}`} style={{ padding: "8px 0", borderBottom: `1px solid ${C.borde}`, fontSize: 12.5, color: C.medio }}>
+                  <b style={{ color: C.texto, fontWeight: 500 }}>{b.nombre || b.uid}</b> · {String(b.accion).replace("_", " ")} · {money(b.monto)} · {dateTimeLabel(b.ts)}{b.motivo ? ` · ${b.motivo}` : ""}
+                </div>
+              ))}
+            </div>
+          </>
+        )} />
+      </div>
     </>
   );
 }
@@ -402,22 +411,24 @@ function Costos({ ventas, menu, insumos, config, persistConfig, ahora }) {
 }
 
 /* ───────── Pantalla ───────── */
-export function Analisis({ onClose, menu, insumos, config, persistConfig, cuentasParaHistorial, ordersParaHistorial, cargarHistorialCompleto, historialCompleto, cargandoHistorial }) {
+export function Analisis({ onClose, menu, insumos, config, persistConfig, cuentasAnalisis, ordersAnalisis, cargarHistorialReciente, historialListo, errorHistorial, cargandoHistorial }) {
   const [tab, setTab] = useState("resumen");
   const [ahora] = useState(() => Date.now());
-  // El historial completo se pide una vez: sin él solo hay ~35 días y no alcanzaría para 8 semanas ni para el mes pasado.
-  useEffect(() => { if (cargarHistorialCompleto) cargarHistorialCompleto(); }, [cargarHistorialCompleto]);
-  const ventas = useMemo(() => prepararVentas(cuentasParaHistorial || [], ordersParaHistorial || []), [cuentasParaHistorial, ordersParaHistorial]);
+  // Se piden los últimos 120 días una sola vez: lo que ya está en vivo (~35 días) no alcanza para 8 semanas ni para el mes pasado,
+  // y traer TODO el historial pesaría cada vez más con los años.
+  useEffect(() => { if (cargarHistorialReciente) cargarHistorialReciente(120); }, [cargarHistorialReciente]);
+  const ventas = useMemo(() => prepararVentas(cuentasAnalisis || [], ordersAnalisis || []), [cuentasAnalisis, ordersAnalisis]);
   const plantilla = useMemo(() => Object.fromEntries(Object.entries((config && config.plantillaCostos) || {}).map(([k, v]) => [k, Number(v) || 0])), [config]);
   return (
     <>
       <CabeceraAdmin titulo="Análisis y control" onClose={onClose} />
       <div className="ancho" style={{ ...styles.menuScroll, paddingBottom: 40 }}>
         <Tabs valor={tab} onChange={setTab} opciones={[["resumen", "Resumen"], ["productos", "Productos"], ["perdidas", "Pérdidas"], ["semana", "Semana"], ["costos", "Costos"]]} />
-        {cargandoHistorial && !historialCompleto && <div style={{ ...nota, color: C.suave, marginBottom: 10 }}>Cargando el historial completo…</div>}
+        {cargandoHistorial && !historialListo && <div style={{ ...nota, color: C.suave, marginBottom: 10 }}>Cargando los últimos 120 días…</div>}
+        {errorHistorial && <div style={{ ...nota, color: C.rojo, marginBottom: 10 }}>No se pudo cargar el historial: se muestran solo los últimos días. Revisa tu conexión y vuelve a entrar.</div>}
         {tab === "resumen" && <Resumen ventas={ventas} ahora={ahora} />}
         {tab === "productos" && <Productos ventas={ventas} menu={menu || []} insumos={insumos || []} plantilla={plantilla} ahora={ahora} onCostos={() => setTab("costos")} />}
-        {tab === "perdidas" && <Perdidas ventas={ventas} cuentas={cuentasParaHistorial || []} ahora={ahora} />}
+        {tab === "perdidas" && <Perdidas ventas={ventas} cuentas={cuentasAnalisis || []} ahora={ahora} />}
         {tab === "semana" && <Semana ventas={ventas} menu={menu || []} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
         {tab === "costos" && <Costos ventas={ventas} menu={menu || []} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
       </div>

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
-import { Plus, Check, Trash2, Settings2, Search, X, ChevronDown, Camera } from "lucide-react";
+import { Plus, Check, Trash2, Settings2, Search, X, ChevronDown, Camera, Info } from "lucide-react";
 import { tieneOpciones, getEstaciones, costoReceta, uid, money } from "../logica.js";
 import { ProductoConfig } from "../extras.jsx";
 import { CampoMonto, Acordeon } from "../componentes/Comunes.jsx";
@@ -20,6 +20,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
   const [configId, setConfigId] = useState(null); // producto cuyo panel de opciones / receta está abierto
   const [filtro, setFiltro] = useState("__todas__"); // categoría activa en la lista
   const [busqueda, setBusqueda] = useState("");
+  const [soloSinCosto, setSoloSinCosto] = useState(false);
   const [abierto, setAbierto] = useState(null);     // producto desplegado
   const [nuevoAbierto, setNuevoAbierto] = useState(false);
   const [catNueva, setCatNueva] = useState(false);  // escribir una categoría que aún no existe
@@ -72,7 +73,8 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
 
   const categorias = [...new Set(menu.map((m) => m.cat))];
   const q = busqueda.trim().toLowerCase();
-  const visibles = menu.filter((m) => (filtro === "__todas__" || m.cat === filtro) && (!q || m.name.toLowerCase().includes(q)));
+  const sinCosto = menu.filter((x) => !x.cost && !x.agotado).length;
+  const visibles = menu.filter((m) => (filtro === "__todas__" || m.cat === filtro) && (!q || m.name.toLowerCase().includes(q)) && (!soloSinCosto || (!m.cost && !m.agotado)));
   const catsVisibles = categorias.filter((c) => visibles.some((m) => m.cat === c));
   const desplegar = (item) => {
     if (abierto === item.id) { setAbierto(null); setEditingItemId(null); return; }
@@ -89,12 +91,20 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
           <Camera size={17} /> Crear el menú desde una foto
         </button>
 
+        {sinCosto > 0 && (
+          <button style={m.avisoGlobal} onClick={() => setSoloSinCosto((v) => !v)} aria-pressed={soloSinCosto}>
+            <Info size={15} strokeWidth={1.8} />
+            <span style={{ flex: 1, textAlign: "left" }}>{sinCosto} {sinCosto === 1 ? "producto sin costo registrado" : "productos sin costo registrado"}</span>
+            <span style={{ color: "var(--link)", fontWeight: 500 }}>{soloSinCosto ? "Ver todos" : "Ver cuáles"}</span>
+          </button>
+        )}
+
         {/* Barra fija de navegación: buscador + categorías en pastillas */}
         <div style={m.sticky}>
           <div style={m.buscador}>
             <Search size={16} color="var(--c-8a8272-t)" />
             <input data-enter="blur" style={m.buscadorInput} placeholder="Buscar producto…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-            {busqueda && <button style={m.limpiar} onClick={() => setBusqueda("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
+            {busqueda && <button className="toque44" style={m.limpiar} onClick={() => setBusqueda("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
           </div>
           <div style={m.fila1}>
             <button style={{ ...m.pastilla, ...(filtro === "__todas__" ? m.pastillaOn : {}) }} onClick={() => setFiltro("__todas__")}>Todas <span style={m.cuenta}>{menu.length}</span></button>
@@ -113,7 +123,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
           </button>
         ) : (
           <div className="despliega" style={{ ...styles.addItemCard, marginBottom: 14 }}>
-            <div style={m.formTitulo}><span>Nuevo producto</span><button style={m.limpiar} onClick={() => setNuevoAbierto(false)} aria-label="Cerrar"><X size={15} /></button></div>
+            <div style={m.formTitulo}><span>Nuevo producto</span><button className="toque44" style={m.limpiar} onClick={() => setNuevoAbierto(false)} aria-label="Cerrar"><X size={15} /></button></div>
             <input style={styles.editInput} placeholder="Nombre del producto" value={name} onChange={(e) => setName(e.target.value)} />
             <div style={{ display: "flex", gap: 8 }}>
               <CampoMonto style={{ ...styles.editInput, flex: 1 }} placeholder="Precio de venta" value={price} onChange={setPrice} />
@@ -146,7 +156,10 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
                     <button style={m.filaMain} onClick={() => desplegar(item)} aria-expanded={abiertoAhora}>
                       <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, textAlign: "left", flex: 1 }}>
                         <span style={{ ...m.nombre, ...(item.agotado ? { textDecoration: "line-through", opacity: 0.55 } : {}) }}>{item.name}</span>
-                        <span style={m.meta}>{item.agotado ? "Agotado" : item.cost ? `Margen ${margenPct}%` : "Sin costo registrado"}{item.receta && item.receta.length > 0 ? " · con receta" : ""}{tieneOpciones(item) ? ` · ${item.grupos.length} ${item.grupos.length > 1 ? "grupos" : "grupo"}` : ""}</span>
+                        {(() => {
+                          const meta = [item.agotado ? "Agotado" : item.cost ? `Margen ${margenPct}%` : null, item.receta && item.receta.length > 0 ? "con receta" : null, tieneOpciones(item) ? `${item.grupos.length} ${item.grupos.length > 1 ? "grupos" : "grupo"}` : null].filter(Boolean).join(" · ");
+                          return meta ? <span style={m.meta}>{meta}</span> : null;
+                        })()}
                       </span>
                       <span style={m.precio}>{money(item.price)}</span>
                       <ChevronDown size={16} style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: abiertoAhora ? "rotate(180deg)" : "none" }} />
@@ -195,8 +208,9 @@ const m = {
   limpiar: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 13, border: "none", background: "rgba(128,138,150,.18)", color: "var(--c-8a8272-t)", cursor: "pointer" },
   pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
   fila1: { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" },
-  pastilla: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
-  pastillaOn: { background: "var(--neon)", borderColor: "transparent", color: "var(--neon-text)", fontWeight: 800, boxShadow: "var(--neon-glow)" },
+  pastilla: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, border: "none", background: "var(--chip-bg)", color: "var(--chip-fg)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
+  pastillaOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", fontWeight: 700, boxShadow: "none" },
+  avisoGlobal: { display: "flex", alignItems: "center", gap: 10, width: "100%", minHeight: 44, margin: "10px 0 0", padding: "0 14px", borderRadius: 12, border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", color: "var(--btn2-fg)", fontSize: 13, fontWeight: 500, cursor: "pointer" },
   cuenta: { fontSize: 11.5, opacity: 0.7, fontWeight: 700 },
   formTitulo: { display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)" },
   etiqueta: { fontSize: 11.5, color: "var(--c-8a8272-t)", fontWeight: 600, marginBottom: 4 },
@@ -204,9 +218,9 @@ const m = {
   grupo: { background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 16, overflow: "hidden" },
   fila: { borderBottom: "1px solid var(--c-ede7d8-o)" },
   filaMain: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 14px", background: "transparent", border: "none", cursor: "pointer", color: "var(--c-242019-t)" },
-  nombre: { fontSize: 15, fontWeight: 600, color: "var(--c-242019-t)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  meta: { fontSize: 11.5, color: "var(--c-8a8272-t)" },
-  precio: { fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)", flexShrink: 0 },
+  nombre: { fontSize: 15, fontWeight: 500, color: "var(--c-242019-t)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  meta: { fontSize: 12, color: "var(--c-242019-t)", opacity: "var(--detalle-op)" },
+  precio: { fontSize: 15, fontWeight: 600, color: "var(--c-242019-t)", flexShrink: 0, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
   detalle: { display: "flex", flexDirection: "column", gap: 10, padding: "4px 14px 14px" },
   eliminar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px", background: "transparent", border: "none", color: "var(--c-c1442d-t)", fontSize: 14, fontWeight: 600, cursor: "pointer" },
 };

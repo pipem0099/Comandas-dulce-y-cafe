@@ -188,8 +188,8 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
         {mesas.map((m, idx) => (
           <div key={m.id} style={styles.editRow}>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <button style={styles.mesaReorderBtn} onClick={() => mover(idx, -1)} disabled={idx === 0} aria-label="Subir"><ChevronUp size={15} /></button>
-              <button style={styles.mesaReorderBtn} onClick={() => mover(idx, 1)} disabled={idx === mesas.length - 1} aria-label="Bajar"><ChevronDown size={15} /></button>
+              <button className="toque44" style={styles.mesaReorderBtn} onClick={() => mover(idx, -1)} disabled={idx === 0} aria-label="Subir"><ChevronUp size={15} /></button>
+              <button className="toque44" style={styles.mesaReorderBtn} onClick={() => mover(idx, 1)} disabled={idx === mesas.length - 1} aria-label="Bajar"><ChevronDown size={15} /></button>
             </div>
             {editId === m.id ? (
               <>
@@ -201,14 +201,14 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
               <>
                 <span style={{ ...styles.menuItemName, flex: 1 }}>{m.nombre}</span>
                 {tieneCuentaAbierta(m.id) && <span style={styles.enCursoTag}>cuenta abierta</span>}
-                <button style={styles.deleteBtn} onClick={() => empezarEdicion(m)}><Pencil size={14} /></button>
+                <button className="toque44" style={styles.deleteBtn} onClick={() => empezarEdicion(m)}><Pencil size={14} /></button>
                 {confirmDeleteId === m.id ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <button style={styles.confirmYes} onClick={() => eliminarMesa(m)}>Sí</button>
                     <button style={styles.confirmNo} onClick={() => setConfirmDeleteId(null)}>No</button>
                   </div>
                 ) : (
-                  <button style={styles.deleteBtn} onClick={() => { setConfirmDeleteId(m.id); setError(""); }}><Trash2 size={14} /></button>
+                  <button className="toque44" style={styles.deleteBtn} onClick={() => { setConfirmDeleteId(m.id); setError(""); }}><Trash2 size={14} /></button>
                 )}
               </>
             )}

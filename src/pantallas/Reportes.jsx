@@ -4,7 +4,7 @@ import { imprimir } from "../impresion.jsx";
 import { HojaReporte } from "../hojas.jsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { money } from "../logica.js";
-import { MontoSigno, FilaTabs } from "../componentes/Comunes.jsx";
+import { MontoSigno, FilaTabs, FilaDato } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { cuentaGranTotal, cuentaOrders, dateTimeLabel, hourLabel, tieneRol } from "../utilidades.js";
 import { prepararVentas, rentabilidad, rangosComparables, resumenPeriodo, comparar } from "../analitica.js";
@@ -98,7 +98,7 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
   const [numPersonasPropina, setNumPersonasPropina] = useState(2);
 
   const imprimirReporte = () => imprimir(
-    <HojaReporte etiqueta={etiquetaRango} rangoTxt={rangoTexto} pagadas={pagadasRango} orders={orders} canceladas={canceladasRango} costoPorId={costoPorId}
+    <HojaReporte etiqueta={etiquetaRango} rangoTxt={rangoTexto} pagadas={pagadasRango} orders={orders} canceladas={canceladasRango} costoPorId={costoPorId} rentab={rentab}
       tiempoCocina={tiempoPromedioMin !== null ? { min: tiempoPromedioMin, n: ordenesConTiempo.length } : null} config={config} usuario={usuarioActual} />
   );
 
@@ -182,7 +182,7 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
 
       {tiempoPromedioMin !== null && (
         <div style={styles.tiempoCocinaBox}>
-          <Clock size={14} color="var(--c-b98a2e-t)" />
+          <Clock size={14} color="var(--btn2-mute)" />
           <span>Tiempo promedio de cocina: <b>{tiempoPromedioMin} min</b> ({ordenesConTiempo.length} pedidos)</span>
         </div>
       )}
@@ -193,12 +193,18 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
           <div style={styles.cajaEmptyText}>Sin ventas en este rango todavía.</div>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={dataHora}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E2E6EB" />
-              <XAxis dataKey="hora" tick={{ fontSize: 10, fill: "var(--c-8a8272-t)" }} interval={1} />
-              <YAxis tick={{ fontSize: 10, fill: "var(--c-8a8272-t)" }} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
-              <Tooltip formatter={(v) => money(v)} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-              <Bar dataKey="total" fill="var(--c-c1442d-t)" radius={[4, 4, 0, 0]} />
+            <BarChart data={dataHora} margin={{ top: 8, right: 4, left: -8, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gradVentasHora" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.3} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} strokeDasharray="0" stroke="var(--grid-line)" />
+              <XAxis dataKey="hora" axisLine={false} tickLine={false} tickMargin={8} interval="preserveStartEnd" minTickGap={22} tick={{ fontSize: 11, fill: "var(--c-8a8272-t)" }} />
+              <YAxis axisLine={false} tickLine={false} width={40} tick={{ fontSize: 11, fill: "var(--c-8a8272-t)" }} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
+              <Tooltip cursor={{ fill: "var(--grid-line)" }} formatter={(v) => money(v)} contentStyle={{ fontSize: 12, borderRadius: 10, background: "var(--c-fffdf8-b)", border: "1px solid var(--btn2-line)", color: "var(--c-242019-t)", boxShadow: "var(--shadow-float)" }} />
+              <Bar dataKey="total" fill="url(#gradVentasHora)" radius={[4, 4, 0, 0]} maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -208,8 +214,8 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
       {topProductos.length === 0 ? (
         <div style={styles.cajaEmptyText}>Sin datos todavía.</div>
       ) : (
-        topProductos.map(([name, p]) => (
-          <div key={name} style={styles.cajaProductRow}><span style={styles.cajaProductQty}>{p.qty}×</span><span style={styles.cajaProductName}>{name}</span><span style={styles.cajaProductSubtotal}>{money(p.subtotal)}</span></div>
+        topProductos.map(([name, p], i) => (
+          <FilaDato key={name} nombre={name} detalle={`${p.qty} ${p.qty === 1 ? "vendido" : "vendidos"}`} valor={money(p.subtotal)} ultima={i === topProductos.length - 1} />
         ))
       )}
 
@@ -217,15 +223,8 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
       {meserosOrdenados.length === 0 ? (
         <div style={styles.cajaEmptyText}>Sin datos todavía.</div>
       ) : (
-        meserosOrdenados.map(([nombre, d]) => (
-          <div key={nombre} style={styles.meseroStatRow}>
-            <div style={styles.meseroStatLeft}>
-              <UserCircle2 size={14} color="var(--c-8a8272-t)" />
-              <span style={styles.pagoRowEtiqueta}>{nombre}</span>
-              <span style={styles.meseroStatSub}>{d.cuentas} {d.cuentas === 1 ? "cuenta" : "cuentas"}{d.propinas > 0 ? ` · ${money(d.propinas)} propina` : ""}</span>
-            </div>
-            <span style={styles.mesaCuentaTotal}>{money(d.total)}</span>
-          </div>
+        meserosOrdenados.map(([nombre, d], i) => (
+          <FilaDato key={nombre} nombre={nombre} detalle={`${d.cuentas} ${d.cuentas === 1 ? "cuenta" : "cuentas"}${d.propinas > 0 ? ` · ${money(d.propinas)} propina` : ""}`} valor={money(d.total)} ultima={i === meserosOrdenados.length - 1} />
         ))
       )}
     </div>

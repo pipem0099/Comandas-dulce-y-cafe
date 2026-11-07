@@ -150,7 +150,7 @@ function FormReserva({ inicial, mesas, reservas, usuarioActual, onGuardar, onEli
     <Hoja onCerrar={onCerrar} ancho={460} gap={10} label="Reserva">
 {({ cerrar: cerrarHoja }) => (
 <>
-        <div style={rv.hojaHead}><span style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700 }}>{f.id ? "Editar reserva" : "Nueva reserva"}</span><button style={styles.cerrarPanelBtn} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button></div>
+        <div style={rv.hojaHead}><span style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700 }}>{f.id ? "Editar reserva" : "Nueva reserva"}</span><button className="toque44" style={styles.cerrarPanelBtn} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button></div>
         <input style={styles.editInput} placeholder="Nombre de quien reserva" value={f.nombre} onChange={(e) => set("nombre", e.target.value)} autoFocus={!f.id} />
         <input style={styles.editInput} placeholder="Teléfono (opcional)" inputMode="tel" value={f.telefono} onChange={(e) => set("telefono", e.target.value)} />
         <div style={{ display: "flex", gap: 8 }}>
@@ -207,7 +207,7 @@ const rv = {
   hojaHead: { display: "flex", alignItems: "center", justifyContent: "space-between" },
   et: { fontSize: 11.5, color: "var(--c-8a8272-t)", fontWeight: 600, marginBottom: 4 },
   stepper: { display: "flex", alignItems: "center", gap: 10 },
-  stepBtn: { width: 42, height: 42, borderRadius: 12, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-242019-t)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
+  stepBtn: { width: 44, height: 44, borderRadius: 8, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-242019-t)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
   pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
   pastilla: { padding: "8px 13px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
   pastillaOn: { background: "var(--neon)", borderColor: "transparent", color: "var(--neon-text)", fontWeight: 800, boxShadow: "var(--neon-glow)" },

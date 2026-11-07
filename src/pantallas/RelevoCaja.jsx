@@ -79,7 +79,7 @@ export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCe
                 : "Cuenta solo el efectivo. La tarjeta y las transferencias se revisan una sola vez, al cerrar el turno."}
             </div>
           </div>
-          <button style={x.cerrar} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
+          <button className="toque44" style={x.cerrar} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
         </div>
 
         {!asumir && (

@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, PencilLine, ShoppingBag, Bike, Phone, MapPin, Search, X, Trash2, Repeat, MoreHorizontal } from "lucide-react";
+import { Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, PencilLine, ShoppingBag, Bike, Phone, MapPin, Search, X, Trash2, Repeat, MoreHorizontal, RotateCcw } from "lucide-react";
 import { avisar } from "../avisos.jsx";
+import { actualizarCuenta, registrarAuditoria } from "../firebase.js";
+import { parcharCuenta, avisarFalloGuardado } from "../cuentasOps.js";
+import { idCuentaNueva } from "../cobros.js";
+import { orderTotal } from "../dinero.js";
 import { vibrar } from "../theme.js";
 import { claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
 import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
@@ -9,7 +13,7 @@ import { AvisoActivarNotificaciones, Chevron } from "../componentes/Comunes.jsx"
 import { STATE_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { PlanoSalon } from "../pantallas/Mesas.jsx";
-import { reservaProxima, NOMBRES_EXTERNOS, conProgreso, cuentaCubre, cuentaDeMesa, cuentaOrders, cuentaSubtotal, dayKey, esPorLiberar, estadoVisualMesa, itemListos, itemServidos, mesaMatch, mesaNombre, orderTotal, porServir, timeLabel } from "../utilidades.js";
+import { reservaProxima, NOMBRES_EXTERNOS, conProgreso, cuentaCubre, cuentaDeMesa, cuentaOrders, cuentaSubtotal, dayKey, esPorLiberar, estadoVisualMesa, itemListos, itemServidos, mesaMatch, mesaNombre, porServir, timeLabel } from "../utilidades.js";
 
 import { Hoja } from "../componentes/Hoja.jsx";
 /* ---------------- MESERO ---------------- */
@@ -120,7 +124,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     const c = cuentaDeMesa(cuentas, id);
     if (c && esPorLiberar(c)) setLiberarCuenta(c); else enterMesa(id);
   };
-  const liberarMesa = async (c) => { await saveCuenta({ ...c, liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual }); setLiberarCuenta(null); };
+  const liberarMesa = async (c) => { await parcharCuenta(c.id, { liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual }); setLiberarCuenta(null); };
   const cuentaAbiertaDe = (mesaId) => cuentas.find((c) => cuentaCubre(c, mesaId) && c.estado === "abierta");
 
   const totalItems = Object.values(draft).reduce((a, b) => a + b.qty, 0);
@@ -178,9 +182,11 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const cancelarPedido = async (orderId) => {
     const order = orders.find((o) => o.id === orderId);
     if (order) {
-      // lo que ese pedido había descontado del inventario vuelve a su lugar
-      if (order.consumo && Object.keys(order.consumo).length > 0) await ajustarInventario(order.consumo);
-      await saveOrder({ ...order, estado: "cancelado", consumo: {}, canceladoTs: Date.now(), canceladoPor: meseroActual, cancelAvisoVisto: false });
+      // lo que ese pedido había descontado del inventario vuelve a su lugar, en la MISMA escritura que cancela el pedido
+      const devolver = order.consumo && Object.keys(order.consumo).length > 0 ? order.consumo : null;
+      await saveOrder({ ...order, estado: "cancelado", consumo: {}, canceladoTs: Date.now(), canceladoPor: meseroActual, cancelAvisoVisto: false }, devolver);
+      const cu = cuentas.find((c) => c.id === order.cuentaId);
+      registrarAuditoria({ accion: "cancelar_pedido", monto: Math.round(orderTotal(order)), motivo: "", cuentaId: order.cuentaId, mesa: order.mesa, responsable: (cu && cu.mesero) || "", uid: usuarioActual.uid, nombre: meseroActual, rol: "mesero" });
     }
     setConfirmCancelId(null);
     if (editingOrderId === orderId) resetDraft();
@@ -214,6 +220,21 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     await saveOrder(conProgreso(order, items));
   };
 
+  // Abre la cuenta de una mesa con un id PREVISIBLE (mesa + día + número): si dos meseros envían el primer pedido de la misma
+  // mesa a la vez, ambos generan el mismo id y queda UNA sola cuenta (antes quedaban dos abiertas).
+  const abrirCuentaSegura = async (mesaNum, extra) => {
+    const ahora = Date.now();
+    const previas = cuentas.filter((c) => String(c.mesa) === String(mesaNum) && dayKey(c.ts) === dayKey(ahora)).length;
+    for (let n = previas + 1; n <= previas + 6; n++) {
+      const nueva = { id: idCuentaNueva(mesaNum, ahora, n), mesa: mesaNum, ts: ahora, estado: "abierta", mesero: meseroActual, ...extra };
+      const r = await actualizarCuenta(nueva.id, (c) => (c ? undefined : nueva), { permitirNuevo: true });
+      if (r.ok) return nueva;
+      if (r.error) return null; // falló la escritura
+      if (r.valor && r.valor.estado === "abierta" && cuentaCubre(r.valor, mesaNum)) return r.valor; // otro mesero la abrió justo ahora
+    }
+    return null;
+  };
+
   /* ─── Modificar un pedido ya enviado (compartido por "Editar" y por las acciones rápidas de cada producto) ─── */
   const aplicarEdicion = async (original, items, nota) => {
     const conservados0 = items.map((it) => {
@@ -225,12 +246,12 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     const { textos, detalle, items: conservados } = analizarCambios(original.items, conservados0);
     const consumoNuevo = consumoDeItems(conservados, menu);
     const dif = difConsumo(consumoNuevo, original.consumo || {});
-    if (Object.keys(dif).length > 0) await ajustarInventario(negar(dif));
+    const ajusteStock = Object.keys(dif).length > 0 ? negar(dif) : null; // se mueve junto con el guardado del pedido
     if ((original.nota || "") !== nota) textos.push("nota general");
     const aviso = textos.length > 0
       ? { cambio: { ts: Date.now(), por: meseroActual, texto: textos.join(" · ") }, cambioVisto: false, historialCambios: [...(original.historialCambios || []), ...detalle].slice(-30) }
       : {};
-    await saveOrder(conProgreso({ ...original, nota, editado: true, consumo: consumoNuevo, ...aviso }, conservados));
+    await saveOrder(conProgreso({ ...original, nota, editado: true, consumo: consumoNuevo, ...aviso }, conservados), ajusteStock);
     return { dif };
   };
   const construirItem = (m, mods = [], qty, nota = "") => ({ id: claveLinea(m.id, mods), baseId: m.id, name: m.name, price: precioUnitario(m, mods), cost: m.cost || 0, qty, nota, mods, estacion: estacionDe(m, config) });
@@ -316,15 +337,14 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
         // un pedido para llevar / domicilio ya cobrado no se puede seguir llenando
         if (!cuenta && String(mesaNum).startsWith("ext-")) { exitMesa(); return; }
         if (!cuenta) {
-          for (const vieja of cuentas.filter((c) => cuentaCubre(c, mesaNum) && esPorLiberar(c))) await saveCuenta({ ...vieja, liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual });
+          for (const vieja of cuentas.filter((c) => cuentaCubre(c, mesaNum) && esPorLiberar(c))) await parcharCuenta(vieja.id, { liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual });
           const extras = mesasJuntas.filter((id) => !cuentaDeMesa(cuentas, id));
-          cuenta = { id: uid(), mesa: mesaNum, ts: Date.now(), estado: "abierta", mesero: meseroActual, ...(extras.length ? { mesasExtra: extras } : {}) };
-          await saveCuenta(cuenta);
+          cuenta = await abrirCuentaSegura(mesaNum, extras.length ? { mesasExtra: extras } : {});
+          if (!cuenta) { avisarFalloGuardado(); return; } // no se pudo abrir: no se envía nada (y no se descuenta inventario)
         }
         const consumo = consumoDeItems(items, menu);
         const order = { id: uid(), mesa: mesaNum, cuentaId: cuenta.id, items, nota: note.trim(), estado: "pendiente", ts: Date.now(), tipo: cuenta.tipo || "mesa", consumo };
-        if (Object.keys(consumo).length > 0) await ajustarInventario(negar(consumo));
-        await saveOrder(order);
+        await saveOrder(order, Object.keys(consumo).length > 0 ? negar(consumo) : null); // pedido + inventario en una sola escritura
         vibrar(30);
         setJustSent(true);
         setTimeout(() => setJustSent(false), 2200);
@@ -353,12 +373,12 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const mesasOcupadas = (excluir, cuenta) => mesas.filter((m) => !mesaMatch(m.id, excluir) && cuentaAbiertaDe(m.id) && !(cuenta && cuentaCubre(cuenta, m.id)));
 
   const juntarMesaLibre = async (cuenta, mesaId) => {
-    if (cuenta) await saveCuenta({ ...cuenta, mesasExtra: [...(cuenta.mesasExtra || []), mesaId] });
+    if (cuenta) await parcharCuenta(cuenta.id, (c) => ({ ...c, mesasExtra: [...(c.mesasExtra || []), mesaId] }));
     else setMesasJuntas((p) => [...p, mesaId]);
     setMesaAction(null);
   };
   const separarMesa = async (cuenta, mesaId) => {
-    if (cuenta) await saveCuenta({ ...cuenta, mesasExtra: (cuenta.mesasExtra || []).filter((m) => !mesaMatch(m, mesaId)) });
+    if (cuenta) await parcharCuenta(cuenta.id, (c) => ({ ...c, mesasExtra: (c.mesasExtra || []).filter((m) => !mesaMatch(m, mesaId)) }));
     else setMesasJuntas((p) => p.filter((m) => !mesaMatch(m, mesaId)));
   };
 
@@ -367,7 +387,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     const patch = {};
     afectadas.forEach((o) => { patch[o.id] = { ...o, mesa: nuevaMesa }; });
     if (Object.keys(patch).length > 0) await saveOrdersMap(patch);
-    await saveCuenta({ ...cuenta, mesa: nuevaMesa });
+    await parcharCuenta(cuenta.id, { mesa: nuevaMesa });
     setMesaAction(null);
     setSelectedMesa(nuevaMesa);
   };
@@ -378,8 +398,8 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     afectadas.forEach((o) => { patch[o.id] = { ...o, cuentaId: cuentaDestino.id, mesa: cuentaDestino.mesa }; });
     if (Object.keys(patch).length > 0) await saveOrdersMap(patch);
     const extrasOrigen = cuentaOrigen.mesasExtra || [];
-    if (extrasOrigen.length) await saveCuenta({ ...cuentaDestino, mesasExtra: [...(cuentaDestino.mesasExtra || []), ...extrasOrigen] });
-    await saveCuenta({ ...cuentaOrigen, mesasExtra: [], estado: "fusionada", fusionadaEnId: cuentaDestino.id });
+    if (extrasOrigen.length) await parcharCuenta(cuentaDestino.id, (c) => ({ ...c, mesasExtra: [...(c.mesasExtra || []), ...extrasOrigen] }));
+    await parcharCuenta(cuentaOrigen.id, { mesasExtra: [], estado: "fusionada", fusionadaEnId: cuentaDestino.id });
     setMesaAction(null);
     setSelectedMesa(cuentaDestino.mesa);
   };
@@ -563,8 +583,8 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                                 </>
                               ) : (
                                 <>
-                                  <button style={styles.iconBtn} onClick={() => startEdit(o)} title="Modificar"><Pencil size={13} /></button>
-                                  {!hayServidos && <button style={{ ...styles.iconBtn, color: "var(--c-c1442d-t)" }} onClick={() => setConfirmCancelId(o.id)} title="Cancelar"><Ban size={13} /></button>}
+                                  <button className="toque44" style={styles.iconBtn} onClick={() => startEdit(o)} title="Modificar"><Pencil size={13} /></button>
+                                  {!hayServidos && <button className="toque44" style={{ ...styles.iconBtn, color: "var(--c-c1442d-t)" }} onClick={() => setConfirmCancelId(o.id)} title="Cancelar"><Ban size={13} /></button>}
                                 </>
                               )}
                             </div>
@@ -591,7 +611,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                                     <button style={styles.marcarServidoBtn} onClick={() => servirItem(o.id, idx)}><Check size={12} /> Servir{it.qty > 1 ? " 1" : ""}</button>
                                   )}
                                   {puedeModificar && pendientes > 0 && (
-                                    <button style={{ ...styles.iconBtn, ...(abierta ? { background: "var(--seg-on-bg)", color: "var(--seg-on-fg)" } : {}) }} aria-label="Quitar o cambiar este producto" aria-expanded={abierta} onClick={() => setLineaAbierta(abierta ? null : { orderId: o.id, idx })}><MoreHorizontal size={15} /></button>
+                                    <button className="toque44" style={{ ...styles.iconBtn, ...(abierta ? { background: "var(--seg-on-bg)", color: "var(--seg-on-fg)" } : {}) }} aria-label="Quitar o cambiar este producto" aria-expanded={abierta} onClick={() => setLineaAbierta(abierta ? null : { orderId: o.id, idx })}><MoreHorizontal size={15} /></button>
                                   )}
                                 </span>
                               </div>
@@ -628,9 +648,6 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
         )}
         {justSent && (
           <div style={styles.sentBanner}><Check size={14} /> Pedido enviado a cocina</div>
-        )}
-        {!editingOrderId && totalItems === 0 && cuenta && cuentaOrders(orders, cuenta.id).length > 0 && (
-          <button style={styles.repeatBtn} onClick={() => repetirUltimoPedido(cuenta)}>↻ Repetir último pedido de esta cuenta</button>
         )}
 
         <div style={{ ...styles.catPillsWrap, position: "sticky", top: 0, zIndex: 5, background: "var(--c-f7f4ec-b)" }}>
@@ -678,16 +695,16 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                   {lineas.map(([k, v]) => (
                     <div key={k} style={styles.lineaOpc} className="anim-in">
                       <span style={styles.lineaOpcTxt}>{v.qty}× {v.mods && v.mods.length ? modsTexto(v.mods) : "Normal"}{v.nota ? ` · ${v.nota}` : ""}</span>
-                      <button style={styles.lineaOpcBtn} onClick={() => addQty(k, -1)}><Minus size={11} /></button>
-                      <button style={styles.lineaOpcBtn} onClick={() => addQty(k, 1)}><Plus size={11} /></button>
+                      <button className="toque44" style={styles.lineaOpcBtn} onClick={() => addQty(k, -1)}><Minus size={11} /></button>
+                      <button className="toque44" style={styles.lineaOpcBtn} onClick={() => addQty(k, 1)}><Plus size={11} /></button>
                     </div>
                   ))}
                 </div>
                 {conOpc ? (
                   <div style={styles.stepper}>
                     {qtyTot > 0 && <span style={styles.stepVal}>{qtyTot}</span>}
-                    <button style={{ ...styles.stepBtn, ...styles.stepBtnPlus, width: qtyTot > 0 ? 28 : 64 }} disabled={agotado} onClick={() => setModalItem(item)}>
-                      {qtyTot > 0 ? <Plus size={14} /> : <span style={{ fontSize: 12, fontWeight: 700 }}>Elegir</span>}
+                    <button style={{ ...styles.stepBtn, ...(qtyTot > 0 ? {} : { width: 72, fontSize: 12.5, fontWeight: 600 }) }} disabled={agotado} aria-label={qtyTot > 0 ? "Agregar uno" : "Elegir opciones"} onClick={() => setModalItem(item)}>
+                      {qtyTot > 0 ? <Plus size={14} /> : <span>Elegir</span>}
                     </button>
                   </div>
                 ) : (
@@ -720,6 +737,11 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           })}
           {search.trim() && menu.filter((m) => m.name.toLowerCase().includes(search.trim().toLowerCase())).length === 0 && (
             <div style={styles.noResults}>Sin resultados para "{search}"</div>
+          )}
+          {!editingOrderId && totalItems === 0 && cuenta && cuentaOrders(orders, cuenta.id).length > 0 && (
+            <div style={{ display: "flex", justifyContent: "center", padding: "6px 0 14px" }}>
+              <button style={{ ...styles.repeatBtn, margin: 0, alignSelf: "center" }} onClick={() => repetirUltimoPedido(cuenta)}><RotateCcw size={14} /> Repetir último pedido de esta cuenta</button>
+            </div>
           )}
         </div>
         </div>

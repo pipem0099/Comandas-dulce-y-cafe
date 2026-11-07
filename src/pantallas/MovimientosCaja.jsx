@@ -74,7 +74,7 @@ export function FormularioMovimiento({ tipoInicial, onCancelar, onGuardar }) {
 <>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={x.titulo}>Movimiento de efectivo</div>
-          <button style={x.cerrar} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
+          <button className="toque44" style={x.cerrar} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
         </div>
         <div style={x.seg}>
           <button style={{ ...x.segBtn, ...(tipo === "entrada" ? x.segOn : {}) }} onClick={() => cambiarTipo("entrada")}><ArrowDownToLine size={15} color="#2f8f68" /> Entrada</button>

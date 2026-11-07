@@ -1,24 +1,31 @@
 import React, { useState, useEffect, useRef } from "react";
+import { parcharCuenta } from "../cuentasOps.js";
 import {
   Receipt, AlertTriangle, Search, X,
 } from "lucide-react";
 import { estadoStock, money, esExterna } from "../logica.js";
 import { EmptyState } from "../extras.jsx";
-import { InventarioView } from "../inventario.jsx";
 import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { MesaCuentaCard } from "../pantallas/CuentaMesa.jsx";
-import { HistorialView } from "../pantallas/Historial.jsx";
 import { FilaTabs } from "../componentes/Comunes.jsx";
-import { ReportesView } from "../pantallas/Reportes.jsx";
 import { TurnoView } from "../pantallas/Turno.jsx";
+import { PendientesView } from "../pantallas/Pendientes.jsx";
+import { diasDesde } from "../deudas.js";
+import { DIAS_DEUDA_VIEJA } from "../alertas.js";
 import { cuentaGranTotal, cuentaOrders, dayKey, esPorLiberar, estadoVisualMesa, mesaNombre, mesaOrderIndex, pagosDe, pagosTotal, tieneRol, timeLabel } from "../utilidades.js";
 import { Acordeon } from "../componentes/Comunes.jsx";
 import { useDispositivo } from "../useAncho.js";
+import { perezoso } from "../cargaDiferida.js";
+
+// Las pestañas de administración (inventario, historial, reportes con gráficas) se bajan solo al abrirlas.
+const InventarioView = perezoso(() => import("../inventario.jsx"), "InventarioView");
+const HistorialView = perezoso(() => import("../pantallas/Historial.jsx"), "HistorialView");
+const ReportesView = perezoso(() => import("../pantallas/Reportes.jsx"), "ReportesView");
 
 /* ---------------- CAJA ---------------- */
 
-export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, turnos, turnoAbierto, saveTurno, config, persistConfig, usuarioActual, mesas, persistMesas, insumos, saveInsumo, updateInsumo, deleteInsumo, ajustarInventario, equipo, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, onIr }) {
+export function CajaView({ deudas = [], abrirTab = null, menu, orders, cuentas, saveCuenta, saveOrdersMap, turnos, turnoAbierto, saveTurno, config, persistConfig, usuarioActual, mesas, persistMesas, insumos, saveInsumo, updateInsumo, deleteInsumo, ajustarInventario, equipo, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, onIr }) {
   const [tab, setTab] = useState(turnoAbierto ? "mesas" : "turno"); // sin caja abierta, lo primero es abrirla
   const [expandedId, setExpandedId] = useState(null);
   const ancha = useDispositivo() !== "movil";   // tablet / escritorio: lista + detalle lado a lado
@@ -26,12 +33,15 @@ export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, tur
   // El cajero que no es propietario solo ve lo suyo: sin caja abierta no ve nada más que la apertura.
   const bloqueado = !turnoAbierto && !esAdmin;
   const tabActual = bloqueado ? "turno" : tab;
+  // Una alerta (ej. "cuentas pendientes con más de 7 días") puede pedir abrir una pestaña concreta de la caja
+  useEffect(() => { if (abrirTab && abrirTab.tab && !bloqueado) setTab(abrirTab.tab); }, [abrirTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hayDeudaVieja = deudas.some((d) => d.estado === "pendiente" && diasDesde(d.ts) >= DIAS_DEUDA_VIEJA);
 
   const abiertas = cuentas.filter((c) => c.estado === "abierta").sort((a, b) => mesaOrderIndex(mesas, a.mesa) - mesaOrderIndex(mesas, b.mesa));
   const porLiberar = cuentas.filter(esPorLiberar).sort((a, b) => (b.pagadaTs || 0) - (a.pagadaTs || 0));
   const porCobrar = abiertas.reduce((a, c) => a + Math.max(0, cuentaGranTotal(orders, c) - pagosTotal(c)), 0);
   const mesasOcupadas = new Set([...abiertas, ...porLiberar].filter((c) => !esExterna(c)).map((c) => String(c.mesa))).size;
-  const liberar = (c) => saveCuenta({ ...c, liberada: true, liberadaTs: Date.now(), liberadaPor: usuarioActual.nombre });
+  const liberar = (c) => parcharCuenta(c.id, { liberada: true, liberadaTs: Date.now(), liberadaPor: usuarioActual.nombre });
   const seleccionada = abiertas.find((c) => c.id === expandedId) || null;
 
   // Buscar cuentas por mesa, mesero, cliente o producto. Atajo: "/" lleva el cursor al buscador (en computador).
@@ -71,6 +81,9 @@ export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, tur
         <FilaTabs className="no-imprimir ancho" style={styles.cajaTabSwitch}>
           <button style={{ ...styles.cajaTabBtn, ...(tabActual === "turno" ? styles.cajaTabBtnActive : {}) }} aria-current={tabActual === "turno" ? "true" : undefined} onClick={() => setTab("turno")}>Resumen</button>
           <button style={{ ...styles.cajaTabBtn, ...(tabActual === "mesas" ? styles.cajaTabBtnActive : {}) }} aria-current={tabActual === "mesas" ? "true" : undefined} onClick={() => setTab("mesas")}>Cobrar mesas {abiertas.length > 0 ? `(${abiertas.length})` : ""}</button>
+          <button style={{ ...styles.cajaTabBtn, ...(tabActual === "pendientes" ? styles.cajaTabBtnActive : {}) }} aria-current={tabActual === "pendientes" ? "true" : undefined} onClick={() => setTab("pendientes")}>
+            Pendientes{deudas.length > 0 && <span style={{ marginLeft: 6, color: hayDeudaVieja ? "var(--c-c1442d-t)" : "inherit", fontWeight: hayDeudaVieja ? 800 : "inherit" }}>{hayDeudaVieja ? `● ${deudas.length}` : `· ${deudas.length}`}</span>}
+          </button>
           {esAdmin && <button style={{ ...styles.cajaTabBtn, ...(tabActual === "historial" ? styles.cajaTabBtnActive : {}) }} aria-current={tabActual === "historial" ? "true" : undefined} onClick={() => setTab("historial")}>Historial</button>}
           {esAdmin && <button style={{ ...styles.cajaTabBtn, ...(tabActual === "reportes" ? styles.cajaTabBtnActive : {}) }} aria-current={tabActual === "reportes" ? "true" : undefined} onClick={() => setTab("reportes")}>Reportes</button>}
           {esAdmin && (
@@ -125,7 +138,7 @@ export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, tur
                   <div className="campo-prefijo" style={cj.buscador}>
                     <Search size={16} color="var(--c-8a8272-t)" />
                     <input ref={buscadorRef} style={cj.buscadorInput} placeholder={ancha ? "Buscar mesa, mesero o producto  ( / )" : "Buscar mesa, mesero o producto"} value={busca} onChange={(e) => setBusca(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") { setBusca(""); e.currentTarget.blur(); } }} />
-                    {busca && <button style={cj.buscadorX} onClick={() => setBusca("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
+                    {busca && <button className="toque44" style={cj.buscadorX} onClick={() => setBusca("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
                   </div>
                 )}
                 {consulta && abiertasVista.length === 0 && <div style={{ fontSize: 13, color: "var(--c-8a8272-t)", textAlign: "center", padding: "14px 0" }}>Ninguna cuenta coincide con “{busca}”.</div>}
@@ -189,9 +202,10 @@ export function CajaView({ menu, orders, cuentas, saveCuenta, saveOrdersMap, tur
         </div>
       )}
 
-      {tabActual === "historial" && esAdmin && <HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} />}
-      {tabActual === "inventario" && esAdmin && <InventarioView insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} />}
-      {tabActual === "reportes" && esAdmin && <ReportesView cuentas={cuentas} orders={orders} menu={menu} insumos={insumos} usuarioActual={usuarioActual} onIr={onIr} config={config} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} />}
+      {tabActual === "pendientes" && <PendientesView deudas={deudas} usuarioActual={usuarioActual} turnoAbierto={turnoAbierto} config={config} />}
+      {tabActual === "historial" && esAdmin && <React.Suspense fallback={<div style={styles.cajaEmptyText}>Cargando…</div>}><HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} /></React.Suspense>}
+      {tabActual === "inventario" && esAdmin && <React.Suspense fallback={<div style={styles.cajaEmptyText}>Cargando…</div>}><InventarioView insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} /></React.Suspense>}
+      {tabActual === "reportes" && esAdmin && <React.Suspense fallback={<div style={styles.cajaEmptyText}>Cargando…</div>}><ReportesView cuentas={cuentas} orders={orders} menu={menu} insumos={insumos} usuarioActual={usuarioActual} onIr={onIr} config={config} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} /></React.Suspense>}
     </div>
   );
 }
