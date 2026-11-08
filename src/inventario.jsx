@@ -7,6 +7,7 @@ import { uid, money, fmtNum, UNIDADES, estadoStock } from "./logica.js";
 import { vibrar } from "./theme.js";
 import { K, x, CampoNumero, CampoPesos, EmptyState } from "./extras.jsx";
 import { Chevron } from "./componentes/Comunes.jsx";
+import { Selector, CampoFecha } from "./componentes/Campos.jsx";
 import { imprimir, Hoja, Seccion, Kpis, Tabla, Firmas } from "./impresion.jsx";
 import { tieneRol } from "./utilidades.js";
 
@@ -103,10 +104,8 @@ function FormInsumo({ v, set, categorias, nuevo, ocupado, onCancel, onGuardar, t
 
       <div style={x.row}>
         <Campo et="Se mide en">
-          <select style={x.select} value={v.unidadSel} onChange={(e) => set({ ...v, unidadSel: e.target.value })}>
-            {UNIDADES.map((o) => <option key={o} value={o}>{o}</option>)}
-            <option value="__otra">otra unidad…</option>
-          </select>
+          <Selector value={v.unidadSel} onChange={(u) => set({ ...v, unidadSel: u })} titulo="Se mide en"
+            opciones={[...UNIDADES.map((o) => ({ valor: o, etiqueta: o })), { valor: "__otra", etiqueta: "otra unidad" }]} />
         </Campo>
         {nuevo && (
           <Campo et="Cuánto tienes hoy">
@@ -144,7 +143,7 @@ function FormInsumo({ v, set, categorias, nuevo, ocupado, onCancel, onGuardar, t
             <input style={{ ...x.input, flex: 1 }} placeholder="Código o referencia" value={v.codigo} onChange={(e) => set({ ...v, codigo: e.target.value })} />
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
               <span style={x.hint}>Vence el</span>
-              <input style={x.input} type="date" value={v.vence} onChange={(e) => set({ ...v, vence: e.target.value })} />
+              <CampoFecha opcional placeholder="Sin fecha" titulo="Fecha de vencimiento" value={v.vence} onChange={(k) => set({ ...v, vence: k })} />
             </div>
           </div>
           <div style={x.hint}>¿Lo compras por caja, paquete o bulto? Así das entrada contando cajas.</div>
@@ -358,7 +357,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
       {/* Buscar y filtrar */}
       {insumos.length > 0 && !creando && (
         <>
-          <div style={s.buscador}>
+          <div className="campo-prefijo" style={s.buscador}>
             <Search size={16} color="var(--c-8a8272-t)" />
             <input style={s.buscadorInput} placeholder="Buscar por nombre, categoría, proveedor…" value={busca} onChange={(e) => setBusca(e.target.value)} />
             {busca && <button className="toque44" style={s.buscadorX} onClick={() => setBusca("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
@@ -369,12 +368,8 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
           </div>
           <div style={{ ...x.row, justifyContent: "space-between" }}>
             <span style={x.hint}>{lista.length} de {insumos.length}</span>
-            <select style={{ ...x.select, padding: "6px 8px", fontSize: 12.5 }} value={orden} onChange={(e) => setOrden(e.target.value)} aria-label="Ordenar">
-              <option value="urgencia">Más urgentes primero</option>
-              <option value="nombre">Nombre (A–Z)</option>
-              <option value="categoria">Categoría</option>
-              <option value="valor">Mayor valor</option>
-            </select>
+            <Selector compacto style={{ width: "auto", minWidth: 190 }} value={orden} onChange={setOrden} ariaLabel="Ordenar" titulo="Ordenar por"
+              opciones={[{ valor: "urgencia", etiqueta: "Más urgentes primero" }, { valor: "nombre", etiqueta: "Nombre (A–Z)" }, { valor: "categoria", etiqueta: "Categoría" }, { valor: "valor", etiqueta: "Mayor valor" }]} />
           </div>
         </>
       )}
@@ -469,7 +464,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
                   <CampoPesos style={{ ...x.input, flex: 1 }} placeholder={`Costo nuevo por ${unidadSing(ins.unidad)} (opcional)`} value={a.costoNuevo} onChange={(v) => setAccion({ ...a, costoNuevo: v })} />
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
                     <span style={x.hint}>Vence el (opcional)</span>
-                    <input style={x.input} type="date" min={hoyISO()} value={a.vence} onChange={(e) => setAccion({ ...a, vence: e.target.value })} />
+                    <CampoFecha opcional placeholder="Sin fecha" titulo="Fecha de vencimiento" min={hoyISO()} value={a.vence} onChange={(k) => setAccion({ ...a, vence: k })} />
                   </div>
                 </div>
                 <input style={x.input} placeholder="Nota (factura, proveedor…)" value={a.nota} onChange={(e) => setAccion({ ...a, nota: e.target.value })} />
@@ -633,12 +628,12 @@ const s = {
   buscadorX: { width: 24, height: 24, borderRadius: 12, border: "none", background: K.soft, color: K.sub, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
   chips: { display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2, flexWrap: "wrap" },
   chip: { padding: "6px 12px", borderRadius: 999, border: `1px solid ${K.border}`, background: "transparent", color: K.sub, fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
-  chipOn: { background: "var(--seg-on-bg)", color: "var(--seg-on-fg)", borderColor: "var(--seg-on-bg)" },
+  chipOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "var(--chip-on-line)" },
   catTag: { display: "inline-block", margin: "3px 0 2px", padding: "2px 8px", borderRadius: 8, background: K.soft, color: K.sub, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.3 },
   venceAviso: { display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 9, fontSize: 12.5, fontWeight: 600 },
   venceRojo: { background: "var(--c-fbe2dc-b)", color: "var(--c-8a3a2b-t)" },
   venceAmbar: { background: "var(--c-fbefd9-b)", color: "var(--c-8a611a-t)" },
   panelAccion: { display: "flex", flexDirection: "column", gap: 8 },
-  segOn: { background: "var(--seg-on-bg)", color: "var(--seg-on-fg)" },
+  segOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)" },
   movFila: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: `1px solid ${K.border}` },
 };

@@ -506,7 +506,7 @@ export default function App() {
           {vista === "analisis" && (
             <div style={styles.screen}>
               <Analisis
-                onClose={() => setVista(null)} menu={menu} insumos={insumos} config={config} persistConfig={persistConfig}
+                onClose={() => setVista(null)} menu={menu} persistMenu={persistMenu} insumos={insumos} config={config} persistConfig={persistConfig}
                 cuentasAnalisis={cuentasAnalisis} ordersAnalisis={ordersAnalisis}
                 cargarHistorialReciente={cargarHistorialReciente} historialListo={!!baseAnalisis} errorHistorial={!!(baseAnalisis && baseAnalisis.error)} cargandoHistorial={cargandoReciente}
               />

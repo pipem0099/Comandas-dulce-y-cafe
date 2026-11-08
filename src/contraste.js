@@ -24,3 +24,32 @@ export const TEXTO_CLARO = "#FFFFFF";
 export function textoSobre(fondo) {
   return contraste(TEXTO_OSCURO, fondo) >= contraste(TEXTO_CLARO, fondo) ? TEXTO_OSCURO : TEXTO_CLARO;
 }
+
+/* ───────── Mezcla de colores y estado activo de chips/pestañas ───────── */
+const aHex = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+const canales = (hex) => { const h = String(hex).replace("#", ""); const n = h.length === 3 ? h.split("").map((x) => x + x).join("") : h; return [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16)); };
+
+/** Mezcla `a` con `b`: p = 0 → a, p = 1 → b. */
+export function mezclar(a, b, p) {
+  const [ra, ga, ba] = canales(a), [rb, gb, bb] = canales(b);
+  return `#${aHex(ra + (rb - ra) * p)}${aHex(ga + (gb - ga) * p)}${aHex(ba + (bb - ba) * p)}`;
+}
+
+/** Superficies donde se apoyan los chips (tarjeta) en cada modo. */
+export const SUPERFICIE = { claro: "#FFFFFF", oscuro: "#1B1D21" };
+
+/**
+ * Estado ACTIVO de un chip o pestaña: un tinte suave del color de marca (igual al de la barra inferior) con el texto del mismo
+ * matiz, aclarado u oscurecido lo justo para que SIEMPRE tenga contraste de 4,5 o más. Devuelve { bg, fg, linea }.
+ *   acento  color de marca;  acentoTexto  su variante clara para fondo oscuro;  modo  "claro" | "oscuro"
+ */
+export function fichaActiva(acento, acentoTexto, modo) {
+  const oscuro = modo === "oscuro";
+  const base = oscuro ? SUPERFICIE.oscuro : SUPERFICIE.claro;
+  const bg = mezclar(base, acento, oscuro ? 0.34 : 0.15);
+  let fg = oscuro ? acentoTexto : acento;
+  const hacia = oscuro ? "#FFFFFF" : "#000000";
+  for (let p = 0; contraste(fg, bg) < 4.5 && p < 1; p += 0.05) fg = mezclar(oscuro ? acentoTexto : acento, hacia, p);
+  if (contraste(fg, bg) < 4.5) fg = textoSobre(bg);
+  return { bg, fg, linea: mezclar(base, acento, oscuro ? 0.55 : 0.32) };
+}

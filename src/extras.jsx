@@ -3,6 +3,7 @@ import { CabeceraAdmin } from "./componentes/CabeceraAdmin.jsx";
 import { Plus, Minus, Trash2, Check, X, Upload, Boxes, AlertTriangle, Pencil, ShoppingBag, Bike, Image as ImageIcon } from "lucide-react";
 import { ACENTOS, FUENTES, MARCA_POR_DEFECTO, reducirLogo, vibrar } from "./theme.js";
 import { Hoja } from "./componentes/Hoja.jsx";
+import { Selector } from "./componentes/Campos.jsx";
 import {
   uid, money, fmtNum, precioUnitario, getEstaciones, UNIDADES, estadoStock, costoReceta, TIPO_META,
 } from "./logica.js";
@@ -328,10 +329,8 @@ export function ProductoConfig({ item, config, insumos, onSave, onClose }) {
       {estaciones.length > 1 && (
         <>
           <div style={{ ...x.eyebrow, marginTop: 6 }}>Estación de preparación</div>
-          <select style={x.select} value={estacion} onChange={(e) => setEstacion(e.target.value)}>
-            <option value="">Según la categoría ({item.cat})</option>
-            {estaciones.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-          </select>
+          <Selector value={estacion} onChange={setEstacion} titulo="Estación de preparación"
+            opciones={[{ valor: "", etiqueta: `Según la categoría (${item.cat})` }, ...estaciones.map((e) => ({ valor: e.id, etiqueta: e.nombre }))]} />
         </>
       )}
 
@@ -346,10 +345,9 @@ export function ProductoConfig({ item, config, insumos, onSave, onClose }) {
             const ins = insumos.find((v) => v.id === r.insumoId);
             return (
               <div key={i} style={x.row}>
-                <select style={{ ...x.select, flex: 1.6, minWidth: 0 }} value={r.insumoId || ""} onChange={(e) => setReceta((rs) => rs.map((q, j) => (j === i ? { ...q, insumoId: e.target.value } : q)))}>
-                  <option value="">Elegir insumo…</option>
-                  {insumos.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
-                </select>
+                <Selector style={{ flex: 1.6, minWidth: 0, width: "auto" }} value={r.insumoId || ""} titulo="Elegir insumo" placeholder="Elegir insumo"
+                  onChange={(id) => setReceta((rs) => rs.map((q, j) => (j === i ? { ...q, insumoId: id } : q)))}
+                  opciones={insumos.map((v) => ({ valor: v.id, etiqueta: v.nombre }))} />
                 <CampoNumero style={{ ...x.input, flex: 0.8, minWidth: 0 }} placeholder="Cant." value={r.cant} onChange={(v) => setReceta((rs) => rs.map((q, j) => (j === i ? { ...q, cant: v } : q)))} />
                 <span style={{ ...x.hint, width: 52 }}>{ins ? ins.unidad : ""}</span>
                 <button className="toque44" style={x.btnDanger} onClick={() => setReceta((rs) => rs.filter((_, j) => j !== i))} aria-label="Quitar"><X size={14} /></button>
@@ -521,9 +519,8 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
               {categorias.map((c) => (
                 <div key={c} style={{ ...x.row, justifyContent: "space-between" }}>
                   <span style={{ fontSize: 13.5, flex: 1 }}>{c}</span>
-                  <select style={x.select} value={(config.estacionPorCategoria || {})[c] || estaciones[0].id} onChange={(e) => asignarCategoria(c, e.target.value)}>
-                    {estaciones.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-                  </select>
+                  <Selector style={{ width: "auto", minWidth: 170 }} value={(config.estacionPorCategoria || {})[c] || estaciones[0].id} onChange={(id) => asignarCategoria(c, id)} titulo={`Estación de ${c}`}
+                    opciones={estaciones.map((e) => ({ valor: e.id, etiqueta: e.nombre }))} />
                 </div>
               ))}
               <div style={x.hint}>Un producto puntual puede ir a otra estación desde Menú → Configurar.</div>
