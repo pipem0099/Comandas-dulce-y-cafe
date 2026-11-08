@@ -7,6 +7,7 @@ import { METODO_META } from "../constantes.js";
 import { EmptyState } from "../extras.jsx";
 import { Hoja } from "../componentes/Hoja.jsx";
 import { CampoMonto, MetodoPills } from "../componentes/Comunes.jsx";
+import { CampoFecha } from "../componentes/Campos.jsx";
 import { getCollectionRange } from "../firebase.js";
 import { cobrarPendiente, condonarPendiente } from "../deudasOps.js";
 import { exportarDeudas } from "../exportar.js";
@@ -57,25 +58,25 @@ export function PendientesView({ deudas, usuarioActual, turnoAbierto, config }) 
     <div className="ancho" style={styles.menuScroll}>
       <div style={cj.resumen}>
         <div style={cj.resCelda}><span style={cj.resEt}>Por cobrar</span><span style={cj.resGrande}>{money(totalPendiente(deudas))}</span></div>
-        <div style={cj.resCelda}><span style={cj.resEt}>Cuentas pendientes</span><span style={cj.resNum}>{pendientes.length}</span></div>
-        <div style={{ ...cj.resCelda, borderRight: "none" }}><span style={cj.resEt}>La más antigua</span><span style={cj.resNum}>{masAntigua ? antiguedadLabel(masAntigua) : "—"}</span></div>
+        <div style={cj.resCelda}><span style={cj.resEt}>Pendientes</span><span style={cj.resNum}>{pendientes.length}</span></div>
+        <div style={{ ...cj.resCelda, borderRight: "none" }}><span style={cj.resEt}>Más antigua</span><span style={cj.resNum}>{masAntigua ? antiguedadLabel(masAntigua) : "—"}</span></div>
       </div>
 
       {!turnoAbierto && (
         <div style={{ ...styles.warnBanner, marginBottom: 10 }}><AlertTriangle size={14} /> Abre el turno para poder cobrar. Mientras tanto puedes consultar las deudas.</div>
       )}
 
-      <div style={cj.buscador}>
+      <div className="campo-prefijo" style={cj.buscador}>
         <Search size={16} color="var(--c-8a8272-t)" />
         <input ref={buscadorRef} style={cj.buscadorInput} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Buscar por nombre, teléfono o documento" aria-label="Buscar cuenta pendiente" />
         {texto && <button className="toque44" style={cj.buscadorX} aria-label="Borrar búsqueda" onClick={() => { setTexto(""); buscadorRef.current && buscadorRef.current.focus(); }}><X size={13} /></button>}
       </div>
 
       <div style={cj.fechas}>
-        <label style={cj.fechaCampo}><span style={cj.resEt}>Desde</span><input type="date" style={cj.fechaInput} value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)} /></label>
-        <label style={cj.fechaCampo}><span style={cj.resEt}>Hasta</span><input type="date" style={cj.fechaInput} value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)} /></label>
-        {(desde || hasta) && <button className="toque44" style={cj.limpiar} onClick={() => { setDesde(""); setHasta(""); }}>Quitar fechas</button>}
+        <div style={cj.fechaCampo}><span style={cj.resEt}>Desde</span><CampoFecha opcional value={desde} max={hasta || undefined} onChange={setDesde} placeholder="Cualquier fecha" titulo="Desde" /></div>
+        <div style={cj.fechaCampo}><span style={cj.resEt}>Hasta</span><CampoFecha opcional value={hasta} min={desde || undefined} onChange={setHasta} placeholder="Cualquier fecha" titulo="Hasta" /></div>
       </div>
+      {(desde || hasta) && <button className="toque44" style={{ ...cj.limpiar, marginTop: 6 }} onClick={() => { setDesde(""); setHasta(""); }}>Quitar fechas</button>}
 
       {esAdmin && (
         <div style={cj.chips} role="tablist" aria-label="Estado de las cuentas">
@@ -270,16 +271,15 @@ const cj = {
   buscador: { display: "flex", alignItems: "center", gap: 8, padding: "0 12px", borderRadius: 12, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)" },
   buscadorInput: { flex: 1, minWidth: 0, padding: "12px 0", border: "none", outline: "none", background: "transparent", color: "var(--c-242019-t)", fontSize: 14, fontFamily: "var(--font-body)" },
   buscadorX: { width: 24, height: 24, borderRadius: 12, border: "none", background: "var(--c-f1ecdd-b)", color: "var(--c-5c5648-t)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
-  resumen: { display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 16, overflow: "hidden", marginBottom: 12 },
-  resCelda: { display: "flex", flexDirection: "column", gap: 4, padding: "12px 14px", borderRight: "1px solid var(--c-ede7d8-o)" },
-  resEt: { fontSize: 11.5, color: "var(--c-8a8272-t)" },
-  resGrande: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--accent-t)" },
-  resNum: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--c-242019-t)" },
-  fechas: { display: "flex", alignItems: "flex-end", gap: 10, flexWrap: "wrap", marginTop: 10 },
-  fechaCampo: { display: "flex", flexDirection: "column", gap: 3, flex: "1 1 130px" },
-  fechaInput: { padding: "10px 10px", borderRadius: 10, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-242019-t)", fontSize: 14, fontFamily: "var(--font-body)", minHeight: 42 },
+  resumen: { display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 16, overflow: "hidden", marginBottom: 12 },
+  resCelda: { display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8, minHeight: 84, padding: "14px 14px 12px", borderRight: "1px solid var(--c-ede7d8-o)", minWidth: 0 },
+  resEt: { fontSize: 12, color: "var(--c-8a8272-t)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.2 },
+  resGrande: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--accent-t)", lineHeight: 1.1, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
+  resNum: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--c-242019-t)", lineHeight: 1.1, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
+  fechas: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 },
+  fechaCampo: { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 },
   limpiar: { padding: "10px 12px", borderRadius: 10, border: "1px solid var(--c-e4dfce-o)", background: "transparent", color: "var(--c-5c5648-t)", fontSize: 13, cursor: "pointer", minHeight: 42 },
-  chips: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 10 },
+  chips: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 12 },
   sumaFila: { marginTop: 10, fontSize: 13, color: "var(--c-5c5648-t)" },
   cargando: { padding: 30, textAlign: "center", color: "var(--c-8a8272-t)", fontSize: 13 },
   fila: { display: "flex", flexDirection: "column", gap: 6, padding: "13px 14px", textAlign: "left", background: "var(--c-fffdf8-b)", borderWidth: 1.5, borderStyle: "solid", borderColor: "var(--c-e4dfce-o)", borderRadius: 16, cursor: "pointer", color: "var(--c-242019-t)" },

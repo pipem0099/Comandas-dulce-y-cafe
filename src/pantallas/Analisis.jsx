@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import { FilaTabs } from "../componentes/Comunes.jsx";
 import { InfoTip } from "../componentes/InfoTip.jsx";
+import { Minus, Plus } from "lucide-react";
+import { horaReloj, rangoHoras, horasDesdeApertura } from "../horas.js";
 import { styles } from "../estilos.js";
 import { money } from "../logica.js";
 import { dateTimeLabel } from "../utilidades.js";
@@ -34,10 +36,14 @@ function Tabs({ valor, onChange, opciones }) {
     </FilaTabs>
   );
 }
-function Linea({ a, b, color, fuerte }) {
+function Linea({ a, b, sub, color, fuerte }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "5px 0", fontSize: 13, color: C.medio }}>
-      <span>{a}</span><span style={{ color: color || C.texto, fontWeight: fuerte ? 800 : 700, textAlign: "right" }}>{b}</span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, padding: "8px 0", fontSize: 13.5, color: C.medio }}>
+      <span style={{ flex: 1, minWidth: 0 }}>{a}</span>
+      <span style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, textAlign: "right" }}>
+        <span style={{ color: color || C.texto, fontWeight: fuerte ? 800 : 600, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{b}</span>
+        {sub ? <span style={{ fontSize: 12, color: C.suave, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{sub}</span> : null}
+      </span>
     </div>
   );
 }
@@ -90,8 +96,8 @@ function Resumen({ ventas, ahora }) {
 
       <div style={titulo}>Ticket y personas</div>
       <div style={caja}>
-        <Linea a="Ticket promedio por cuenta" b={`${money(A.ticket)}  (antes ${money(B.ticket)})`} />
-        <Linea a="Cuentas atendidas" b={`${A.cuentas}  (antes ${B.cuentas})`} />
+        <Linea a="Ticket promedio por cuenta" b={money(A.ticket)} sub={`antes ${money(B.ticket)}`} />
+        <Linea a="Cuentas atendidas" b={String(A.cuentas)} sub={`antes ${B.cuentas}`} />
         {A.ticketPersona !== null
           ? <Linea a="Ticket por persona" b={money(A.ticketPersona)} />
           : <Vacio>Anota cuántas personas había en cada mesa (en la cuenta) para ver el ticket por persona.</Vacio>}
@@ -256,10 +262,9 @@ function Semana({ ventas, menu, insumos, config, persistConfig, ahora }) {
   const compras = useMemo(() => comprasSugeridas(ventas, menu, insumos, { ahora, diasAdelante: 3 }), [ventas, menu, insumos, ahora]);
   const maxPron = Math.max(1, ...plan.dias.map((d) => d.pronostico));
   const maxHeat = Math.max(1, ...plan.heat.flat());
-  const horasActivas = [];
-  plan.heat.forEach((fila) => fila.forEach((v, h) => { if (v > 0) horasActivas.push(h); }));
-  const h0 = horasActivas.length ? Math.max(0, Math.min(...horasActivas) - 1) : 7, h1 = horasActivas.length ? Math.min(23, Math.max(...horasActivas) + 1) : 20;
-  const horas = []; for (let h = h0; h <= h1; h++) horas.push(h);
+  const totalesHora = Array.from({ length: 24 }, (_, h) => plan.heat.reduce((acc, fila) => acc + (fila[h] || 0), 0));
+  const hayVentas = totalesHora.some((v) => v > 0);
+  const horas = horasDesdeApertura(totalesHora); // empieza cuando abre el negocio (no a las 12 a. m.) y no corta la madrugada
   const hoy = plan.dias[new Date(ahora).getDay()];
   return (
     <>
@@ -286,27 +291,37 @@ function Semana({ ventas, menu, insumos, config, persistConfig, ahora }) {
       {plan.g !== 1 && <div style={{ ...nota, color: C.suave, marginTop: 6 }}>Ajustado {plan.g > 1 ? "al alza" : "a la baja"} ({Math.round((plan.g - 1) * 100)}%) por la tendencia de las últimas 4 semanas.</div>}
 
       <div style={titulo}>Cuándo se vende (promedio por hora)</div>
-      {horasActivas.length === 0 ? <Vacio>Aún no hay ventas para dibujar el mapa.</Vacio> : (
-        <div style={{ overflowX: "auto", paddingBottom: 6 }}>
-          <div style={{ display: "flex", gap: 3, marginLeft: 38, marginBottom: 3 }}>
-            {horas.map((h) => <div key={h} style={{ width: 18, fontSize: 9, color: C.suave, textAlign: "center" }}>{h % 2 === 0 ? h : ""}</div>)}
-          </div>
-          {ORDEN_SEMANA.map((w) => (
-            <div key={w} style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 3 }}>
-              <div style={{ width: 35, fontSize: 11, color: C.medio, fontWeight: 700 }}>{DIAS_SEMANA[w].slice(0, 3)}</div>
-              {horas.map((h) => {
-                const v = plan.heat[w][h];
-                return <div key={h} title={`${DIAS_SEMANA[w]} ${h}:00 · ${money(v)}`} style={{ width: 18, height: 22, borderRadius: 4, background: v > 0 ? `rgba(193,68,45,${0.12 + 0.88 * (v / maxHeat)})` : C.suaveBg }} />;
-              })}
+      {!hayVentas ? <Vacio>Aún no hay ventas para dibujar el mapa.</Vacio> : (
+        <div style={{ ...caja, padding: 0, overflow: "hidden" }}>
+          <div style={{ overflowX: "auto", padding: "14px 12px 10px" }} tabIndex={0} aria-label="Mapa de ventas por día y hora; desliza para ver todas las horas">
+            <div style={{ minWidth: 48 + horas.length * 36 }}>
+              <div style={{ display: "flex", gap: 6, paddingLeft: 48, marginBottom: 8 }}>
+                {horas.map((h) => (
+                  <div key={h} style={{ width: 30, flexShrink: 0, textAlign: "center", lineHeight: 1.15, color: C.suave }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: C.medio }}>{h % 12 === 0 ? 12 : h % 12}</div>
+                    <div style={{ fontSize: 9.5 }}>{h < 12 ? "a. m." : "p. m."}</div>
+                  </div>
+                ))}
+              </div>
+              {ORDEN_SEMANA.map((w) => (
+                <div key={w} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <div style={{ width: 42, flexShrink: 0, position: "sticky", left: 0, zIndex: 1, background: C.fondo, fontSize: 12.5, color: C.medio, fontWeight: 600 }}>{DIAS_SEMANA[w].slice(0, 3)}</div>
+                  {horas.map((h) => {
+                    const v = plan.heat[w][h];
+                    return <div key={h} title={`${DIAS_SEMANA[w]} ${horaReloj(h)} · ${money(v)}`} style={{ width: 30, height: 28, flexShrink: 0, borderRadius: 6, background: v > 0 ? `color-mix(in srgb, var(--accent) ${Math.round(16 + 64 * (v / maxHeat))}%, var(--c-ede7d8-b))` : "var(--c-ede7d8-b)" }} />;
+                  })}
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          <div style={{ ...nota, color: C.suave, padding: "0 14px 12px" }}>Más intenso = más ventas. Desliza hacia el lado para ver todas las horas.</div>
         </div>
       )}
 
       <div style={titulo}>Personal sugerido en la hora pico</div>
       <div style={caja}>
         {ORDEN_SEMANA.map((w) => { const d = plan.dias[w]; return (
-          <Linea key={w} a={d.nombre} b={d.franja ? `${d.franja.desde}–${d.franja.hasta} h · ${d.personalPico} ${d.personalPico === 1 ? "mesero" : "meseros"}` : "—"} />
+          <Linea key={w} a={d.nombre} b={d.franja ? rangoHoras(d.franja.desde, d.franja.hasta) : "—"} sub={d.franja ? `${d.personalPico} ${d.personalPico === 1 ? "mesero" : "meseros"}` : "Sin datos"} />
         ); })}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 8 }}>
           <span style={nota}>Cuentas que atiende un mesero por hora</span>
@@ -327,7 +342,7 @@ function Semana({ ventas, menu, insumos, config, persistConfig, ahora }) {
 }
 
 /* ───────── 6 y 7 · Costos automáticos, margen objetivo y alertas ───────── */
-function Costos({ ventas, menu, insumos, config, persistConfig, ahora }) {
+function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, ahora }) {
   const categorias = useMemo(() => [...new Set((menu || []).map((m) => m.cat).filter(Boolean))], [menu]);
   const guardada = (config && config.plantillaCostos) || {};
   const [borrador, setBorrador] = useState(() => Object.fromEntries(categorias.map((c) => [c, guardada[c] ? String(guardada[c]) : ""])));
@@ -342,6 +357,9 @@ function Costos({ ventas, menu, insumos, config, persistConfig, ahora }) {
     await persistConfig({ ...config, plantillaCostos: limpio });
     setGuardado(true); setTimeout(() => setGuardado(false), 2000);
   };
+  const [confirmaId, setConfirmaId] = useState(null);   // precio que espera una segunda pulsación para confirmarse
+  const [aplicados, setAplicados] = useState({});         // precios ya cambiados en esta sesión
+  const fijarObjetivo = (v) => { const n = Math.max(10, Math.min(90, Math.round(v))); if (n !== objetivo) persistConfig({ ...config, margenObjetivo: n }); };
   const bajos = rent.productos.filter((p) => p.margenPct !== null && p.margenPct < objetivo).slice(0, 10);
   const precioDe = (id) => { const m = (menu || []).find((x) => x.id === id); return m ? m.price : 0; };
   return (
@@ -371,23 +389,66 @@ function Costos({ ventas, menu, insumos, config, persistConfig, ahora }) {
         <div style={{ ...nota, color: C.suave, marginTop: 8 }}>Los valores sugeridos son referencias generales del sector (bebidas ~25%, postres y panadería ~30%, comidas ~33%). Ajústalos a tus costos reales; lo estimado se marca con “~”.</div>
       </div>
 
-      <div style={titulo}>Margen objetivo</div>
+      <div style={{ ...titulo, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span>Margen objetivo</span>
+        <InfoTip titulo="¿Qué es el margen objetivo?">
+          Es el porcentaje del precio de venta que quieres que te quede como ganancia después de pagar el costo del producto.
+          <br /><br />Ejemplo: un producto que vendes a $10.000 y te cuesta $4.000 deja $6.000, es decir un margen de 60%. Si tu objetivo es 65%, la app te sugiere un precio más alto para llegar a él.
+        </InfoTip>
+      </div>
       <div style={caja}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <span style={nota}>Cuánto quieres ganar sobre el precio</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input type="number" min="10" max="90" inputMode="numeric" style={entrada} defaultValue={objetivo}
-              onBlur={(e) => { const v = Math.max(10, Math.min(90, Math.round(Number(e.target.value) || 65))); if (v !== objetivo) persistConfig({ ...config, margenObjetivo: v }); }} />
-            <span style={{ color: C.suave }}>%</span>
-          </span>
+        <div style={nota}>¿Cuánto de cada venta quieres que sea ganancia?</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "10px 0 12px" }}>
+          {[40, 50, 60, 65, 70, 80].map((v) => (
+            <button key={v} style={{ ...styles.propinaPill, ...(objetivo === v ? styles.pillOn : {}) }} aria-pressed={objetivo === v} onClick={() => fijarObjetivo(v)}>{v}%</button>
+          ))}
         </div>
-        {bajos.length === 0 ? <div style={{ ...nota, marginTop: 8 }}>Ningún producto con costo está por debajo del objetivo.</div> : (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
+          <span style={nota}>Otro valor</span>
+          <div style={styles.stepper}>
+            <button style={styles.stepBtn} aria-label="Bajar el objetivo 5 puntos" onClick={() => fijarObjetivo(objetivo - 5)}><Minus size={14} /></button>
+            <span style={{ ...styles.stepVal, minWidth: 52 }}>{objetivo}%</span>
+            <button style={styles.stepBtn} aria-label="Subir el objetivo 5 puntos" onClick={() => fijarObjetivo(objetivo + 5)}><Plus size={14} /></button>
+          </div>
+        </div>
+        <Linea a="Tu margen en los últimos 30 días" b={rent.margenPct != null ? `${Math.round(rent.margenPct)}%` : "—"}
+          sub={rent.margenPct == null ? "Faltan costos para calcularlo" : rent.margenPct >= objetivo ? "Cumples el objetivo" : `Te faltan ${Math.round(objetivo - rent.margenPct)} puntos`}
+          color={rent.margenPct != null ? (rent.margenPct >= objetivo ? C.verde : C.rojo) : undefined} />
+        {bajos.length === 0 ? <div style={{ ...nota, marginTop: 4 }}>Ningún producto con costo está por debajo del objetivo.</div> : (
           <>
-            <div style={{ ...nota, margin: "10px 0 4px" }}>Por debajo del objetivo ({bajos.length}):</div>
+            <div style={{ ...nota, margin: "12px 0 2px", fontWeight: 600, color: C.texto }}>Productos por debajo del objetivo ({bajos.length})</div>
             {bajos.map((p) => {
               const costoUnit = p.qty > 0 ? p.costo / p.qty : 0;
               const sug = precioSugerido(costoUnit, objetivo);
-              return <Linea key={p.id} a={`${p.name} · margen ${Math.round(p.margenPct)}%`} b={sug ? `${money(precioDe(p.id))} → ${money(Math.ceil(sug / 100) * 100)}` : "—"} />;
+              const nuevo = sug ? Math.ceil(sug / 100) * 100 : 0;
+              const actual = precioDe(p.id);
+              const listo = aplicados[p.id];
+              return (
+                <div key={p.id} style={{ padding: "10px 0", borderTop: `1px solid ${C.borde}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 500, color: C.texto }}>{p.name}</div>
+                      <div style={{ fontSize: 12, color: C.suave }}>Margen {Math.round(p.margenPct)}% · costo {money(costoUnit)}</div>
+                    </div>
+                    {nuevo > 0 && (
+                      <div style={{ flexShrink: 0, textAlign: "right" }}>
+                        <div style={{ fontSize: 14.5, fontWeight: 600, color: C.texto, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{money(listo ? listo : nuevo)}</div>
+                        <div style={{ fontSize: 12, color: C.suave, whiteSpace: "nowrap" }}>{listo ? "precio actualizado" : `ahora ${money(actual)}`}</div>
+                      </div>
+                    )}
+                  </div>
+                  {persistMenu && nuevo > actual && !listo && (
+                    <button style={{ ...styles.btnRestringido, minHeight: 40, marginTop: 8, justifyContent: "center", fontSize: 13, ...(confirmaId === p.id ? { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)" } : {}) }}
+                      onClick={() => {
+                        if (confirmaId !== p.id) { setConfirmaId(p.id); setTimeout(() => setConfirmaId((c) => (c === p.id ? null : c)), 4000); return; }
+                        persistMenu((menu || []).map((m) => (m.id === p.id ? { ...m, price: nuevo } : m)));
+                        setAplicados((a) => ({ ...a, [p.id]: nuevo })); setConfirmaId(null);
+                      }}>
+                      {confirmaId === p.id ? `Toca otra vez para cambiar a ${money(nuevo)}` : `Subir el precio a ${money(nuevo)}`}
+                    </button>
+                  )}
+                </div>
+              );
             })}
           </>
         )}
@@ -411,7 +472,7 @@ function Costos({ ventas, menu, insumos, config, persistConfig, ahora }) {
 }
 
 /* ───────── Pantalla ───────── */
-export function Analisis({ onClose, menu, insumos, config, persistConfig, cuentasAnalisis, ordersAnalisis, cargarHistorialReciente, historialListo, errorHistorial, cargandoHistorial }) {
+export function Analisis({ onClose, menu, persistMenu, insumos, config, persistConfig, cuentasAnalisis, ordersAnalisis, cargarHistorialReciente, historialListo, errorHistorial, cargandoHistorial }) {
   const [tab, setTab] = useState("resumen");
   const [ahora] = useState(() => Date.now());
   // Se piden los últimos 120 días una sola vez: lo que ya está en vivo (~35 días) no alcanza para 8 semanas ni para el mes pasado,
@@ -430,7 +491,7 @@ export function Analisis({ onClose, menu, insumos, config, persistConfig, cuenta
         {tab === "productos" && <Productos ventas={ventas} menu={menu || []} insumos={insumos || []} plantilla={plantilla} ahora={ahora} onCostos={() => setTab("costos")} />}
         {tab === "perdidas" && <Perdidas ventas={ventas} cuentas={cuentasAnalisis || []} ahora={ahora} />}
         {tab === "semana" && <Semana ventas={ventas} menu={menu || []} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
-        {tab === "costos" && <Costos ventas={ventas} menu={menu || []} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
+        {tab === "costos" && <Costos ventas={ventas} menu={menu || []} persistMenu={persistMenu} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
       </div>
     </>
   );

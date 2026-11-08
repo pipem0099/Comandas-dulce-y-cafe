@@ -41,6 +41,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
   const [vueltaPropina, setVueltaPropina] = useState(false); // dejar la vuelta como propina
   const [montoMixto, setMontoMixto] = useState("");           // monto de este pago en "Pago mixto"
   const [numPartes, setNumPartes] = useState(2);
+  const [editandoPropina, setEditandoPropina] = useState(false); // con propina ya puesta, el botón "Cambiar propina" muestra los porcentajes
   const [verAjustes, setVerAjustes] = useState(false); // propina y descuento son opcionales: van ocultos hasta que se necesiten
   // Pago combinado: una misma parte/persona se paga con varios métodos (ej. $5.000 efectivo + $8.000 transferencia).
   // Los abonos se anotan aquí y solo se guardan todos juntos cuando suman lo que esa parte debe.
@@ -169,6 +170,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
   const setPropina = async (pct) => {
     const monto = pct === "custom" ? Math.round(parseFloat(propinaCustom) || 0) : Math.round((subtotal * pct) / 100);
     await patchCuenta({ propina: { pct: pct === "custom" ? null : pct, monto } });
+    setEditandoPropina(false);
   };
   // Bitácora de control: queda quién (su uid real), cuándo y cuánto. No frena la operación si falla.
   // El monto propio se aplica solo (al terminar de escribir: Enter o al salir del campo); no hay botón "Ok".
@@ -501,17 +503,16 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
             <div style={styles.subtotalRow}>
               <span>
                 Propina {cuenta.propina.pct != null ? `(${cuenta.propina.pct}%)` : ""}
-                {pagos.length === 0 && <button style={styles.inlineLink} onClick={quitarPropina}>cambiar</button>}
               </span>
               <span>{money(cuenta.propina.monto)}</span>
             </div>
           )}
-          {pagos.length === 0 && (!cuenta.descuento || !cuenta.propina) && (
+          {pagos.length === 0 && (
             <div style={styles.ajustesWrap}>
               <button style={{ ...styles.propinaToggle, ...(verAjustes ? styles.propinaToggleAbierto : {}) }} aria-expanded={verAjustes} onClick={() => { if (verAjustes) setMostrarDescuento(false); setVerAjustes(!verAjustes); }}>
-                <span>{!cuenta.descuento && !cuenta.propina ? "Propina y descuento" : !cuenta.propina ? "Propina" : "Descuento o cortesía"}</span>
+                <span>Propina y descuento</span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--c-8a8272-t)", fontWeight: 500, fontSize: 13 }}>
-                  {!verAjustes && "Opcional"}
+                  {!verAjustes && (cuenta.propina || cuenta.descuento ? [cuenta.propina && `Propina ${cuenta.propina.pct != null ? `${cuenta.propina.pct}%` : money(cuenta.propina.monto)}`, cuenta.descuento && "Descuento"].filter(Boolean).join(" · ") : "Opcional")}
                   <Chevron abierto={verAjustes} size={17} />
                 </span>
               </button>
@@ -533,15 +534,22 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                     <button style={styles.btnRestringido} onClick={() => setMostrarDescuento(true)}><Gift size={16} /> <span style={{ flex: 1, textAlign: "left" }}>Aplicar descuento o cortesía</span><Lock size={13} color="var(--btn2-mute)" aria-label="Acción limitada por rol" /></button>
                   )
                 )}
-                {!cuenta.propina && !mostrarDescuento && (
+                {cuenta.propina && !editandoPropina && !mostrarDescuento && (
+                  <button style={styles.btnRestringido} onClick={() => setEditandoPropina(true)}>
+                    <HandCoins size={16} /> <span style={{ flex: 1, textAlign: "left" }}>Cambiar propina</span>
+                    <span style={{ color: "var(--btn2-mute)", fontWeight: 500, fontSize: 13 }}>{cuenta.propina.pct != null ? `${cuenta.propina.pct}%` : "Monto propio"} · {money(cuenta.propina.monto)}</span>
+                  </button>
+                )}
+                {(!cuenta.propina || editandoPropina) && !mostrarDescuento && (
                   <div style={styles.propinaBox}>
                     <span style={styles.closeConfirmText}>Propina:</span>
                     <div style={styles.propinaPillsRow}>
                       {PROPINA_OPCIONES.map((p) => (
-                        <button key={p} style={styles.propinaPill} onClick={() => setPropina(p)}>{p}%</button>
+                        <button key={p} style={{ ...styles.propinaPill, ...(cuenta.propina && cuenta.propina.pct === p ? styles.pillOn : {}) }} onClick={() => setPropina(p)}>{p}%</button>
                       ))}
                       <span className="campo-prefijo" style={styles.propinaCustomWrap}><span style={{ color: "var(--c-8a8272-t)", fontWeight: 700, fontSize: 13 }}>$</span><CampoMonto style={styles.propinaCustomInput} placeholder="Otro monto" value={propinaCustom} onChange={setPropinaCustom} onEnter={aplicarPropinaCustom} onBlur={aplicarPropinaCustom} /></span>
                     </div>
+                    {editandoPropina && <button style={styles.cancelEditBtn} onClick={() => setEditandoPropina(false)}>Dejar como está</button>}
                   </div>
                 )}
                 </div>

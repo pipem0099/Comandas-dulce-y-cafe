@@ -101,7 +101,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
 
         {/* Barra fija de navegación: buscador + categorías en pastillas */}
         <div style={m.sticky}>
-          <div style={m.buscador}>
+          <div className="campo-prefijo" style={m.buscador}>
             <Search size={16} color="var(--c-8a8272-t)" />
             <input data-enter="blur" style={m.buscadorInput} placeholder="Buscar producto…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
             {busqueda && <button className="toque44" style={m.limpiar} onClick={() => setBusqueda("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
@@ -209,7 +209,7 @@ const m = {
   pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
   fila1: { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" },
   pastilla: { flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, border: "none", background: "var(--chip-bg)", color: "var(--chip-fg)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
-  pastillaOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", fontWeight: 700, boxShadow: "none" },
+  pastillaOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", fontWeight: 700, boxShadow: "inset 0 0 0 1px var(--chip-on-line)" },
   avisoGlobal: { display: "flex", alignItems: "center", gap: 10, width: "100%", minHeight: 44, margin: "10px 0 0", padding: "0 14px", borderRadius: 12, border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", color: "var(--btn2-fg)", fontSize: 13, fontWeight: 500, cursor: "pointer" },
   cuenta: { fontSize: 11.5, opacity: 0.7, fontWeight: 700 },
   formTitulo: { display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)" },

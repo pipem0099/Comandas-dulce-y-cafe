@@ -5,8 +5,10 @@ import { HojaReporte } from "../hojas.jsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { money } from "../logica.js";
 import { MontoSigno, FilaTabs, FilaDato } from "../componentes/Comunes.jsx";
+import { InfoTip } from "../componentes/InfoTip.jsx";
+import { horaCorta, horasDesdeApertura } from "../horas.js";
 import { styles } from "../estilos.js";
-import { cuentaGranTotal, cuentaOrders, dateTimeLabel, hourLabel, tieneRol } from "../utilidades.js";
+import { cuentaGranTotal, cuentaOrders, dateTimeLabel, tieneRol } from "../utilidades.js";
 import { prepararVentas, rentabilidad, rangosComparables, resumenPeriodo, comparar } from "../analitica.js";
 
 /* ---------------- Reportes ---------------- */
@@ -45,12 +47,8 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
 
   const porHora = {};
   pagadasRango.forEach((c) => { const h = new Date(c.pagadaTs).getHours(); porHora[h] = (porHora[h] || 0) + cuentaGranTotal(orders, c); });
-  const dataHora = Array.from({ length: 24 }, (_, h) => ({ hora: hourLabel(h), total: porHora[h] || 0 })).filter((d, i) => {
-    // solo mostrar el rango de horas de operación con datos, ampliado un poco
-    const conDatos = Object.keys(porHora).map(Number);
-    if (conDatos.length === 0) return i >= 6 && i <= 22;
-    return i >= Math.max(0, Math.min(...conDatos) - 1) && i <= Math.min(23, Math.max(...conDatos) + 1);
-  });
+  // Las barras empiezan a la hora en que abre el negocio y usan la hora local (4 p. m.), no 00:00–23:00.
+  const dataHora = horasDesdeApertura(Array.from({ length: 24 }, (_, h) => porHora[h] || 0)).map((h) => ({ hora: horaCorta(h), total: porHora[h] || 0 }));
 
   const productoMap = {};
   let ventaProductos = 0;
@@ -148,7 +146,15 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
             {huboCostosCargados && (
               <>
                 <div style={styles.subtotalRow}><span>Costo de productos vendidos</span><span>−{money(costoProductos)}</span></div>
-                <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Margen (utilidad bruta, ya sin descuentos)</span><span>{aprox}{money(margenRango)} ({margenPct}%)</span></div>
+                <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>Margen
+                    <InfoTip titulo="Margen">
+                      Es la utilidad bruta: lo que queda de las ventas después de descontar el costo de los productos, ya sin descuentos ni cortesías.
+                      <br /><br />En este periodo es <b>{margenPct}%</b> de lo vendido{rentab.hayEstimado ? " (parte del costo es estimado)" : ""}.
+                    </InfoTip>
+                  </span>
+                  <span style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{aprox}{money(margenRango)}</span>
+                </div>
               </>
             )}
             <div style={styles.subtotalRow}>
@@ -192,21 +198,25 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
         {dataHora.length === 0 || totalRango === 0 ? (
           <div style={styles.cajaEmptyText}>Sin ventas en este rango todavía.</div>
         ) : (
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={dataHora} margin={{ top: 8, right: 4, left: -8, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradVentasHora" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.95} />
-                  <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.3} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} strokeDasharray="0" stroke="var(--grid-line)" />
-              <XAxis dataKey="hora" axisLine={false} tickLine={false} tickMargin={8} interval="preserveStartEnd" minTickGap={22} tick={{ fontSize: 11, fill: "var(--c-8a8272-t)" }} />
-              <YAxis axisLine={false} tickLine={false} width={40} tick={{ fontSize: 11, fill: "var(--c-8a8272-t)" }} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
-              <Tooltip cursor={{ fill: "var(--grid-line)" }} formatter={(v) => money(v)} contentStyle={{ fontSize: 12, borderRadius: 10, background: "var(--c-fffdf8-b)", border: "1px solid var(--btn2-line)", color: "var(--c-242019-t)", boxShadow: "var(--shadow-float)" }} />
-              <Bar dataKey="total" fill="url(#gradVentasHora)" radius={[4, 4, 0, 0]} maxBarSize={28} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div style={{ overflowX: "auto" }} tabIndex={0} aria-label="Gráfico de ventas por hora; desliza para ver todas las horas">
+            <div style={{ minWidth: Math.max(300, 68 + dataHora.length * 46) }}>
+          <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={dataHora} margin={{ top: 10, right: 16, left: 4, bottom: 4 }}>
+                <defs>
+                  <linearGradient id="gradVentasHora" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.95} />
+                    <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.3} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} strokeDasharray="0" stroke="var(--grid-line)" />
+                <XAxis dataKey="hora" axisLine={false} tickLine={false} tickMargin={8} interval={0} tick={{ fontSize: 11, fill: "var(--c-8a8272-t)" }} />
+                <YAxis axisLine={false} tickLine={false} width={40} tick={{ fontSize: 11, fill: "var(--c-8a8272-t)" }} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
+                <Tooltip cursor={{ fill: "var(--grid-line)" }} formatter={(v) => money(v)} contentStyle={{ fontSize: 12, borderRadius: 10, background: "var(--c-fffdf8-b)", border: "1px solid var(--btn2-line)", color: "var(--c-242019-t)", boxShadow: "var(--shadow-float)" }} />
+                <Bar dataKey="total" fill="url(#gradVentasHora)" radius={[4, 4, 0, 0]} maxBarSize={30} />
+              </BarChart>
+            </ResponsiveContainer>
+            </div>
+          </div>
         )}
       </div>
 

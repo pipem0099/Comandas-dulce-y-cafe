@@ -4,6 +4,7 @@ import { styles } from "../estilos.js";
 import { uid } from "../logica.js";
 import { mesaNombre } from "../utilidades.js";
 import { Acordeon } from "../componentes/Comunes.jsx";
+import { CampoFecha, CampoHora } from "../componentes/Campos.jsx";
 
 import { Hoja } from "../componentes/Hoja.jsx";
 /* ---------------- RESERVAS ---------------- */
@@ -95,7 +96,7 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
             {d.label}{cuenta(d.key) > 0 && <span style={rv.contador}>{cuenta(d.key)}</span>}
           </button>
         ))}
-        <input type="date" value={dia} onChange={(e) => e.target.value && setDia(e.target.value)} style={rv.fecha} aria-label="Otra fecha" />
+        <CampoFecha value={dia} onChange={(k) => k && setDia(k)} ariaLabel="Otra fecha" titulo="Otra fecha" style={{ width: "auto", minHeight: 40, borderRadius: 999, fontSize: 13 }} />
       </div>
 
       <div className="ancho" style={styles.menuScroll}>
@@ -154,8 +155,8 @@ function FormReserva({ inicial, mesas, reservas, usuarioActual, onGuardar, onEli
         <input style={styles.editInput} placeholder="Nombre de quien reserva" value={f.nombre} onChange={(e) => set("nombre", e.target.value)} autoFocus={!f.id} />
         <input style={styles.editInput} placeholder="Teléfono (opcional)" inputMode="tel" value={f.telefono} onChange={(e) => set("telefono", e.target.value)} />
         <div style={{ display: "flex", gap: 8 }}>
-          <div style={{ flex: 1 }}><div style={rv.et}>Fecha</div><input type="date" style={{ ...styles.editInput, width: "100%" }} value={f.fecha} onChange={(e) => set("fecha", e.target.value)} /></div>
-          <div style={{ flex: 1 }}><div style={rv.et}>Hora</div><input type="time" style={{ ...styles.editInput, width: "100%" }} value={f.hora} onChange={(e) => set("hora", e.target.value)} /></div>
+          <div style={{ flex: 1 }}><div style={rv.et}>Fecha</div><CampoFecha value={f.fecha} onChange={(k) => set("fecha", k)} titulo="Fecha de la reserva" /></div>
+          <div style={{ flex: 1 }}><div style={rv.et}>Hora</div><CampoHora value={f.hora} onChange={(h) => set("hora", h)} titulo="Hora de la reserva" /></div>
         </div>
         <div style={rv.et}>Personas</div>
         <div style={rv.stepper}>
