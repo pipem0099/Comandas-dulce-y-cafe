@@ -55,7 +55,8 @@
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
       ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
       ".indexOn": [
-        "ts"
+        "ts",
+        "cuentaId"
       ],
       "$id": {
         ".write": "(auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('mesero').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true) && newData.exists()) || (auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('cocina').val() === true && data.exists() && newData.exists() && newData.child('cuentaId').val() === data.child('cuentaId').val() && newData.child('mesa').val() === data.child('mesa').val() && newData.child('ts').val() === data.child('ts').val() && !newData.child('items').child('40').exists() && newData.child('items').child('0').child('id').val() === data.child('items').child('0').child('id').val() && newData.child('items').child('0').child('name').val() === data.child('items').child('0').child('name').val() && newData.child('items').child('0').child('qty').val() === data.child('items').child('0').child('qty').val() && newData.child('items').child('0').child('price').val() === data.child('items').child('0').child('price').val() && newData.child('items').child('1').child('id').val() === data.child('items').child('1').child('id').val() && newData.child('items').child('1').child('name').val() === data.child('items').child('1').child('name').val() && newData.child('items').child('1').child('qty').val() === data.child('items').child('1').child('qty').val() && newData.child('items').child('1').child('price').val() === data.child('items').child('1').child('price').val() && newData.child('items').child('2').child('id').val() === data.child('items').child('2').child('id').val() && newData.child('items').child('2').child('name').val() === data.child('items').child('2').child('name').val() && newData.child('items').child('2').child('qty').val() === data.child('items').child('2').child('qty').val() && newData.child('items').child('2').child('price').val() === data.child('items').child('2').child('price').val() && newData.child('items').child('3').child('id').val() === data.child('items').child('3').child('id').val() && newData.child('items').child('3').child('name').val() === data.child('items').child('3').child('name').val() && newData.child('items').child('3').child('qty').val() === data.child('items').child('3').child('qty').val() && newData.child('items').child('3').child('price').val() === data.child('items').child('3').child('price').val() && newData.child('items').child('4').child('id').val() === data.child('items').child('4').child('id').val() && newData.child('items').child('4').child('name').val() === data.child('items').child('4').child('name').val() && newData.child('items').child('4').child('qty').val() === data.child('items').child('4').child('qty').val() && newData.child('items').child('4').child('price').val() === data.child('items').child('4').child('price').val() && newData.child('items').child('5').child('id').val() === data.child('items').child('5').child('id').val() && newData.child('items').child('5').child('name').val() === data.child('items').child('5').child('name').val() && newData.child('items').child('5').child('qty').val() === data.child('items').child('5').child('qty').val() && newData.child('items').child('5').child('price').val() === data.child('items').child('5').child('price').val() && newData.child('items').child('6').child('id').val() === data.child('items').child('6').child('id').val() && newData.child('items').child('6').child('name').val() === data.child('items').child('6').child('name').val() && newData.child('items').child('6').child('qty').val() === data.child('items').child('6').child('qty').val() && newData.child('items').child('6').child('price').val() === data.child('items').child('6').child('price').val() && newData.child('items').child('7').child('id').val() === data.child('items').child('7').child('id').val() && newData.child('items').child('7').child('name').val() === data.child('items').child('7').child('name').val() && newData.child('items').child('7').child('qty').val() === data.child('items').child('7').child('qty').val() && newData.child('items').child('7').child('price').val() === data.child('items').child('7').child('price').val() && newData.child('items').child('8').child('id').val() === data.child('items').child('8').child('id').val() && newData.child('items').child('8').child('name').val() === data.child('items').child('8').child('name').val() && newData.child('items').child('8').child('qty').val() === data.child('items').child('8').child('qty').val() && newData.child('items').child('8').child('price').val() === data.child('items').child('8').child('price').val() && newData.child('items').child('9').child('id').val() === data.child('items').child('9').child('id').val() && newData.child('items').child('9').child('name').val() === data.child('items').child('9').child('name').val() && newData.child('items').child('9').child('qty').val() === data.child('items').child('9').child('qty').val() && newData.child('items').child('9').child('price').val() === data.child('items').child('9').child('price').val() && newData.child('items').child('10').child('id').val() === data.child('items').child('10').child('id').val() && newData.child('items').child('10').child('name').val() === data.child('items').child('10').child('name').val() && newData.child('items').child('10').child('qty').val() === data.child('items').child('10').child('qty').val() && newData.child('items').child('10').child('price').val() === data.child('items').child('10').child('price').val() && newData.child('items').child('11').child('id').val() === data.child('items').child('11').child('id').val() && newData.child('items').child('11').child('name').val() === data.child('items').child('11').child('name').val() && newData.child('items').child('11').child('qty').val() === data.child('items').child('11').child('qty').val() && newData.child('items').child('11').child('price').val() === data.child('items').child('11').child('price').val() && newData.child('items').child('12').child('id').val() === data.child('items').child('12').child('id').val() && newData.child('items').child('12').child('name').val() === data.child('items').child('12').child('name').val() && newData.child('items').child('12').child('qty').val() === data.child('items').child('12').child('qty').val() && newData.child('items').child('12').child('price').val() === data.child('items').child('12').child('price').val() && newData.child('items').child('13').child('id').val() === data.child('items').child('13').child('id').val() && newData.child('items').child('13').child('name').val() === data.child('items').child('13').child('name').val() && newData.child('items').child('13').child('qty').val() === data.child('items').child('13').child('qty').val() && newData.child('items').child('13').child('price').val() === data.child('items').child('13').child('price').val() && newData.child('items').child('14').child('id').val() === data.child('items').child('14').child('id').val() && newData.child('items').child('14').child('name').val() === data.child('items').child('14').child('name').val() && newData.child('items').child('14').child('qty').val() === data.child('items').child('14').child('qty').val() && newData.child('items').child('14').child('price').val() === data.child('items').child('14').child('price').val() && newData.child('items').child('15').child('id').val() === data.child('items').child('15').child('id').val() && newData.child('items').child('15').child('name').val() === data.child('items').child('15').child('name').val() && newData.child('items').child('15').child('qty').val() === data.child('items').child('15').child('qty').val() && newData.child('items').child('15').child('price').val() === data.child('items').child('15').child('price').val() && newData.child('items').child('16').child('id').val() === data.child('items').child('16').child('id').val() && newData.child('items').child('16').child('name').val() === data.child('items').child('16').child('name').val() && newData.child('items').child('16').child('qty').val() === data.child('items').child('16').child('qty').val() && newData.child('items').child('16').child('price').val() === data.child('items').child('16').child('price').val() && newData.child('items').child('17').child('id').val() === data.child('items').child('17').child('id').val() && newData.child('items').child('17').child('name').val() === data.child('items').child('17').child('name').val() && newData.child('items').child('17').child('qty').val() === data.child('items').child('17').child('qty').val() && newData.child('items').child('17').child('price').val() === data.child('items').child('17').child('price').val() && newData.child('items').child('18').child('id').val() === data.child('items').child('18').child('id').val() && newData.child('items').child('18').child('name').val() === data.child('items').child('18').child('name').val() && newData.child('items').child('18').child('qty').val() === data.child('items').child('18').child('qty').val() && newData.child('items').child('18').child('price').val() === data.child('items').child('18').child('price').val() && newData.child('items').child('19').child('id').val() === data.child('items').child('19').child('id').val() && newData.child('items').child('19').child('name').val() === data.child('items').child('19').child('name').val() && newData.child('items').child('19').child('qty').val() === data.child('items').child('19').child('qty').val() && newData.child('items').child('19').child('price').val() === data.child('items').child('19').child('price').val() && newData.child('items').child('20').child('id').val() === data.child('items').child('20').child('id').val() && newData.child('items').child('20').child('name').val() === data.child('items').child('20').child('name').val() && newData.child('items').child('20').child('qty').val() === data.child('items').child('20').child('qty').val() && newData.child('items').child('20').child('price').val() === data.child('items').child('20').child('price').val() && newData.child('items').child('21').child('id').val() === data.child('items').child('21').child('id').val() && newData.child('items').child('21').child('name').val() === data.child('items').child('21').child('name').val() && newData.child('items').child('21').child('qty').val() === data.child('items').child('21').child('qty').val() && newData.child('items').child('21').child('price').val() === data.child('items').child('21').child('price').val() && newData.child('items').child('22').child('id').val() === data.child('items').child('22').child('id').val() && newData.child('items').child('22').child('name').val() === data.child('items').child('22').child('name').val() && newData.child('items').child('22').child('qty').val() === data.child('items').child('22').child('qty').val() && newData.child('items').child('22').child('price').val() === data.child('items').child('22').child('price').val() && newData.child('items').child('23').child('id').val() === data.child('items').child('23').child('id').val() && newData.child('items').child('23').child('name').val() === data.child('items').child('23').child('name').val() && newData.child('items').child('23').child('qty').val() === data.child('items').child('23').child('qty').val() && newData.child('items').child('23').child('price').val() === data.child('items').child('23').child('price').val() && newData.child('items').child('24').child('id').val() === data.child('items').child('24').child('id').val() && newData.child('items').child('24').child('name').val() === data.child('items').child('24').child('name').val() && newData.child('items').child('24').child('qty').val() === data.child('items').child('24').child('qty').val() && newData.child('items').child('24').child('price').val() === data.child('items').child('24').child('price').val() && newData.child('items').child('25').child('id').val() === data.child('items').child('25').child('id').val() && newData.child('items').child('25').child('name').val() === data.child('items').child('25').child('name').val() && newData.child('items').child('25').child('qty').val() === data.child('items').child('25').child('qty').val() && newData.child('items').child('25').child('price').val() === data.child('items').child('25').child('price').val() && newData.child('items').child('26').child('id').val() === data.child('items').child('26').child('id').val() && newData.child('items').child('26').child('name').val() === data.child('items').child('26').child('name').val() && newData.child('items').child('26').child('qty').val() === data.child('items').child('26').child('qty').val() && newData.child('items').child('26').child('price').val() === data.child('items').child('26').child('price').val() && newData.child('items').child('27').child('id').val() === data.child('items').child('27').child('id').val() && newData.child('items').child('27').child('name').val() === data.child('items').child('27').child('name').val() && newData.child('items').child('27').child('qty').val() === data.child('items').child('27').child('qty').val() && newData.child('items').child('27').child('price').val() === data.child('items').child('27').child('price').val() && newData.child('items').child('28').child('id').val() === data.child('items').child('28').child('id').val() && newData.child('items').child('28').child('name').val() === data.child('items').child('28').child('name').val() && newData.child('items').child('28').child('qty').val() === data.child('items').child('28').child('qty').val() && newData.child('items').child('28').child('price').val() === data.child('items').child('28').child('price').val() && newData.child('items').child('29').child('id').val() === data.child('items').child('29').child('id').val() && newData.child('items').child('29').child('name').val() === data.child('items').child('29').child('name').val() && newData.child('items').child('29').child('qty').val() === data.child('items').child('29').child('qty').val() && newData.child('items').child('29').child('price').val() === data.child('items').child('29').child('price').val() && newData.child('items').child('30').child('id').val() === data.child('items').child('30').child('id').val() && newData.child('items').child('30').child('name').val() === data.child('items').child('30').child('name').val() && newData.child('items').child('30').child('qty').val() === data.child('items').child('30').child('qty').val() && newData.child('items').child('30').child('price').val() === data.child('items').child('30').child('price').val() && newData.child('items').child('31').child('id').val() === data.child('items').child('31').child('id').val() && newData.child('items').child('31').child('name').val() === data.child('items').child('31').child('name').val() && newData.child('items').child('31').child('qty').val() === data.child('items').child('31').child('qty').val() && newData.child('items').child('31').child('price').val() === data.child('items').child('31').child('price').val() && newData.child('items').child('32').child('id').val() === data.child('items').child('32').child('id').val() && newData.child('items').child('32').child('name').val() === data.child('items').child('32').child('name').val() && newData.child('items').child('32').child('qty').val() === data.child('items').child('32').child('qty').val() && newData.child('items').child('32').child('price').val() === data.child('items').child('32').child('price').val() && newData.child('items').child('33').child('id').val() === data.child('items').child('33').child('id').val() && newData.child('items').child('33').child('name').val() === data.child('items').child('33').child('name').val() && newData.child('items').child('33').child('qty').val() === data.child('items').child('33').child('qty').val() && newData.child('items').child('33').child('price').val() === data.child('items').child('33').child('price').val() && newData.child('items').child('34').child('id').val() === data.child('items').child('34').child('id').val() && newData.child('items').child('34').child('name').val() === data.child('items').child('34').child('name').val() && newData.child('items').child('34').child('qty').val() === data.child('items').child('34').child('qty').val() && newData.child('items').child('34').child('price').val() === data.child('items').child('34').child('price').val() && newData.child('items').child('35').child('id').val() === data.child('items').child('35').child('id').val() && newData.child('items').child('35').child('name').val() === data.child('items').child('35').child('name').val() && newData.child('items').child('35').child('qty').val() === data.child('items').child('35').child('qty').val() && newData.child('items').child('35').child('price').val() === data.child('items').child('35').child('price').val() && newData.child('items').child('36').child('id').val() === data.child('items').child('36').child('id').val() && newData.child('items').child('36').child('name').val() === data.child('items').child('36').child('name').val() && newData.child('items').child('36').child('qty').val() === data.child('items').child('36').child('qty').val() && newData.child('items').child('36').child('price').val() === data.child('items').child('36').child('price').val() && newData.child('items').child('37').child('id').val() === data.child('items').child('37').child('id').val() && newData.child('items').child('37').child('name').val() === data.child('items').child('37').child('name').val() && newData.child('items').child('37').child('qty').val() === data.child('items').child('37').child('qty').val() && newData.child('items').child('37').child('price').val() === data.child('items').child('37').child('price').val() && newData.child('items').child('38').child('id').val() === data.child('items').child('38').child('id').val() && newData.child('items').child('38').child('name').val() === data.child('items').child('38').child('name').val() && newData.child('items').child('38').child('qty').val() === data.child('items').child('38').child('qty').val() && newData.child('items').child('38').child('price').val() === data.child('items').child('38').child('price').val() && newData.child('items').child('39').child('id').val() === data.child('items').child('39').child('id').val() && newData.child('items').child('39').child('name').val() === data.child('items').child('39').child('name').val() && newData.child('items').child('39').child('qty').val() === data.child('items').child('39').child('qty').val() && newData.child('items').child('39').child('price').val() === data.child('items').child('39').child('price').val())",
@@ -70,6 +71,39 @@
             },
             "name": {
               ".validate": "newData.isString() && newData.val().length <= 200"
+            }
+          }
+        },
+        "ultimoAjuste": {
+          "ts": {
+            ".validate": "newData.isNumber()"
+          },
+          "agregados": {
+            "$i": {
+              "qty": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999"
+              },
+              "name": {
+                ".validate": "newData.isString() && newData.val().length <= 200"
+              }
+            }
+          },
+          "cancelados": {
+            "$i": {
+              "qty": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999"
+              },
+              "name": {
+                ".validate": "newData.isString() && newData.val().length <= 200"
+              }
+            }
+          }
+        },
+        "impresiones": {
+          "$evento": {
+            ".validate": "$evento.length <= 60 && newData.hasChildren(['ts','por']) && newData.child('ts').isNumber() && newData.child('por').isString() && newData.child('por').val().length <= 120",
+            "equipo": {
+              ".validate": "newData.isString() && newData.val().length <= 80"
             }
           }
         }
@@ -87,6 +121,23 @@
         ".validate": "newData.hasChildren(['mesa','ts','estado']) && newData.child('ts').isNumber() && newData.child('estado').isString()",
         "personas": {
           ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 50"
+        },
+        "datosFiscales": {
+          "numero": {
+            ".validate": "newData.isString() && newData.val().length <= 30"
+          },
+          "nombre": {
+            ".validate": "newData.isString() && newData.val().length <= 120"
+          },
+          "correo": {
+            ".validate": "newData.isString() && newData.val().length <= 120"
+          },
+          "direccion": {
+            ".validate": "newData.isString() && newData.val().length <= 160"
+          },
+          "nivelTributario": {
+            ".validate": "newData.isString() && (newData.val() === 'O-47' || newData.val() === 'O-48' || newData.val() === 'R-99-PN')"
+          }
         }
       }
     },
@@ -122,6 +173,9 @@
     "turnos": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
       ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
+      ".indexOn": [
+        "aperturaTs"
+      ],
       "$id": {
         ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true) && newData.exists() && (!data.exists() || data.child('estado').val() !== 'cerrado')"
       }
@@ -148,6 +202,103 @@
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
       ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true"
     },
+    "facturacion": {
+      "ajustes": {
+        ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
+        ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
+        "activa": {
+          ".validate": "newData.isBoolean()"
+        },
+        "emisionAutomatica": {
+          ".validate": "newData.isBoolean()"
+        },
+        "modo": {
+          ".validate": "newData.isString() && (newData.val() === 'pruebas' || newData.val() === 'produccion')"
+        },
+        "proveedor": {
+          ".validate": "newData.isString() && (newData.val() === 'simulado' || newData.val() === 'factus' || newData.val() === 'alegra' || newData.val() === 'siigo' || newData.val() === 'dataico')"
+        },
+        "tipoDocumento": {
+          ".validate": "newData.isString() && (newData.val() === 'factura' || newData.val() === 'pos')"
+        },
+        "impuesto": {
+          ".validate": "newData.isString() && (newData.val() === 'inc' || newData.val() === 'iva' || newData.val() === 'exento')"
+        },
+        "precios": {
+          ".validate": "newData.isString() && (newData.val() === 'incluyen' || newData.val() === 'suman')"
+        },
+        "propina": {
+          ".validate": "newData.isString() && (newData.val() === 'excluir' || newData.val() === 'incluir')"
+        },
+        "valorUvt": {
+          ".validate": "newData.isNumber() && newData.val() >= 10000 && newData.val() <= 500000"
+        },
+        "emisor": {
+          "razonSocial": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          },
+          "nit": {
+            ".validate": "newData.isString() && newData.val().length <= 20"
+          },
+          "dv": {
+            ".validate": "newData.isString() && newData.val().length <= 1"
+          },
+          "regimen": {
+            ".validate": "newData.isString() && (newData.val() === '' || newData.val() === 'responsable_iva' || newData.val() === 'no_responsable' || newData.val() === 'simple')"
+          },
+          "municipio": {
+            ".validate": "newData.isString() && newData.val().length <= 120"
+          },
+          "codigoDane": {
+            ".validate": "newData.isString() && newData.val().length <= 5"
+          },
+          "correo": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          },
+          "$otro": {
+            ".validate": false
+          }
+        },
+        "resolucion": {
+          "$k": {
+            ".validate": "newData.isString() && newData.val().length <= 30"
+          }
+        },
+        "actualizadoTs": {
+          ".validate": "newData.isNumber()"
+        },
+        "actualizadoPor": {
+          ".validate": "newData.isString() && newData.val().length <= 120"
+        },
+        "$otro": {
+          ".validate": false
+        }
+      },
+      "credencial": {
+        ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
+        ".write": false
+      },
+      "catalogo": {
+        ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
+        ".write": false
+      },
+      "mapeo": {
+        ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
+        ".write": false
+      },
+      "documentos": {
+        ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true || root.child('perfiles').child(auth.uid).child('roles').child('cajero').val() === true)",
+        ".write": false
+      },
+      "$otro": {
+        ".read": false,
+        ".write": false
+      }
+    },
+    "facturacionSecretos": {
+      ".read": false,
+      ".write": false
+    },
     "auditoria": {
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
       ".indexOn": [
@@ -169,7 +320,7 @@
           ".validate": "newData.isString() && newData.val().length <= 80"
         },
         "accion": {
-          ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'deshacer_cancelacion' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago' || newData.val() === 'dejar_pendiente' || newData.val() === 'cobrar_pendiente' || newData.val() === 'condonar_deuda')"
+          ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'deshacer_cancelacion' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago' || newData.val() === 'dejar_pendiente' || newData.val() === 'cobrar_pendiente' || newData.val() === 'condonar_deuda' || newData.val() === 'emitir_factura' || newData.val() === 'anular_factura' || newData.val() === 'guardar_credenciales_fiscales' || newData.val() === 'guardar_mapeo_fiscal' || newData.val() === 'prueba_emision_fiscal')"
         },
         "cuentaId": {
           ".validate": "newData.isString() && newData.val().length <= 80"

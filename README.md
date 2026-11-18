@@ -155,3 +155,7 @@ La conexión a Firebase se configura solo en `src/firebase.js`.
 - [`docs/INSTALACION.md`](docs/INSTALACION.md) — instalar la app para un negocio nuevo (Firebase + Netlify), paso a paso.
 - [`docs/MANTENIMIENTO.md`](docs/MANTENIMIENTO.md) — rutina mensual, qué hace la app sola, cómo cambiar las reglas de seguridad y qué hacer ante un acceso sospechoso.
 - Antes de cambiar código o reglas: `npm run reglas:probar` (debe pasar todo) y `npm run build`.
+
+
+## Varios pisos y varias cajas
+Ver [docs/PISOS-Y-CAJAS.md](docs/PISOS-Y-CAJAS.md).
