@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, PencilLine, ShoppingBag, Bike, Phone, MapPin, Search, X, Trash2, Repeat, MoreHorizontal, RotateCcw } from "lucide-react";
+import { Printer, Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, PencilLine, ShoppingBag, Bike, Phone, MapPin, Search, X, Trash2, Repeat, MoreHorizontal, RotateCcw } from "lucide-react";
 import { avisar } from "../avisos.jsx";
 import { actualizarCuenta, registrarAuditoria } from "../firebase.js";
 import { parcharCuenta, avisarFalloGuardado } from "../cuentasOps.js";
 import { idCuentaNueva } from "../cobros.js";
 import { orderTotal } from "../dinero.js";
 import { vibrar } from "../theme.js";
-import { claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
+import { estacionDeLinea, claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
 import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
 import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
 import { AvisoActivarNotificaciones, Chevron } from "../componentes/Comunes.jsx";
@@ -16,6 +16,12 @@ import { PlanoSalon } from "../pantallas/Mesas.jsx";
 import { reservaProxima, NOMBRES_EXTERNOS, conProgreso, cuentaCubre, cuentaDeMesa, cuentaOrders, cuentaSubtotal, dayKey, esPorLiberar, estadoVisualMesa, itemListos, itemServidos, mesaMatch, mesaNombre, porServir, timeLabel } from "../utilidades.js";
 
 import { Hoja } from "../componentes/Hoja.jsx";
+import { DestinoPedido, DESTINO_INICIAL, destinoCompleto, resumenDestino } from "../componentes/DestinoPedido.jsx";
+import { getPisos, nombrePiso, pisoIdDeMesa, pisoDeMesaId, mesasDelPiso, planoDe, pisoPrepDeLinea, pisoEntregaDeLinea } from "../pisos.js";
+import { getEstaciones } from "../logica.js";
+import { impresora } from "../termica/impresora.js";
+import { servicioComandas } from "../termica/imprimirComandas.js";
+import { imprimeAlEnviar, numeroRonda, ajusteDePedido } from "../termica/comandaMesero.js";
 /* ---------------- MESERO ---------------- */
 
 /**
@@ -42,11 +48,11 @@ function analizarCambios(antes, despues) {
     const a = agregados[i];
     if (a) {
       textos.push(`Cambió de producto: ${q.qty}× ${itemNombre(q)} → ${a.qty}× ${itemNombre(a)}`);
-      detalle.push({ ts, tipo: "cambio", name: itemNombre(q), qty: q.qty, estacion: q.estacion || "", aName: itemNombre(a), aQty: a.qty });
+      detalle.push({ ts, tipo: "cambio", name: itemNombre(q), qty: q.qty, estacion: q.estacion || "", ...(q.pisoPrep ? { pisoPrep: q.pisoPrep } : {}), aName: itemNombre(a), aQty: a.qty });
       marcas.set(a.id, itemNombre(q));
     } else {
       textos.push(`Se quitó ${q.qty}× ${itemNombre(q)}`);
-      detalle.push({ ts, tipo: "quito", name: itemNombre(q), qty: q.qty, estacion: q.estacion || "" });
+      detalle.push({ ts, tipo: "quito", name: itemNombre(q), qty: q.qty, estacion: q.estacion || "", ...(q.pisoPrep ? { pisoPrep: q.pisoPrep } : {}) });
     }
   });
   agregados.slice(quitados.length).forEach((a) => textos.push(`Nuevo: ${a.qty}× ${itemNombre(a)}`));
@@ -58,6 +64,45 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   // mesero normal no debería poder cambiar precios ni borrar productos.
   const meseroActual = usuarioActual.nombre;
 
+  // ── Pisos: cada mesero ve un piso a la vez (el último que usó queda guardado en este dispositivo) ──
+  const pisos = getPisos(config);
+  const variosPisos = pisos.length > 1;
+  const [pisoVistaSel, setPisoVistaSel] = useState(() => { try { return localStorage.getItem("comandas_piso_vista") || ""; } catch (e) { return ""; } });
+  const pisoVista = variosPisos && pisos.some((p) => p.id === pisoVistaSel) ? pisoVistaSel : pisos[0].id;
+  const elegirPisoVista = (id) => { setPisoVistaSel(id); try { localStorage.setItem("comandas_piso_vista", id); } catch (e) {} };
+  const estaciones = getEstaciones(config);
+  const hayEstaciones = estaciones.length > 1;
+
+  // ── Destino del pedido: el mesero elige estación y pisos al enviar (se recuerda lo último que usó) ──
+  const [destino, setDestinoEstado] = useState(() => { try { const d = JSON.parse(localStorage.getItem("comandas_destino") || "null"); return d ? { ...DESTINO_INICIAL, estacion: d.estacion || null, pisoPrep: d.pisoPrep || null, pisoEntrega: d.pisoEntrega || null } : DESTINO_INICIAL; } catch (e) { return DESTINO_INICIAL; } });
+  const setDestino = (d) => { setDestinoEstado(d); try { localStorage.setItem("comandas_destino", JSON.stringify({ estacion: d.estacion, pisoPrep: d.pisoPrep, pisoEntrega: d.pisoEntrega })); } catch (e) {} };
+  const [verDestino, setVerDestino] = useState(false);
+  // lo recordado puede apuntar a una estación o piso que ya no existe: entonces se vuelve a preguntar
+  const destinoNorm = {
+    ...destino,
+    estacion: destino.estacion === "auto" || estaciones.some((e) => e.id === destino.estacion) ? destino.estacion : null,
+    pisoPrep: destino.pisoPrep === "mesa" || pisos.some((p) => p.id === destino.pisoPrep) ? destino.pisoPrep : null,
+    pisoEntrega: destino.pisoEntrega === "mesa" || pisos.some((p) => p.id === destino.pisoEntrega) ? destino.pisoEntrega : null,
+  };
+  const necesitaDestino = hayEstaciones || variosPisos;
+  const destinoListo = !necesitaDestino || destinoCompleto(destinoNorm, hayEstaciones, variosPisos);
+  const destinoDeLinea = (m, key, mesaNum, heredar = null) => {
+    if (heredar && (heredar.estacion || heredar.pisoPrep)) {
+      const r = { estacion: heredar.estacion || estacionDe(m, config) };
+      if (variosPisos) { r.pisoPrep = pisoPrepDeLinea(heredar, config); r.pisoEntrega = pisoEntregaDeLinea(heredar, config); }
+      return r;
+    }
+    const pl = (destinoNorm.porLinea && destinoNorm.porLinea[key]) || {};
+    const pisoMesa = pisoDeMesaId(mesas, mesaNum, config) || pisoVista;
+    const est = pl.estacion || (destinoNorm.estacion && destinoNorm.estacion !== "auto" ? destinoNorm.estacion : null) || estacionDe(m, config);
+    if (!variosPisos) return { estacion: est };
+    return {
+      estacion: est,
+      pisoPrep: pl.pisoPrep || (destinoNorm.pisoPrep && destinoNorm.pisoPrep !== "mesa" ? destinoNorm.pisoPrep : pisoMesa),
+      pisoEntrega: destinoNorm.pisoEntrega && destinoNorm.pisoEntrega !== "mesa" ? destinoNorm.pisoEntrega : pisoMesa,
+    };
+  };
+
   // Aviso sonoro para el mesero: cuando cocina marca "listo" un pedido de
   // alguna de SUS mesas todavía abiertas, suena y aparece un mensaje — así
   // no tiene que estar entrando a cada mesa a chequear si ya puede servir.
@@ -65,10 +110,15 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const [avisoListo, setAvisoListo] = useState(null);
   useEffect(() => {
     const misCuentaIds = new Set(cuentas.filter((c) => c.mesero === meseroActual && c.estado === "abierta").map((c) => c.id));
+    const abiertasIds = new Set(cuentas.filter((c) => c.estado === "abierta").map((c) => c.id));
     const listosAhora = [];
     orders.forEach((o) => {
-      if (o.estado === "cancelado" || !misCuentaIds.has(o.cuentaId)) return;
+      if (o.estado === "cancelado" || !abiertasIds.has(o.cuentaId)) return;
+      const mia = misCuentaIds.has(o.cuentaId);
       o.items.forEach((it, idx) => {
+        // lo de otro mesero también suena si se preparó en OTRO piso y hay que entregarlo en el que estoy atendiendo
+        const traspasoAqui = variosPisos && pisoEntregaDeLinea(it, config) === pisoVista && pisoPrepDeLinea(it, config) !== pisoVista;
+        if (!mia && !traspasoAqui) return;
         const n = itemListos(o, it) - itemServidos(o, it);
         // una "marca" por cada unidad lista sin servir, para detectar cuando sale una nueva
         for (let k = 1; k <= n; k++) listosAhora.push({ id: `${o.id}#${idx}#${itemServidos(o, it) + k}`, mesa: o.mesa, nombre: itemNombre(it) });
@@ -97,7 +147,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
       mostrarNotificacionSistema("Para servir", texto);
       setTimeout(() => setAvisoListo(null), 7000);
     }
-  }, [orders, cuentas, meseroActual, mesas]);
+  }, [orders, cuentas, meseroActual, mesas, pisoVista]);
 
   const [selectedMesa, setSelectedMesa] = useState(null);
   const [draft, setDraft] = useState({}); // { itemId: { qty, nota } }
@@ -111,6 +161,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const [search, setSearch] = useState("");
   const [notingItemId, setNotingItemId] = useState(null);
   const [mesaAction, setMesaAction] = useState(null); // 'trasladar' | 'unir'
+  const [pisoTraslado, setPisoTraslado] = useState(null); // piso donde se busca la mesa destino al trasladar
   const [mesasJuntas, setMesasJuntas] = useState([]); // mesas juntadas ANTES del primer pedido (aún sin cuenta)
   const [vistaMesas, setVistaMesas] = useState("grid"); // 'grid' | 'plano'
   const [modalItem, setModalItem] = useState(null);       // producto con opciones que se está personalizando
@@ -129,7 +180,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
 
   const totalItems = Object.values(draft).reduce((a, b) => a + b.qty, 0);
 
-  const resetDraft = () => { setNotaAbierta(false); setMesasJuntas([]); setDraft({}); setNote(""); setEditingOrderId(null); setNotingItemId(null); };
+  const resetDraft = () => { setDestinoEstado((d) => (d.porLinea && Object.keys(d.porLinea).length ? { ...d, porLinea: {} } : d)); setNotaAbierta(false); setMesasJuntas([]); setDraft({}); setNote(""); setEditingOrderId(null); setNotingItemId(null); };
   const enterMesa = (n) => { resetDraft(); setActiveCat(null); setSearch(""); setConfirmCancelId(null); setMesaAction(null); setSelectedMesa(n); };
   const exitMesa = () => { resetDraft(); setActiveCat(null); setSearch(""); setMesaAction(null); setSelectedMesa(null); };
 
@@ -251,10 +302,34 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     const aviso = textos.length > 0
       ? { cambio: { ts: Date.now(), por: meseroActual, texto: textos.join(" · ") }, cambioVisto: false, historialCambios: [...(original.historialCambios || []), ...detalle].slice(-30) }
       : {};
-    await saveOrder(conProgreso({ ...original, nota, editado: true, consumo: consumoNuevo, ...aviso }, conservados), ajusteStock);
+    const ajuste = ajusteDePedido(original.items, conservados, Date.now(), original.nota, nota); // lo agregado (+) y lo cancelado (-) para el ticket de ajuste
+    const guardado = conProgreso({ ...original, nota, editado: true, consumo: consumoNuevo, ...aviso, ...(ajuste ? { ultimoAjuste: ajuste } : {}) }, conservados);
+    await saveOrder(guardado, ajusteStock);
+    imprimirAjustePedido(guardado, ajuste);
     return { dif };
   };
-  const construirItem = (m, mods = [], qty, nota = "") => ({ id: claveLinea(m.id, mods), baseId: m.id, name: m.name, price: precioUnitario(m, mods), cost: m.cost || 0, qty, nota, mods, estacion: estacionDe(m, config) });
+  // ── Imprimir la comanda desde este equipo (opción local de «Impresora de tickets») ──
+  // Si la impresora falla el pedido se envía igual: sale un aviso con «Reintentar». Lo ya impreso se anota en el pedido (sin duplicar con Cocina).
+  const hayDestinos = hayEstaciones || variosPisos;
+  const textoDestino = (it) => {
+    const est = estaciones.find((e) => e.id === estacionDeLinea(it, config)) || estaciones[0];
+    const prep = pisoPrepDeLinea(it, config), ent = pisoEntregaDeLinea(it, config);
+    return [hayEstaciones ? est.nombre : "", variosPisos ? (prep === ent ? nombrePiso(config, prep) : `${nombrePiso(config, prep)} -> ${nombrePiso(config, ent)}`) : ""].filter(Boolean).join(" · ");
+  };
+  const contextoComanda = (pedido, todos) => ({
+    por: meseroActual, equipo: "Mesero", lugar: mesaNombre(mesas, pedido.mesa), mesero: meseroActual, ronda: numeroRonda(todos, pedido),
+    items: hayDestinos ? (pedido.items || []).map((it) => ({ ...it, dest: textoDestino(it) })) : pedido.items,
+  });
+  const imprimirConAviso = async (hacer, motivoTitulo = "No se pudo imprimir la comanda") => {
+    const r = await hacer();
+    if (!r.ok) avisar({ texto: motivoTitulo, detalle: `${r.motivo} El pedido sí se envió.`, tipo: "error", duracion: 20000, accion: { texto: "Reintentar", fn: () => imprimirConAviso(hacer, motivoTitulo) } });
+    return r;
+  };
+  const imprimirPedidoNuevo = (pedido) => { if (imprimeAlEnviar(impresora.config())) imprimirConAviso(() => servicioComandas.imprimirNuevo(pedido, contextoComanda(pedido, [...orders.filter((o) => o.id !== pedido.id), pedido]))); };
+  const imprimirAjustePedido = (pedido, ajuste) => { if (ajuste && imprimeAlEnviar(impresora.config())) imprimirConAviso(() => servicioComandas.imprimirAjuste(pedido, ajuste, { ...contextoComanda(pedido, orders), ajuste }), "No se pudo imprimir el ajuste"); };
+  const reimprimirComanda = (pedido) => imprimirConAviso(() => servicioComandas.reimprimir(pedido, contextoComanda(pedido, orders)), "No se pudo reimprimir la comanda");
+
+  const construirItem = (m, mods = [], qty, nota = "", heredar = null) => ({ id: claveLinea(m.id, mods), baseId: m.id, name: m.name, price: precioUnitario(m, mods), cost: m.cost || 0, qty, nota, mods, ...destinoDeLinea(m, claveLinea(m.id, mods), selectedMesa, heredar) });
 
   // Acciones rápidas sobre UN producto de un pedido: quitar 1, quitar el producto o cambiarlo por otro.
   // Lo ya servido nunca se toca. Queda un aviso con "Deshacer" por si fue un toque equivocado.
@@ -274,7 +349,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
       if (sv > 0) nuevos[idx].qty = sv; else nuevos.splice(idx, 1);
       texto = `Quitaste ${pendientes}× ${itemNombre(it)}`;
     } else if (accion === "cambiar") {
-      const reemplazo = construirItem(nuevo.m, nuevo.mods || [], nuevo.qty || pendientes, nuevo.nota || "");
+      const reemplazo = construirItem(nuevo.m, nuevo.mods || [], nuevo.qty || pendientes, nuevo.nota || "", it);
       if (sv > 0) nuevos[idx].qty = sv; else nuevos.splice(idx, 1);
       const igual = nuevos.find((x) => x.id === reemplazo.id);
       if (igual) igual.qty += reemplazo.qty; else nuevos.splice(Math.min(idx, nuevos.length), 0, reemplazo);
@@ -310,6 +385,8 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const [enviando, setEnviando] = useState(false);
   const enviarPedido = async (mesaNum) => {
     if (totalItems === 0) return;
+    // varias estaciones o pisos: el mesero decide a dónde va (la primera vez, o si lo recordado ya no existe)
+    if (!editingOrderId && !destinoListo) { setVerDestino(true); return; }
     if (enviandoRef.current) return; // ya se está enviando — ignora el segundo toque para no duplicar el pedido
     enviandoRef.current = true;
     setEnviando(true);
@@ -324,7 +401,9 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           const mods = e.mods || [];
           // Se guarda el costo y el precio de ESTE momento junto al pedido (el precio ya incluye
           // lo que suman las opciones) — así una venta vieja no cambia si luego editas el menú.
-          return { id: key, baseId, name: m.name, price: precioUnitario(m, mods), cost: m.cost || 0, qty: e.qty, nota: (e.nota || "").trim(), mods, estacion: estacionDe(m, config) };
+          // al editar, lo que ya estaba conserva su destino original; lo nuevo usa el destino elegido
+          const previo = editingOrderId ? ((orders.find((x) => x.id === editingOrderId) || {}).items || []).find((x) => x.id === key) : null;
+          return { id: key, baseId, name: m.name, price: precioUnitario(m, mods), cost: m.cost || 0, qty: e.qty, nota: (e.nota || "").trim(), mods, ...destinoDeLinea(m, key, mesaNum, previo) };
         })
         .filter(Boolean);
       if (items.length === 0) { resetDraft(); return; }
@@ -343,8 +422,9 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           if (!cuenta) { avisarFalloGuardado(); return; } // no se pudo abrir: no se envía nada (y no se descuenta inventario)
         }
         const consumo = consumoDeItems(items, menu);
-        const order = { id: uid(), mesa: mesaNum, cuentaId: cuenta.id, items, nota: note.trim(), estado: "pendiente", ts: Date.now(), tipo: cuenta.tipo || "mesa", consumo };
+        const order = { id: uid(), mesa: mesaNum, cuentaId: cuenta.id, items, nota: note.trim(), estado: "pendiente", ts: Date.now(), tipo: cuenta.tipo || "mesa", consumo, ...(variosPisos ? { pisoOrigen: pisoDeMesaId(mesas, mesaNum, config) || pisoVista } : {}) };
         await saveOrder(order, Object.keys(consumo).length > 0 ? negar(consumo) : null); // pedido + inventario en una sola escritura
+        imprimirPedidoNuevo(order); // si este equipo tiene la opción activa: sale la comanda al instante (con o sin internet)
         vibrar(30);
         setJustSent(true);
         setTimeout(() => setJustSent(false), 2200);
@@ -367,7 +447,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     enterMesa(mesaId);
   };
 
-  const mesasLibres = (excluir) => mesas.filter((m) => !mesaMatch(m.id, excluir) && !cuentaAbiertaDe(m.id));
+  const mesasLibres = (excluir, pisoId = null) => mesas.filter((m) => !mesaMatch(m.id, excluir) && !cuentaAbiertaDe(m.id) && (!pisoId || pisoIdDeMesa(m, config) === pisoId));
   // Mesas que se pueden juntar a la actual: libres (sin cuenta ni "por liberar") y que no estén ya juntadas.
   const mesasParaJuntar = (excluir, cuenta) => mesas.filter((m) => !mesaMatch(m.id, excluir) && !cuentaDeMesa(cuentas, m.id) && !mesasJuntas.some((j) => mesaMatch(j, m.id)) && !(cuenta && cuentaCubre(cuenta, m.id)));
   const mesasOcupadas = (excluir, cuenta) => mesas.filter((m) => !mesaMatch(m.id, excluir) && cuentaAbiertaDe(m.id) && !(cuenta && cuentaCubre(cuenta, m.id)));
@@ -385,10 +465,23 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const trasladarA = async (cuenta, nuevaMesa) => {
     const afectadas = cuentaOrders(orders, cuenta.id);
     const patch = {};
-    afectadas.forEach((o) => { patch[o.id] = { ...o, mesa: nuevaMesa }; });
+    // Si la mesa cambia de PISO: lo que falta entregar se entrega en el piso nuevo, y lo que ya se está preparando
+    // sigue preparándose donde estaba (cada línea guarda explícitamente su piso de preparación).
+    const pisoViejo = pisoDeMesaId(mesas, cuenta.mesa, config), pisoNuevo = pisoDeMesaId(mesas, nuevaMesa, config);
+    const cambiaPiso = variosPisos && pisoViejo && pisoNuevo && pisoViejo !== pisoNuevo;
+    afectadas.forEach((o) => {
+      const base = { ...o, mesa: nuevaMesa };
+      if (!cambiaPiso) { patch[o.id] = base; return; }
+      patch[o.id] = {
+        ...base, pisoOrigen: pisoNuevo,
+        items: o.items.map((it) => ({ ...it, pisoPrep: pisoPrepDeLinea(it, config), pisoEntrega: pisoEntregaDeLinea(it, config) === pisoViejo ? pisoNuevo : pisoEntregaDeLinea(it, config) })),
+      };
+    });
     if (Object.keys(patch).length > 0) await saveOrdersMap(patch);
     await parcharCuenta(cuenta.id, { mesa: nuevaMesa });
+    if (cambiaPiso) elegirPisoVista(pisoNuevo);
     setMesaAction(null);
+    setPisoTraslado(null);
     setSelectedMesa(nuevaMesa);
   };
 
@@ -416,6 +509,14 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     return (
       <div style={styles.screen}>
         {avisoListo && <div style={styles.avisoListoBanner}><Volume2 size={14} /> {avisoListo.texto}</div>}
+        {verDestino && (
+          <DestinoPedido
+            valor={destinoNorm} estaciones={estaciones} pisos={pisos}
+            nombrePisoMesa={variosPisos ? nombrePiso(config, pisoDeMesaId(mesas, selectedMesa, config) || pisoVista) : ""}
+            lineas={Object.entries(draft).map(([key, e]) => { const m = menu.find((x) => x.id === (e.baseId || key)); return { key, nombre: m ? m.name : "—", qty: e.qty }; })}
+            onGuardar={setDestino} onCerrar={() => setVerDestino(false)}
+          />
+        )}
         {modalItem && <ModalOpciones item={modalItem} onClose={() => { setModalItem(null); setCambioOpc(null); }} onAdd={(mods, qty, nota) => {
           if (cambioOpc) {
             const ord = orders.find((x) => x.id === cambioOpc.orderId);
@@ -492,9 +593,20 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
         {mesaAction === "trasladar" && (
           <div style={styles.mesaActionPanel}>
             <div style={styles.closeConfirmText}>Elige la mesa libre destino:</div>
+            {variosPisos && (() => {
+              const actual = pisoTraslado || pisoDeMesaId(mesas, selectedMesa, config) || pisoVista;
+              return (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} role="tablist" aria-label="Piso de la mesa destino">
+                  {pisos.map((p) => (
+                    <button key={p.id} role="tab" aria-selected={actual === p.id} onClick={() => setPisoTraslado(p.id)}
+                      style={{ minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", fontSize: 14, fontWeight: 600, cursor: "pointer", background: actual === p.id ? "var(--chip-on-bg)" : "var(--btn2-bg)", color: actual === p.id ? "var(--chip-on-fg)" : "var(--btn2-fg)", borderColor: actual === p.id ? "transparent" : "var(--btn2-line)" }}>{p.nombre}</button>
+                  ))}
+                </div>
+              );
+            })()}
             <div style={styles.mesaPickerRow}>
-              {mesasLibres(selectedMesa).length === 0 && <span style={styles.cajaEmptyText}>No hay mesas libres.</span>}
-              {mesasLibres(selectedMesa).map((m) => (
+              {mesasLibres(selectedMesa, variosPisos ? (pisoTraslado || pisoDeMesaId(mesas, selectedMesa, config) || pisoVista) : null).length === 0 && <span style={styles.cajaEmptyText}>No hay mesas libres{variosPisos ? " en ese piso" : ""}.</span>}
+              {mesasLibres(selectedMesa, variosPisos ? (pisoTraslado || pisoDeMesaId(mesas, selectedMesa, config) || pisoVista) : null).map((m) => (
                 <button key={m.id} style={styles.mesaPickerBtn} onClick={() => trasladarA(cuenta, m.id)}>{m.nombre}</button>
               ))}
             </div>
@@ -631,6 +743,9 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                             <span style={styles.cambioTag}>{h.tipo === "cambio" ? `cambió de producto → ${h.aName}` : "quitado"}</span>
                           </div>
                         ))}
+                        {impresora.config().tipo && (
+                          <button className="toque44" style={{ ...styles.marcarServidoBtn, alignSelf: "flex-start", minHeight: 44 }} aria-label="Reimprimir comanda" onClick={() => reimprimirComanda(o)}><Printer size={13} /> Reimprimir comanda</button>
+                        )}
                         {porServir(o) > 1 && (
                           <button style={{ ...styles.marcarServidoBtn, alignSelf: "flex-start" }} onClick={() => servirTodoListo(o.id)}><Check size={12} /> Servir todo lo listo ({porServir(o)})</button>
                         )}
@@ -695,8 +810,8 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                   {lineas.map(([k, v]) => (
                     <div key={k} style={styles.lineaOpc} className="anim-in">
                       <span style={styles.lineaOpcTxt}>{v.qty}× {v.mods && v.mods.length ? modsTexto(v.mods) : "Normal"}{v.nota ? ` · ${v.nota}` : ""}</span>
-                      <button className="toque44" style={styles.lineaOpcBtn} onClick={() => addQty(k, -1)}><Minus size={11} /></button>
-                      <button className="toque44" style={styles.lineaOpcBtn} onClick={() => addQty(k, 1)}><Plus size={11} /></button>
+                      <button aria-label="Quitar una de esta opción" className="toque44" style={styles.lineaOpcBtn} onClick={() => addQty(k, -1)}><Minus size={11} /></button>
+                      <button aria-label="Agregar una de esta opción" className="toque44" style={styles.lineaOpcBtn} onClick={() => addQty(k, 1)}><Plus size={11} /></button>
                     </div>
                   ))}
                 </div>
@@ -709,9 +824,9 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                   </div>
                 ) : (
                   <div style={styles.stepper}>
-                    <button style={styles.stepBtn} disabled={agotado} onClick={() => addQty(item.id, -1)}><Minus size={14} /></button>
+                    <button aria-label={`Quitar uno de ${item.name}`} style={styles.stepBtn} disabled={agotado} onClick={() => addQty(item.id, -1)}><Minus size={14} /></button>
                     <span style={styles.stepVal}>{d?.qty || 0}</span>
-                    <button style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} disabled={agotado} onClick={() => addQty(item.id, 1)}><Plus size={14} /></button>
+                    <button aria-label={`Agregar uno de ${item.name}`} style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} disabled={agotado} onClick={() => addQty(item.id, 1)}><Plus size={14} /></button>
                   </div>
                 )}
                 {!conOpc && d && d.qty > 0 && (
@@ -750,6 +865,15 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           {(notaAbierta || note) && (
             <input autoFocus={!note} placeholder="Nota general para cocina (opcional)" value={note} onChange={(e) => setNote(e.target.value)} style={styles.noteInput} />
           )}
+          {necesitaDestino && !editingOrderId && totalItems > 0 && (
+            <button type="button" onClick={() => setVerDestino(true)} aria-label="Elegir a dónde va el pedido"
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 44, padding: "0 14px", borderRadius: 14, border: `1px solid ${destinoListo ? "var(--btn2-line)" : "var(--accent)"}`, background: "var(--btn2-bg)", color: "var(--c-242019-t)", fontSize: 14, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+              <span style={{ opacity: 0.7, fontWeight: 600 }}>Va a</span>
+              <span style={{ flex: 1, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: destinoListo ? "var(--btn2-fg)" : "var(--accent)", fontWeight: 700 }}>
+                {destinoListo ? resumenDestino(destinoNorm, estaciones, pisos, nombrePiso(config, pisoDeMesaId(mesas, selectedMesa, config) || pisoVista)) : "Elegir a dónde va ›"}
+              </span>
+            </button>
+          )}
           <div style={{ display: "flex", gap: 8 }}>
             {editingOrderId && <button style={styles.cancelEditBtn} onClick={resetDraft}>Descartar</button>}
             {!(notaAbierta || note) && (
@@ -765,18 +889,23 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     );
   }
 
-  // Todo lo que ya salió de cocina y falta llevar, por mesa — solo de MIS cuentas abiertas.
+  const mesasVisibles = variosPisos ? mesasDelPiso(mesas, pisoVista, config) : mesas;
+
+  // Todo lo que ya salió de cocina y falta llevar, por mesa — mis cuentas abiertas + lo que sube/baja hacia el piso que atiendo.
   const paraServirPorMesa = (() => {
     const grupos = [];
     cuentas
-      .filter((c) => c.mesero === meseroActual && c.estado === "abierta")
+      .filter((c) => c.estado === "abierta")
       .forEach((c) => {
+        const mia = c.mesero === meseroActual;
         const lineas = [];
         cuentaOrders(orders, c.id).forEach((o) => {
           if (o.estado === "cancelado") return;
           o.items.forEach((it, idx) => {
             const n = itemListos(o, it) - itemServidos(o, it);
-            if (n > 0) lineas.push({ orderId: o.id, idx, nombre: itemNombre(it), n, faltan: it.qty - itemListos(o, it), ts: o.ts });
+            const traspasoAqui = variosPisos && pisoEntregaDeLinea(it, config) === pisoVista && pisoPrepDeLinea(it, config) !== pisoVista;
+            if (!mia && !traspasoAqui) return;
+            if (n > 0) lineas.push({ orderId: o.id, idx, nombre: itemNombre(it), n, faltan: it.qty - itemListos(o, it), ts: o.ts, desde: traspasoAqui ? nombrePiso(config, pisoPrepDeLinea(it, config)) : null, de: mia ? null : c.mesero });
           });
         });
         if (lineas.length > 0) grupos.push({ mesa: c.mesa, nombre: mesaNombre(mesas, c.mesa), lineas: lineas.sort((a, b) => a.ts - b.ts), ts: Math.min(...lineas.map((l) => l.ts)) });
@@ -818,6 +947,20 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
         <button style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "grid" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("grid")}>Cuadrícula</button>
         <button style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "plano" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("plano")}>Plano</button>
       </div>
+      {variosPisos && (
+        <div className="ancho" role="tablist" aria-label="Piso" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", WebkitOverflowScrolling: "touch" }}>
+          {pisos.map((p) => {
+            const activa = pisoVista === p.id;
+            const ocupadas = cuentas.filter((c) => c.estado === "abierta" && pisoDeMesaId(mesas, c.mesa, config) === p.id).length;
+            return (
+              <button key={p.id} role="tab" aria-selected={activa} onClick={() => elegirPisoVista(p.id)}
+                style={{ flexShrink: 0, minHeight: 44, padding: "0 16px", borderRadius: 999, fontSize: 14.5, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, border: "1px solid var(--c-e4dfce-o)", background: activa ? "var(--chip-on-bg)" : "var(--btn2-bg)", color: activa ? "var(--chip-on-fg)" : "var(--btn2-fg)", borderColor: activa ? "transparent" : "var(--btn2-line)" }}>
+                {p.nombre}{ocupadas > 0 && <span style={{ fontSize: 12, fontWeight: 800, padding: "1px 7px", borderRadius: 999, background: activa ? "rgba(255,255,255,.25)" : "var(--c-f1ecdd-b)" }}>{ocupadas}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div style={styles.mesasScroll}>
         {paraServirPorMesa.length > 0 && (
           <div className="ancho" style={styles.paraServirWrap}>
@@ -827,7 +970,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                 <button style={styles.paraServirMesa} onClick={() => enterMesa(g.mesa)}>{g.nombre} ›</button>
                 {g.lineas.map((l) => (
                   <div key={`${l.orderId}-${l.idx}`} style={styles.paraServirLinea}>
-                    <span style={styles.paraServirTxt}><b>{l.n}×</b> {l.nombre}{l.faltan > 0 ? <span style={styles.paraServirFaltan}> · faltan {l.faltan} en cocina</span> : null}</span>
+                    <span style={styles.paraServirTxt}><b>{l.n}×</b> {l.nombre}{l.desde ? <span style={{ ...styles.paraServirFaltan, color: "var(--c-2f6690-t)" }}> · viene de {l.desde}{l.de ? ` (${l.de})` : ""}</span> : null}{l.faltan > 0 ? <span style={styles.paraServirFaltan}> · faltan {l.faltan} en cocina</span> : null}</span>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                       {l.n > 1 && <button style={styles.servirTodasBtn} onClick={() => servirLinea(l.orderId, l.idx)} title="Servir todas las que están listas">Todas ({l.n})</button>}
                       <button style={styles.marcarServidoBtn} onClick={() => servirItem(l.orderId, l.idx)}><Check size={12} /> Servir{l.n > 1 ? " 1" : ""}</button>
@@ -840,14 +983,14 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
         )}
       {vistaMesas === "plano" ? (
         <div style={{ padding: "0 16px 16px" }}>
-          <PlanoSalon mesas={mesas} zonas={(config.plano && config.plano.zonas) || []} alto={(config.plano && config.plano.alto) || 100} cuentas={cuentas} orders={orders} editable={false} onTapMesa={tocarMesa} />
+          <PlanoSalon mesas={mesasVisibles} zonas={planoDe(config, pisoVista).zonas || []} alto={planoDe(config, pisoVista).alto || 100} cuentas={cuentas} orders={orders} editable={false} onTapMesa={tocarMesa} />
         </div>
       ) : (
         <div className="ancho" style={styles.mesaGrid}>
-          {mesas.length === 0 && (
-            <div style={styles.cajaEmptyText}>No hay mesas creadas todavía. Toca "Mesas" para agregar la primera.</div>
+          {mesasVisibles.length === 0 && (
+            <div style={styles.cajaEmptyText}>{variosPisos ? "Este piso todavía no tiene mesas. El administrador las agrega en Mesas." : 'No hay mesas creadas todavía. Toca "Mesas" para agregar la primera.'}</div>
           )}
-          {mesas.map((m) => {
+          {mesasVisibles.map((m) => {
             const cuenta = cuentaDeMesa(cuentas, m.id);
             const visual = estadoVisualMesa(cuenta, cuenta ? cuentaOrders(orders, cuenta.id) : []);
             // Mesas juntas: se dibujan fusionadas en un solo bloque (2, 3… recuadros pegados con una sola cuenta).

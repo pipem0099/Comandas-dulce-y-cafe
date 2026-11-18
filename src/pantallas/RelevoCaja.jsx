@@ -7,6 +7,7 @@ import { timeLabel } from "../utilidades.js";
 import { responsableDe, tramoVigente, statsTramo, proponerRelevo, aceptarRelevo, deshacerRelevo } from "../relevoCaja.js";
 import { playBeep, mostrarNotificacionSistema } from "../avisos.js";
 import { vibrar } from "../theme.js";
+import { useDocumentosFiscales } from "../useFacturacion.js";
 
 import { Hoja } from "../componentes/Hoja.jsx";
 /* Entregar la caja a otra persona (o asumirla si quien la tenía se fue), y recibirla. */
@@ -44,7 +45,8 @@ export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCe
   const [guardando, setGuardando] = useState(false);
 
   const tramo = tramoVigente(turno);
-  const st = statsTramo(turno, cuentas, tramo);
+  const documentosFiscales = useDocumentosFiscales(true);
+  const st = statsTramo(turno, cuentas, tramo, documentosFiscales);
   const contadoNum = Math.round(parseFloat(contado) || 0);
   const diferencia = contadoNum - st.esperado;
   const receptor = asumir ? { uid: usuarioActual.uid, nombre: usuarioActual.nombre } : destino;
@@ -60,7 +62,7 @@ export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCe
   const confirmar = async () => {
     if (notaObligatoria && !nota.trim()) { setError(asumir ? "Cuéntanos por qué asumes la caja (ej. se fue sin entregar)." : "El conteo no cuadró: explica qué pasó."); return; }
     setGuardando(true); setError("");
-    const ok = await proponerRelevo({ turno, cuentas, a: receptor, contado: contadoNum, observaciones: nota.trim(), forzado: asumir, porNombre: usuarioActual.nombre });
+    const ok = await proponerRelevo({ turno, cuentas, documentos: documentosFiscales, a: receptor, contado: contadoNum, observaciones: nota.trim(), forzado: asumir, porNombre: usuarioActual.nombre });
     setGuardando(false);
     if (!ok) { setError("No se pudo guardar. Revisa tu conexión e inténtalo de nuevo."); return; }
     vibrar(18); onCerrar();
@@ -107,6 +109,7 @@ export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCe
                   <div style={{ color: K.ink }}>
                     <L k="Recibió (base de este tramo)" v={money(tramo.base)} />
                     <L k="+ Ventas en efectivo" v={money(st.ventasEfectivo)} />
+                    {st.reversoEfectivo > 0 && <L k="− Devoluciones por Nota Crédito" v={money(st.reversoEfectivo)} />}
                     {st.entradas > 0 && <L k="+ Entradas de dinero" v={money(st.entradas)} />}
                     {st.salidas > 0 && <L k="− Salidas de dinero" v={money(st.salidas)} />}
                     <L k="Debía haber" v={money(st.esperado)} fuerte />

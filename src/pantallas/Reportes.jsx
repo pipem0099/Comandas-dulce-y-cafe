@@ -175,9 +175,9 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
             <div style={styles.partesStepperRow}>
               <span style={styles.closeConfirmText}>Dividir entre:</span>
               <div style={styles.stepper}>
-                <button style={styles.stepBtn} onClick={() => setNumPersonasPropina((n) => Math.max(1, n - 1))}><Minus size={14} /></button>
+                <button aria-label="Una persona menos" style={styles.stepBtn} onClick={() => setNumPersonasPropina((n) => Math.max(1, n - 1))}><Minus size={14} /></button>
                 <span style={styles.stepVal}>{numPersonasPropina}</span>
-                <button style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} onClick={() => setNumPersonasPropina((n) => Math.min(20, n + 1))}><Plus size={14} /></button>
+                <button aria-label="Una persona más" style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} onClick={() => setNumPersonasPropina((n) => Math.min(20, n + 1))}><Plus size={14} /></button>
               </div>
               <span style={styles.closeConfirmText}>personas</span>
             </div>

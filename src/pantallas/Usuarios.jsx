@@ -7,6 +7,7 @@ import { styles } from "../estilos.js";
 import { msgAuth } from "../pantallas/Acceso.jsx";
 import { claveFiltrada, MENSAJE_CLAVE_FILTRADA } from "../clavesSeguras.js";
 import { Acordeon, MenuContextual } from "../componentes/Comunes.jsx";
+import { EsqueletoLista } from "../componentes/Esqueletos.jsx";
 import { agruparPorMes, dateTimeLabel, rolLabel, rolesAMapa, rolesDe, rolesLabel, tieneRol } from "../utilidades.js";
 
 export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
@@ -100,7 +101,7 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
   return (
     <div>
       <div style={styles.catLabel}>EQUIPO</div>
-      {perfiles === null && <div style={styles.cajaEmptyText}>Cargando equipo…</div>}
+      {perfiles === null && <EsqueletoLista filas={3} />}
       {lista.map((u) => (
         <div key={u.uid} style={{ ...styles.usuarioRow, opacity: u.activo ? 1 : 0.6 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>

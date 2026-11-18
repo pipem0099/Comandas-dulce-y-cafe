@@ -7,6 +7,14 @@ import { getEstaciones, estacionDeLinea, itemNombre } from "../logica.js";
 import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
 import { AvisoActivarNotificaciones } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
+import { avisar } from "../avisos.jsx";
+import { impresora } from "../termica/impresora.js";
+import { crearControlImpresos } from "../termica/autoCocina.js";
+import { servicioComandas } from "../termica/imprimirComandas.js";
+import { eventosParaCocina, ambitoDe, numeroRonda, yaImpreso } from "../termica/comandaMesero.js";
+
+const ESPERA_DEDUP_MS = 6000; // tiempo que Cocina espera antes de imprimir un pedido, para que el equipo del mesero imprima primero si le toca
+import { getPisos, pisoPrepDeLinea, pisoEntregaDeLinea, nombrePiso } from "../pisos.js";
 import { conProgreso, elapsedLabel, itemListos, itemServidos, mesaNombre, timeLabel, urgencyColor } from "../utilidades.js";
 
 /* ---------------- COCINA ---------------- */
@@ -20,13 +28,69 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
   const [estSel, setEstSel] = useState(() => { try { return localStorage.getItem("comandas_estacion") || "todas"; } catch (e) { return "todas"; } });
   const est = multi && estaciones.some((e) => e.id === estSel) ? estSel : "todas";
   const elegirEstacion = (id) => { setEstSel(id); try { localStorage.setItem("comandas_estacion", id); } catch (e) {} };
+
+  // Pisos: cada pantalla de preparación puede quedarse fija en SU piso (también se guarda en este dispositivo).
+  const pisos = getPisos(config);
+  const variosPisos = pisos.length > 1;
+  const [pisoSelC, setPisoSelC] = useState(() => { try { return localStorage.getItem("comandas_piso_prep") || "todos"; } catch (e) { return "todos"; } });
+  const pisoFiltro = variosPisos && pisos.some((p) => p.id === pisoSelC) ? pisoSelC : "todos";
+  const elegirPisoPrep = (id) => { setPisoSelC(id); try { localStorage.setItem("comandas_piso_prep", id); } catch (e) {} };
+  const enPisoPrep = (it) => pisoFiltro === "todos" || pisoPrepDeLinea(it, config) === pisoFiltro;
+
+  // Impresión automática: si este equipo tiene impresora y la opción activada, cada pedido NUEVO y cada AJUSTE sale impreso una sola vez
+  // (solo lo de esta estación y este piso). Para no duplicar con el equipo del mesero:
+  //   · espera unos segundos desde que VE el pedido (el mesero alcanza a imprimir y a anotar su marca);
+  //   · vuelve a mirar el pedido justo antes de imprimir; si ya tiene la marca, no imprime;
+  //   · anota su marca (por estación/piso) solo cuando la impresora confirmó.
+  const impresosRef = useRef(null); if (!impresosRef.current) impresosRef.current = crearControlImpresos();
+  const ordersRef = useRef(orders); ordersRef.current = orders;
+  const vistosRef = useRef(new Map());
+  const ultimoAvisoRef = useRef(0);
+  const [reintento, setReintento] = useState(0);
+  useEffect(() => {
+    const cfg = impresora.config();
+    if (!cfg.tipo || !cfg.autoCocina) return undefined;
+    const impresos = impresosRef.current;
+    const ambito = ambitoDe(est, pisoFiltro);
+    const yaVisto = (llave, ahora) => { if (!vistosRef.current.has(llave)) vistosRef.current.set(llave, ahora); return vistosRef.current.get(llave); };
+    const lista = eventosParaCocina(orders, { desdeTs: cfg.activadoTs, ambito, yaVisto, ahora: Date.now(), esperaMs: ESPERA_DEDUP_MS, enCurso: (l) => servicioComandas.enCurso(l) }).filter((x) => !impresos.ya(x.llave));
+    const esperas = lista.filter((x) => x.esperar > 0).map((x) => x.esperar);
+    const temporizador = esperas.length ? setTimeout(() => setReintento((n) => n + 1), Math.min(...esperas) + 50) : null;
+    const listos = lista.filter((x) => x.esperar === 0);
+    if (listos.length > 0) (async () => {
+      const deEstaPantalla = (it) => (est === "todas" || estacionDeLinea(it, config) === est) && (pisoFiltro === "todos" || pisoPrepDeLinea(it, config) === pisoFiltro);
+      for (const x of listos) {
+        const fresco = ordersRef.current.find((o) => o.id === x.pedido.id) || x.pedido;       // lo más reciente (puede que el mesero ya imprimió)
+        if (yaImpreso(fresco, x.evento.base) || yaImpreso(fresco, x.evento.clave)) { impresos.marcar(x.llave); continue; }
+        const nombreEst = est === "todas" ? "" : ` · ${(estaciones.find((e) => e.id === est) || {}).nombre || ""}`;
+        const ctx = { por: "Cocina", equipo: `Cocina${nombreEst}`.slice(0, 80), ambito, lugar: mesaNombre(mesas, fresco.mesa), mesero: fresco.mesero || "", ronda: numeroRonda(ordersRef.current, fresco) };
+        let r;
+        if (x.evento.tipo === "nuevo") {
+          const items = (fresco.items || []).filter(deEstaPantalla);
+          if (items.length === 0) { impresos.marcar(x.llave); continue; }                     // nada de esta estación: no hay ticket
+          r = await servicioComandas.imprimirNuevo(fresco, { ...ctx, items });
+        } else {
+          const aj = x.evento.ajuste;
+          const parte = { ...aj, agregados: (aj.agregados || []).filter(deEstaPantalla), cancelados: (aj.cancelados || []).filter(deEstaPantalla) };
+          if (est !== "todas" || pisoFiltro !== "todos") { delete parte.notas; delete parte.notaGeneral; }
+          if (parte.agregados.length === 0 && parte.cancelados.length === 0 && !parte.notas && parte.notaGeneral === undefined) { impresos.marcar(x.llave); continue; }
+          r = await servicioComandas.imprimirAjuste(fresco, parte, ctx);
+        }
+        if (r.ok) impresos.marcar(x.llave);
+        else if (Date.now() - ultimoAvisoRef.current > 60000) { ultimoAvisoRef.current = Date.now(); avisar({ texto: "No se pudo imprimir el pedido", detalle: r.motivo, tipo: "error", duracion: 20000, accion: { texto: "Reintentar", fn: () => { ultimoAvisoRef.current = 0; setReintento((n) => n + 1); } } }); break; }
+      }
+    })();
+    return () => { if (temporizador) clearTimeout(temporizador); };
+  }, [orders, est, pisoFiltro, reintento]); // eslint-disable-line react-hooks/exhaustive-deps
   const [escala, setEscala] = useState(() => { try { const v = Number(localStorage.getItem("comandas_kds_escala")); return ESCALAS_KDS.includes(v) ? v : 1; } catch (e) { return 1; } });
   const ciclarEscala = () => {
     const next = ESCALAS_KDS[(ESCALAS_KDS.indexOf(escala) + 1) % ESCALAS_KDS.length];
     setEscala(next);
     try { localStorage.setItem("comandas_kds_escala", String(next)); } catch (e) {}
   };
-  const enEstacion = (it) => est === "todas" || estacionDeLinea(it, config) === est;
+  const enEstacion = (it) => (est === "todas" || estacionDeLinea(it, config) === est) && enPisoPrep(it);
+  // "Entregar en piso 3": solo se muestra cuando se prepara en un piso y se entrega en otro
+  const traspaso = (it) => (variosPisos && pisoEntregaDeLinea(it, config) !== pisoPrepDeLinea(it, config) ? `→ Entregar en ${nombrePiso(config, pisoEntregaDeLinea(it, config))}` : null);
   const nombreEstacion = (it) => (estaciones.find((e) => e.id === estacionDeLinea(it, config)) || estaciones[0]).nombre;
 
   const activos = orders.filter((o) => o.estado !== "listo" && o.estado !== "servido" && o.estado !== "cancelado");
@@ -54,8 +118,18 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
   const entrarKiosko = async () => {
     setKiosko(true);
     try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch (e) {}
-    try { if (navigator.wakeLock) wakeRef.current = await navigator.wakeLock.request("screen"); } catch (e) {}
+    await pedirPantallaEncendida();
   };
+  // El sistema suelta el "pantalla encendida" cada vez que la app pasa a segundo plano: se vuelve a pedir al regresar.
+  const pedirPantallaEncendida = async () => {
+    try { if (navigator.wakeLock && !wakeRef.current) { wakeRef.current = await navigator.wakeLock.request("screen"); wakeRef.current.addEventListener("release", () => { wakeRef.current = null; }); } } catch (e) {}
+  };
+  useEffect(() => {
+    if (!kiosko) return undefined;
+    const alVolver = () => { if (!document.hidden) pedirPantallaEncendida(); };
+    document.addEventListener("visibilitychange", alVolver);
+    return () => document.removeEventListener("visibilitychange", alVolver);
+  }, [kiosko]);
   const salirKiosko = async () => {
     setKiosko(false);
     try { if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen(); } catch (e) {}
@@ -76,7 +150,7 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
   const prevAvisosRef = useRef(avisos);
   useEffect(() => {
     if (avisos > prevAvisosRef.current) {
-      playBeep(); playBeep();
+      playBeep(); setTimeout(playBeep, 650);
       try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
       const o = conCambio[0] || canceladas[0];
       mostrarNotificacionSistema("Comandas — Cocina", `${mesaNombre(mesas, o.mesa)}: la comanda ${o.estado === "cancelado" ? "fue cancelada" : "cambió"}`);
@@ -156,6 +230,15 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
         </div>
       </div>
 
+      {variosPisos && (
+        <div style={ck.estaciones} role="tablist" aria-label="Piso donde se prepara">
+          {["todos", ...pisos.map((p) => p.id)].map((id) => (
+            <button key={id} role="tab" aria-selected={pisoFiltro === id} style={{ ...ck.chip, ...(pisoFiltro === id ? ck.chipOn : {}) }} onClick={() => elegirPisoPrep(id)}>
+              {id === "todos" ? "Todos los pisos" : pisos.find((p) => p.id === id).nombre}
+            </button>
+          ))}
+        </div>
+      )}
       {multi && (
         <div style={ck.estaciones}>
           {["todas", ...estaciones.map((e) => e.id)].map((id, i) => {
@@ -277,6 +360,7 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
                       <span style={{ ...styles.ticketItemName, textDecoration: completo ? "line-through" : "none" }}>
                         {it.name}
                         {multi && est === "todas" && <span style={styles.ticketEstTag}>{nombreEstacion(it)}</span>}
+                        {traspaso(it) && <span style={{ ...styles.ticketEstTag, color: "var(--info-solid, #2f6690)" }}>{traspaso(it)}</span>}
                       </span>
                       <span style={styles.itemKdsActions}>
                         {/* Despachar producto por producto solo tiene sentido ya en preparación */}

@@ -9,6 +9,8 @@ import { imprimir } from "../impresion.jsx";
 import { Chevron } from "../componentes/Comunes.jsx";
 import { mostrarComprobante } from "../comprobante.jsx";
 import { HojaDia } from "../hojas.jsx";
+import { FacturaCuenta } from "../componentes/FacturaCuenta.jsx";
+import { useAjustesFiscales, useFacturasEnCola } from "../useFacturacion.js";
 import { buildHistory, dateTimeLabel, dayKey, dayLabel, mesaNombre, monthLabel, tieneRol, timeLabel } from "../utilidades.js";
 
 /* ---------------- Historial ---------------- */
@@ -20,6 +22,9 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
   const [day, setDay] = useState(null);
   const [expandedCuentaId, setExpandedCuentaId] = useState(null);
   const [verCanceladas, setVerCanceladas] = useState(false);
+  const ajustesFiscales = useAjustesFiscales();
+  const facturasEnCola = useFacturasEnCola();
+  const [facturaId, setFacturaId] = useState(null); // la factura de una cuenta se abre a demanda (evita escuchar cientos de cuentas a la vez)
   const [verTodasCanceladas, setVerTodasCanceladas] = useState(false);
   const esAdmin = tieneRol(usuarioActual, "admin");
   const cuentas = cuentasParaHistorial;
@@ -217,6 +222,9 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
               <span style={styles.cierreTotal}>{money(c.total)}</span>
             </button>
             <button style={styles.comprobanteLink} onClick={() => { const real = (cuentasParaHistorial || []).find((x) => x.id === c.id); if (real) mostrarComprobante({ tipo: "comprobante", cuenta: real, orders: ordersParaHistorial || [] }); }}>Ver comprobante</button>
+            {ajustesFiscales && ajustesFiscales.activa && (facturaId === c.id
+              ? <div style={{ padding: "0 4px 10px" }}><FacturaCuenta cuenta={(cuentasParaHistorial || []).find((x) => x.id === c.id) || { id: c.id, estado: "pagada", pagadaTs: c.pagadaTs }} ajustes={ajustesFiscales} esAdmin={tieneRol(usuarioActual, "admin")} enCola={facturasEnCola.has(c.id)} /></div>
+              : <button style={styles.comprobanteLink} onClick={() => setFacturaId(c.id)}>Factura electrónica</button>)}
             {dividida && isExpanded && (
               <div style={styles.pagosRegistradosBox}>
                 {c.pagos.map((p) => {

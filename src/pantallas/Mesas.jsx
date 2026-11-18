@@ -5,8 +5,10 @@ import {
   Plus, Trash2, Pencil, Lock, Check, X, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { uid } from "../logica.js";
+import { Selector } from "../componentes/Campos.jsx";
 import { styles } from "../estilos.js";
 import { cuentaCubre } from "../utilidades.js";
+import { getPisos, planoDe, conPlano, pisoIdDeMesa, PISO_BASE } from "../pisos.js";
 
 export { PlanoSalon } from "../componentes/Plano.jsx";
 
@@ -16,6 +18,49 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
   const [editNombre, setEditNombre] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [error, setError] = useState("");
+
+  // ── Pisos: cada piso tiene sus mesas y su propio plano ──
+  const pisos = getPisos(config);
+  const varios = pisos.length > 1;
+  const [pisoEd, setPisoEd] = useState(pisos[0].id);
+  const pisoActual = pisos.some((p) => p.id === pisoEd) ? pisoEd : pisos[0].id;
+  const [nuevoPiso, setNuevoPiso] = useState("");
+  const [editPisoId, setEditPisoId] = useState(null);
+  const [editPisoNombre, setEditPisoNombre] = useState("");
+  const [borrarPisoId, setBorrarPisoId] = useState(null);
+  const mesasPiso = mesas.filter((m) => pisoIdDeMesa(m, config) === pisoActual);
+
+  const guardarPisos = (siguientes, extraConfig = {}, accion = "Cambió los pisos") => {
+    const auditLog = config.auditLog || [];
+    persistConfig({ ...config, ...extraConfig, pisos: siguientes, auditLog: [{ ts: Date.now(), accion, actor: actor || "desconocido" }, ...auditLog].slice(0, 500) });
+  };
+  const agregarPiso = () => {
+    const n = nuevoPiso.trim(); if (!n) return;
+    const id = "p" + uid().slice(0, 6);
+    guardarPisos([...pisos, { id, nombre: n }], {}, `Agregó el piso "${n}"`);
+    setNuevoPiso(""); setPisoEd(id);
+  };
+  const renombrarPiso = (p) => {
+    const n = editPisoNombre.trim(); if (!n) return;
+    guardarPisos(pisos.map((x) => (x.id === p.id ? { ...x, nombre: n } : x)), {}, `Renombró el piso "${p.nombre}" a "${n}"`);
+    setEditPisoId(null);
+  };
+  const borrarPiso = (p) => {
+    if (p.id === pisos[0].id) return;
+    const delPiso = mesas.filter((m) => pisoIdDeMesa(m, config) === p.id);
+    if (delPiso.some((m) => tieneCuentaAbierta(m.id))) { setError("Hay mesas de ese piso con cuenta abierta — ciérralas antes de borrar el piso."); setBorrarPisoId(null); return; }
+    // las mesas del piso borrado pasan al piso base y su plano se descarta
+    if (delPiso.length) persistMesas(mesas.map((m) => (pisoIdDeMesa(m, config) === p.id ? { ...m, piso: pisos[0].id } : m)));
+    const planos = { ...(config.planos || {}) }; delete planos[p.id];
+    guardarPisos(pisos.filter((x) => x.id !== p.id), { planos }, `Eliminó el piso "${p.nombre}"`);
+    setBorrarPisoId(null); setPisoEd(pisos[0].id);
+  };
+  const moverMesaDePiso = (m, pisoId) => {
+    if (tieneCuentaAbierta(m.id)) { setError("Esa mesa tiene una cuenta abierta — para cambiarla de piso usa «Trasladar» desde Mesero."); return; }
+    setError("");
+    persistMesas(mesas.map((o) => { if (o.id !== m.id) return o; const { x, y, ...resto } = o; return { ...resto, piso: pisoId }; })); // al cambiar de piso pierde su lugar en el plano anterior
+    registrar(`Pasó "${m.nombre}" al piso "${(pisos.find((p) => p.id === pisoId) || {}).nombre}"`);
+  };
 
   const tieneCuentaAbierta = (mesaId) => cuentas.some((c) => cuentaCubre(c, mesaId) && c.estado === "abierta");
 
@@ -27,7 +72,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
 
   const agregarMesa = () => {
     if (!nombre.trim()) return;
-    const nueva = { id: uid(), nombre: nombre.trim() };
+    const nueva = { id: uid(), nombre: nombre.trim(), ...(varios ? { piso: pisoActual } : {}) };
     persistMesas([...mesas, nueva]);
     registrar(`Agregó la mesa/espacio "${nueva.nombre}"`);
     setNombre("");
@@ -50,8 +95,9 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
 
   // El plano está BLOQUEADO por defecto (un roce al hacer scroll no mueve nada). Al tocar "Editar plano"
   // los cambios quedan en un borrador y solo se guardan con "Guardar plano".
-  const zonasBase = (config && config.plano && config.plano.zonas) || [];
-  const altoBase = (config && config.plano && config.plano.alto) || 100;
+  const planoPiso = planoDe(config, pisoActual);
+  const zonasBase = planoPiso.zonas || [];
+  const altoBase = planoPiso.alto || 100;
   const [editandoPlano, setEditandoPlano] = useState(false);
   const [bMesas, setBMesas] = useState({});      // cambios a mesas: { id: {x,y,tam,forma} }
   const [bZonas, setBZonas] = useState(null);    // copia de las zonas mientras se edita
@@ -59,7 +105,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
   const [sel, setSel] = useState(null);          // { kind: "mesa"|"zona", id }
   const zonasVista = editandoPlano && bZonas ? bZonas : zonasBase;
   const altoVista = editandoPlano && bAlto ? bAlto : altoBase;
-  const mesasVista = mesas.map((m) => (bMesas[m.id] ? { ...m, ...bMesas[m.id] } : m));
+  const mesasVista = mesasPiso.map((m) => (bMesas[m.id] ? { ...m, ...bMesas[m.id] } : m));
   const hayCambios = Object.keys(bMesas).length > 0 || (bZonas && JSON.stringify(bZonas) !== JSON.stringify(zonasBase)) || (bAlto && bAlto !== altoBase);
 
   const empezarPlano = () => { setBZonas(zonasBase.map((z) => ({ ...z }))); setBAlto(altoBase); setBMesas({}); setSel(null); setEditandoPlano(true); };
@@ -74,15 +120,14 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
   };
   const quitarZona = (id) => { setBZonas((zs) => zs.filter((z) => z.id !== id)); setSel(null); };
   const guardarPlano = () => {
-    if (Object.keys(bMesas).length > 0) persistMesas(mesasVista);
+    if (Object.keys(bMesas).length > 0) persistMesas(mesas.map((m) => (bMesas[m.id] ? { ...m, ...bMesas[m.id] } : m)));
     const cambioConfig = (bZonas && JSON.stringify(bZonas) !== JSON.stringify(zonasBase)) || (bAlto && bAlto !== altoBase);
     if (cambioConfig) {
       // UN solo guardado con el plano y el registro de seguridad juntos: dos guardados seguidos con una
       // copia vieja de la configuración hacían que el segundo borrara las zonas del primero.
       const auditLog = config.auditLog || [];
       persistConfig({
-        ...config,
-        plano: { zonas: bZonas || zonasBase, alto: bAlto || altoBase },
+        ...conPlano(config, pisoActual, { zonas: bZonas || zonasBase, alto: bAlto || altoBase }),
         auditLog: [{ ts: Date.now(), accion: "Modificó el plano del negocio", actor: actor || "desconocido" }, ...auditLog].slice(0, 500),
       });
     } else if (hayCambios) registrar("Modificó el plano del negocio");
@@ -92,11 +137,13 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
   const mesaSel = sel && sel.kind === "mesa" ? mesasVista.find((m) => m.id === sel.id) : null;
   const zonaSel = sel && sel.kind === "zona" ? zonasVista.find((z) => z.id === sel.id) : null;
 
-  const mover = (idx, dir) => {
+  const mover = (m, dir) => {
+    const i = mesasPiso.findIndex((x) => x.id === m.id);
+    const vecina = mesasPiso[i + dir];
+    if (!vecina) return;
     const next = [...mesas];
-    const j = idx + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[idx], next[j]] = [next[j], next[idx]];
+    const a = next.findIndex((x) => x.id === m.id), b = next.findIndex((x) => x.id === vecina.id);
+    [next[a], next[b]] = [next[b], next[a]];
     persistMesas(next);
   };
 
@@ -105,7 +152,44 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
       <CabeceraAdmin titulo="Mesas y espacios" onClose={onClose} />
       <div className="ancho" style={styles.menuScroll}>
         <div style={styles.addItemCard}>
-          <div style={styles.catLabel}>AGREGAR MESA O ESPACIO</div>
+          <div style={styles.catLabel}>PISOS</div>
+          <div style={styles.closeConfirmText}>{varios ? "Cada piso tiene sus propias mesas y su propio plano." : "¿Tu negocio tiene más de un piso? Agrega los demás y cada uno tendrá sus mesas y su plano."}</div>
+          {varios && pisos.map((p, i) => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 44 }}>
+              {editPisoId === p.id ? (
+                <>
+                  <input autoFocus style={{ ...styles.editInput, flex: 1 }} value={editPisoNombre} onChange={(e) => setEditPisoNombre(e.target.value)} onKeyDown={(e) => e.key === "Enter" && renombrarPiso(p)} />
+                  <button style={styles.confirmYes} onClick={() => renombrarPiso(p)}>Guardar</button>
+                  <button style={styles.confirmNo} onClick={() => setEditPisoId(null)}>Cancelar</button>
+                </>
+              ) : (
+                <>
+                  <span style={{ ...styles.menuItemName, flex: 1 }}>{p.nombre}{i === 0 ? " · base" : ""}</span>
+                  <button aria-label={`Renombrar ${p.nombre}`} className="toque44" style={styles.deleteBtn} onClick={() => { setEditPisoId(p.id); setEditPisoNombre(p.nombre); }}><Pencil size={14} /></button>
+                  {i > 0 && (borrarPisoId === p.id ? (
+                    <div style={{ display: "flex", gap: 4 }}><button style={styles.confirmYes} onClick={() => borrarPiso(p)}>Sí</button><button style={styles.confirmNo} onClick={() => setBorrarPisoId(null)}>No</button></div>
+                  ) : (
+                    <button aria-label={`Eliminar ${p.nombre}`} className="toque44" style={styles.deleteBtn} onClick={() => { setBorrarPisoId(p.id); setError(""); }}><Trash2 size={14} /></button>
+                  ))}
+                </>
+              )}
+            </div>
+          ))}
+          <input style={styles.editInput} placeholder={varios ? "Nombre del nuevo piso" : "Nombre del segundo piso (ej. Piso 2, Terraza alta)"} value={nuevoPiso} onChange={(e) => setNuevoPiso(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agregarPiso()} />
+          <button style={styles.addItemBtn} onClick={agregarPiso}><Plus size={15} /> Agregar piso</button>
+        </div>
+
+        {varios && (
+          <div role="tablist" aria-label="Piso que estás editando" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "14px 0 2px", WebkitOverflowScrolling: "touch" }}>
+            {pisos.map((p) => (
+              <button key={p.id} role="tab" aria-selected={pisoActual === p.id} disabled={editandoPlano && pisoActual !== p.id} onClick={() => { setPisoEd(p.id); setSel(null); }}
+                style={{ ...pl.pastilla, flexShrink: 0, minHeight: 40, ...(pisoActual === p.id ? pl.on : {}), opacity: editandoPlano && pisoActual !== p.id ? 0.4 : 1 }}>{p.nombre}</button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ ...styles.addItemCard, marginTop: varios ? 12 : 14 }}>
+          <div style={styles.catLabel}>AGREGAR MESA O ESPACIO{varios ? ` · ${(pisos.find((p) => p.id === pisoActual) || {}).nombre}` : ""}</div>
           <div style={styles.closeConfirmText}>Puedes ponerle cualquier nombre: "Mesa 5", "Barra", "Mesa gris", "Terraza"…</div>
           <input style={styles.editInput} placeholder="Nombre del espacio" value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agregarMesa()} />
           <button style={styles.addItemBtn} onClick={agregarMesa}><Plus size={15} /> Agregar</button>
@@ -113,7 +197,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
 
         {error && <div style={styles.pinError}>{error}</div>}
 
-        <div style={{ ...styles.catLabel, marginTop: 22 }}>PLANO DEL NEGOCIO</div>
+        <div style={{ ...styles.catLabel, marginTop: 22 }}>PLANO DEL NEGOCIO{varios ? ` · ${(pisos.find((p) => p.id === pisoActual) || {}).nombre}` : ""}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8, marginBottom: 6 }}>
         {!editandoPlano ? (
           <>
@@ -183,13 +267,13 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
         )}
         </div>
 
-        <div style={{ ...styles.catLabel, marginTop: 26 }}>TUS MESAS Y ESPACIOS</div>
-        {mesas.length === 0 && <div style={styles.cajaEmptyText}>Todavía no has agregado ninguna.</div>}
-        {mesas.map((m, idx) => (
+        <div style={{ ...styles.catLabel, marginTop: 26 }}>TUS MESAS Y ESPACIOS{varios ? ` · ${(pisos.find((p) => p.id === pisoActual) || {}).nombre}` : ""}</div>
+        {mesasPiso.length === 0 && <div style={styles.cajaEmptyText}>Todavía no has agregado ninguna.</div>}
+        {mesasPiso.map((m, idx) => (
           <div key={m.id} style={styles.editRow}>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <button className="toque44" style={styles.mesaReorderBtn} onClick={() => mover(idx, -1)} disabled={idx === 0} aria-label="Subir"><ChevronUp size={15} /></button>
-              <button className="toque44" style={styles.mesaReorderBtn} onClick={() => mover(idx, 1)} disabled={idx === mesas.length - 1} aria-label="Bajar"><ChevronDown size={15} /></button>
+              <button className="toque44" style={styles.mesaReorderBtn} onClick={() => mover(m, -1)} disabled={idx === 0} aria-label="Subir"><ChevronUp size={15} /></button>
+              <button className="toque44" style={styles.mesaReorderBtn} onClick={() => mover(m, 1)} disabled={idx === mesasPiso.length - 1} aria-label="Bajar"><ChevronDown size={15} /></button>
             </div>
             {editId === m.id ? (
               <>
@@ -201,14 +285,17 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
               <>
                 <span style={{ ...styles.menuItemName, flex: 1 }}>{m.nombre}</span>
                 {tieneCuentaAbierta(m.id) && <span style={styles.enCursoTag}>cuenta abierta</span>}
-                <button className="toque44" style={styles.deleteBtn} onClick={() => empezarEdicion(m)}><Pencil size={14} /></button>
+                {varios && (
+                  <Selector compacto titulo={`Piso de ${m.nombre}`} ariaLabel={`Piso de ${m.nombre}`} value={pisoIdDeMesa(m, config)} onChange={(v) => moverMesaDePiso(m, v)} opciones={pisos.map((p) => ({ valor: p.id, etiqueta: p.nombre }))} style={{ width: "auto", maxWidth: 140 }} />
+                )}
+                <button aria-label={`Editar ${m.nombre || "mesa"}`} className="toque44" style={styles.deleteBtn} onClick={() => empezarEdicion(m)}><Pencil size={14} /></button>
                 {confirmDeleteId === m.id ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <button style={styles.confirmYes} onClick={() => eliminarMesa(m)}>Sí</button>
                     <button style={styles.confirmNo} onClick={() => setConfirmDeleteId(null)}>No</button>
                   </div>
                 ) : (
-                  <button className="toque44" style={styles.deleteBtn} onClick={() => { setConfirmDeleteId(m.id); setError(""); }}><Trash2 size={14} /></button>
+                  <button aria-label={`Eliminar ${m.nombre || "mesa"}`} className="toque44" style={styles.deleteBtn} onClick={() => { setConfirmDeleteId(m.id); setError(""); }}><Trash2 size={14} /></button>
                 )}
               </>
             )}

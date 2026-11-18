@@ -17,6 +17,13 @@ import { cuentaGranTotal, cuentaOrders, dayKey, esPorLiberar, estadoVisualMesa, 
 import { Acordeon } from "../componentes/Comunes.jsx";
 import { useDispositivo } from "../useAncho.js";
 import { perezoso } from "../cargaDiferida.js";
+import { getCajas, hayVariasCajas, hayVariosPisos, nombrePiso, pisoDeMesaId, CAJA_BASE } from "../pisos.js";
+import { CargandoContenido } from "../componentes/Esqueletos.jsx";
+import { FacturaCuenta } from "../componentes/FacturaCuenta.jsx";
+import { useAjustesFiscales, useFacturasEnCola, useDocumentosFiscales } from "../useFacturacion.js";
+import { AlertasFiscales } from "../componentes/AlertasFiscales.jsx";
+import { alertasResolucion, ultimoConsecutivo } from "../../tools/facturacion/alertas.mjs";
+import { estadoResolucion, conDefectos } from "../../tools/facturacion/config.mjs";
 
 // Las pestañas de administración (inventario, historial, reportes con gráficas) se bajan solo al abrirlas.
 const InventarioView = perezoso(() => import("../inventario.jsx"), "InventarioView");
@@ -25,11 +32,38 @@ const ReportesView = perezoso(() => import("../pantallas/Reportes.jsx"), "Report
 
 /* ---------------- CAJA ---------------- */
 
-export function CajaView({ deudas = [], abrirTab = null, menu, orders, cuentas, saveCuenta, saveOrdersMap, turnos, turnoAbierto, saveTurno, config, persistConfig, usuarioActual, mesas, persistMesas, insumos, saveInsumo, updateInsumo, deleteInsumo, ajustarInventario, equipo, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, onIr }) {
+export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnosAbiertos = [], deudas = [], abrirTab = null, menu, orders, cuentas, saveCuenta, saveOrdersMap, turnos, turnoAbierto, saveTurno, config, persistConfig, usuarioActual, mesas, persistMesas, insumos, saveInsumo, updateInsumo, deleteInsumo, ajustarInventario, equipo, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, onIr }) {
+  const cajas = getCajas(config);
+  const variasCajas = hayVariasCajas(config);
+  const cajaActual = variasCajas ? (cajas.find((c) => c.id === cajaElegida) || (turnoAbierto && cajas.find((c) => c.id === (turnoAbierto.cajaId || CAJA_BASE))) || cajas[0]) : null;
   const [tab, setTab] = useState(turnoAbierto ? "mesas" : "turno"); // sin caja abierta, lo primero es abrirla
   const [expandedId, setExpandedId] = useState(null);
+  // Altura que le queda al detalle de la cuenta: así el cobro (propina, total y botón) siempre se ve completo en pantalla.
+  const panelRef = useRef(null);
+  const [altoPanel, setAltoPanel] = useState(640);
+  useEffect(() => {
+    const medir = () => {
+      const el = panelRef.current; if (!el) return;
+      const top = Math.max(el.getBoundingClientRect().top, 12);
+      setAltoPanel(Math.max(380, Math.floor(window.innerHeight - top - 12)));
+    };
+    medir();
+    window.addEventListener("resize", medir); window.addEventListener("scroll", medir, true);
+    const t = setTimeout(medir, 60);
+    return () => { clearTimeout(t); window.removeEventListener("resize", medir); window.removeEventListener("scroll", medir, true); };
+  });
   const ancha = useDispositivo() !== "movil";   // tablet / escritorio: lista + detalle lado a lado
   const esAdmin = tieneRol(usuarioActual, "admin");
+  const ajustesFiscales = useAjustesFiscales();
+  const facturasEnCola = useFacturasEnCola();
+  const documentosFiscales = useDocumentosFiscales(!!(ajustesFiscales && ajustesFiscales.activa));
+  // Alertas amarillas preventivas (no bloquean la venta): resolución por vencer / vencida y folios por agotarse.
+  const alertasFiscales = (() => {
+    if (!ajustesFiscales || !ajustesFiscales.activa || ajustesFiscales.proveedor === "simulado") return [];
+    const aj = conDefectos(ajustesFiscales);
+    const hoy = new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);
+    return alertasResolucion({ resolucion: aj.resolucion, hoy, ultimo: ultimoConsecutivo(Object.values(documentosFiscales || {}), aj.resolucion.prefijo), estadoRes: estadoResolucion(aj.resolucion, hoy) });
+  })();
   // El cajero que no es propietario solo ve lo suyo: sin caja abierta no ve nada más que la apertura.
   const bloqueado = !turnoAbierto && !esAdmin;
   const tabActual = bloqueado ? "turno" : tab;
@@ -76,6 +110,20 @@ export function CajaView({ deudas = [], abrirTab = null, menu, orders, cuentas, 
           <span style={{ width: 8, height: 8, borderRadius: 4, background: turnoAbierto ? "var(--pago-ok)" : "#9BA4B0" }} /> {turnoAbierto ? "Abierta" : "Cerrada"}
         </span>
       </div>
+      {variasCajas && (
+        <div className="no-imprimir ancho" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", WebkitOverflowScrolling: "touch" }} role="tablist" aria-label="Caja de este dispositivo">
+          {cajas.map((c) => {
+            const abierta = turnosAbiertos.some((t) => (t.cajaId || CAJA_BASE) === c.id);
+            const activa = cajaActual && cajaActual.id === c.id;
+            return (
+              <button key={c.id} role="tab" aria-selected={activa} onClick={() => { setCajaElegida(c.id); setTab(abierta ? "mesas" : "turno"); }}
+                style={{ flexShrink: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, background: activa ? "var(--chip-on-bg)" : "var(--btn2-bg)", color: activa ? "var(--chip-on-fg)" : "var(--btn2-fg)" }}>
+                <span style={{ width: 8, height: 8, borderRadius: 4, background: abierta ? "var(--pago-ok)" : "#9BA4B0" }} />{c.nombre}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {!bloqueado && (
         <FilaTabs className="no-imprimir ancho" style={styles.cajaTabSwitch}>
@@ -95,7 +143,7 @@ export function CajaView({ deudas = [], abrirTab = null, menu, orders, cuentas, 
       )}
 
       {tabActual === "turno" && (
-        <TurnoView equipo={equipo} turnos={turnos} turnoAbierto={turnoAbierto} saveTurno={saveTurno} orders={orders} cuentas={cuentas} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} menu={menu} mesas={mesas} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} />
+        <TurnoView cajaActual={cajaActual} equipo={equipo} turnos={turnos} turnoAbierto={turnoAbierto} saveTurno={saveTurno} orders={orders} cuentas={cuentas} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} menu={menu} mesas={mesas} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} />
       )}
 
       {tabActual === "mesas" && (
@@ -122,6 +170,7 @@ export function CajaView({ deudas = [], abrirTab = null, menu, orders, cuentas, 
             </Acordeon>
           )}
 
+          <AlertasFiscales alertas={alertasFiscales} testid="alertas-caja" />
           {!turnoAbierto ? (
             <div className="despliega" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12, padding: "34px 18px", background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 20 }}>
               <div style={{ width: 54, height: 54, borderRadius: 27, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--c-e4eee1-b)", color: "var(--pago-ok)", border: "1px solid var(--ok-border)" }}><AlertTriangle size={24} /></div>
@@ -132,22 +181,22 @@ export function CajaView({ deudas = [], abrirTab = null, menu, orders, cuentas, 
           ) : abiertas.length === 0 && porLiberar.length === 0 ? (
             <EmptyState icon={Receipt} titulo="Sin cuentas abiertas" texto="Cuando un mesero tome un pedido, la cuenta aparece aquí lista para cobrar." />
           ) : (
-            <div style={ancha ? { display: "grid", gridTemplateColumns: "minmax(300px, 400px) 1fr", gap: 14, alignItems: "start" } : { display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={ancha ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 380px", gap: 16, alignItems: "start" } : { display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={ancha ? { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 10, alignContent: "start" } : { display: "flex", flexDirection: "column", gap: 10 }}>
                 {abiertas.length >= 3 && (
-                  <div className="campo-prefijo" style={cj.buscador}>
+                  <div className="campo-prefijo" style={{ ...cj.buscador, ...(ancha ? { gridColumn: "1 / -1" } : null) }}>
                     <Search size={16} color="var(--c-8a8272-t)" />
                     <input ref={buscadorRef} style={cj.buscadorInput} placeholder={ancha ? "Buscar mesa, mesero o producto  ( / )" : "Buscar mesa, mesero o producto"} value={busca} onChange={(e) => setBusca(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") { setBusca(""); e.currentTarget.blur(); } }} />
                     {busca && <button className="toque44" style={cj.buscadorX} onClick={() => setBusca("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
                   </div>
                 )}
-                {consulta && abiertasVista.length === 0 && <div style={{ fontSize: 13, color: "var(--c-8a8272-t)", textAlign: "center", padding: "14px 0" }}>Ninguna cuenta coincide con “{busca}”.</div>}
+                {consulta && abiertasVista.length === 0 && <div style={{ gridColumn: "1 / -1", fontSize: 13, color: "var(--c-8a8272-t)", textAlign: "center", padding: "14px 0" }}>Ninguna cuenta coincide con “{busca}”.</div>}
                 {abiertasVista.map((c) => {
                   if (!ancha) {
                     return (
                       <MesaCuentaCard
                         key={c.id} cuenta={c} orders={orders} saveCuenta={saveCuenta} saveOrdersMap={saveOrdersMap}
-                        turnoAbierto={!!turnoAbierto} usuarioActual={usuarioActual} mesas={mesas} ajustarInventario={ajustarInventario}
+                        turnoAbierto={!!turnoAbierto} cajaId={(turnoAbierto && turnoAbierto.cajaId) || null} pisoNombre={hayVariosPisos(config) ? nombrePiso(config, pisoDeMesaId(mesas, c.mesa, config)) : null} usuarioActual={usuarioActual} mesas={mesas} ajustarInventario={ajustarInventario}
                         expanded={expandedId === c.id} onToggle={() => setExpandedId(expandedId === c.id ? null : c.id)}
                       />
                     );
@@ -156,7 +205,7 @@ export function CajaView({ deudas = [], abrirTab = null, menu, orders, cuentas, 
                   const visual = estadoVisualMesa(c, ords);
                   const falta = Math.max(0, cuentaGranTotal(orders, c) - pagosTotal(c));
                   return (
-                    <button key={c.id} className="anim-in" style={{ ...cj.fila, ...(expandedId === c.id ? cj.filaOn : {}) }} onClick={() => setExpandedId(c.id)}>
+                    <button key={c.id} className="anim-in elevar" aria-pressed={expandedId === c.id} style={{ ...cj.fila, ...(expandedId === c.id ? cj.filaOn : {}) }} onClick={() => setExpandedId(c.id)}>
                       <div style={cj.filaTop}><span style={cj.filaNombre}>{mesaNombre(mesas, c.mesa)}</span><span style={{ ...cj.chip, background: visual.bg, color: visual.color }}>{visual.tag}</span></div>
                       <div style={cj.filaSub}>{ords.length} {ords.length === 1 ? "ronda" : "rondas"} · desde {timeLabel(c.ts)}</div>
                       <div style={cj.filaBase}><span style={cj.filaSub}>{pagosTotal(c) > 0 ? "Falta por cobrar" : "Por cobrar"}</span><span style={cj.filaMonto}>{money(falta)}</span></div>
@@ -166,14 +215,15 @@ export function CajaView({ deudas = [], abrirTab = null, menu, orders, cuentas, 
 
                 {porLiberar.length > 0 && (
                   <>
-                    <div style={styles.catLabel}>POR LIBERAR</div>
+                    <div style={{ ...styles.catLabel, gridColumn: "1 / -1" }}>POR LIBERAR</div>
                     {porLiberar.map((c) => (
-                      <div key={c.id} style={cj.filaLiberar}>
+                      <div key={c.id} style={{ ...cj.filaLiberar, ...(ancha ? { gridColumn: "1 / -1" } : null) }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={cj.filaNombre}>{mesaNombre(mesas, c.mesa)}</div>
                           <div style={cj.filaSub}>Pagada a las {timeLabel(c.pagadaTs)} · {money(cuentaGranTotal(orders, c))}</div>
                         </div>
                         <button style={cj.btnLiberar} onClick={() => liberar(c)}>Liberar mesa</button>
+                        <FacturaCuenta cuenta={c} totalDocumento={cuentaGranTotal(orders, c)} ajustes={ajustesFiscales} esAdmin={esAdmin} enCola={facturasEnCola.has(c.id)} />
                       </div>
                     ))}
                   </>
@@ -182,11 +232,13 @@ export function CajaView({ deudas = [], abrirTab = null, menu, orders, cuentas, 
 
               {ancha && (
                 seleccionada ? (
+                  <div ref={panelRef} style={{ position: "sticky", top: 12, alignSelf: "start", display: "flex", flexDirection: "column", maxHeight: altoPanel, "--alto-panel": `${altoPanel}px` }}>
                   <MesaCuentaCard
                     key={seleccionada.id} cuenta={seleccionada} orders={orders} saveCuenta={saveCuenta} saveOrdersMap={saveOrdersMap}
-                    turnoAbierto={!!turnoAbierto} usuarioActual={usuarioActual} mesas={mesas} ajustarInventario={ajustarInventario}
+                    turnoAbierto={!!turnoAbierto} cajaId={(turnoAbierto && turnoAbierto.cajaId) || null} pisoNombre={hayVariosPisos(config) ? nombrePiso(config, pisoDeMesaId(mesas, seleccionada.mesa, config)) : null} usuarioActual={usuarioActual} mesas={mesas} ajustarInventario={ajustarInventario}
                     modoPanel expanded onToggle={() => setExpandedId(null)}
                   />
+                  </div>
                 ) : (
                   <div style={cj.elige}>
                     <div style={cj.eligeIcono}><Receipt size={22} /></div>
@@ -203,9 +255,9 @@ export function CajaView({ deudas = [], abrirTab = null, menu, orders, cuentas, 
       )}
 
       {tabActual === "pendientes" && <PendientesView deudas={deudas} usuarioActual={usuarioActual} turnoAbierto={turnoAbierto} config={config} />}
-      {tabActual === "historial" && esAdmin && <React.Suspense fallback={<div style={styles.cajaEmptyText}>Cargando…</div>}><HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} /></React.Suspense>}
-      {tabActual === "inventario" && esAdmin && <React.Suspense fallback={<div style={styles.cajaEmptyText}>Cargando…</div>}><InventarioView insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} /></React.Suspense>}
-      {tabActual === "reportes" && esAdmin && <React.Suspense fallback={<div style={styles.cajaEmptyText}>Cargando…</div>}><ReportesView cuentas={cuentas} orders={orders} menu={menu} insumos={insumos} usuarioActual={usuarioActual} onIr={onIr} config={config} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} /></React.Suspense>}
+      {tabActual === "historial" && esAdmin && <React.Suspense fallback={<CargandoContenido />}><HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} /></React.Suspense>}
+      {tabActual === "inventario" && esAdmin && <React.Suspense fallback={<CargandoContenido />}><InventarioView insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} /></React.Suspense>}
+      {tabActual === "reportes" && esAdmin && <React.Suspense fallback={<CargandoContenido />}><ReportesView cuentas={cuentas} orders={orders} menu={menu} insumos={insumos} usuarioActual={usuarioActual} onIr={onIr} config={config} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} /></React.Suspense>}
     </div>
   );
 }
@@ -220,14 +272,14 @@ const cj = {
   resGrande: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--accent-t)" },
   resNum: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--c-242019-t)" },
   fila: { display: "flex", flexDirection: "column", gap: 6, padding: "13px 14px", textAlign: "left", background: "var(--c-fffdf8-b)", border: "1.5px solid var(--c-e4dfce-o)", borderRadius: 16, cursor: "pointer", color: "var(--c-242019-t)" },
-  filaOn: { borderColor: "var(--accent)", boxShadow: "0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent)" },
+  filaOn: { borderColor: "var(--accent)", background: "color-mix(in srgb, var(--accent) 16%, var(--c-fffdf8-b))", boxShadow: "0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent), 0 12px 26px -14px color-mix(in srgb, var(--accent) 80%, transparent)", transform: "translateY(-2px)" },
   filaTop: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
   filaNombre: { fontSize: 16, fontWeight: 700, color: "var(--c-242019-t)" },
   filaSub: { fontSize: 12, color: "var(--c-8a8272-t)" },
   filaBase: { display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid var(--c-ede7d8-o)", paddingTop: 8 },
   filaMonto: { fontSize: 17, fontWeight: 800, color: "var(--c-242019-t)" },
   chip: { fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999 },
-  filaLiberar: { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 16, background: "var(--c-fbefd9-b)", border: "1px solid var(--warn-border)" },
+  filaLiberar: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 16, background: "var(--c-fbefd9-b)", border: "1px solid var(--warn-border)" },
   btnLiberar: { padding: "10px 14px", borderRadius: 12, border: "none", background: "var(--warn-solid)", color: "#1a1204", fontWeight: 700, fontSize: 13.5, cursor: "pointer", flexShrink: 0 },
   elige: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "40px 20px", borderRadius: 16, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", color: "var(--c-242019-t)" },
   eligeIcono: { width: 46, height: 46, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--c-ede7d8-b)", color: "var(--c-8a8272-t)" },

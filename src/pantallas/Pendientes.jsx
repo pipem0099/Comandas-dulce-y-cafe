@@ -12,6 +12,7 @@ import { getCollectionRange } from "../firebase.js";
 import { cobrarPendiente, condonarPendiente } from "../deudasOps.js";
 import { exportarDeudas } from "../exportar.js";
 import { buscarDeudas, totalPendiente, antiguedadLabel, diasDesde, clienteEtiqueta } from "../deudas.js";
+import { EsqueletoLista } from "../componentes/Esqueletos.jsx";
 import { tieneRol, dateTimeLabel } from "../utilidades.js";
 
 /* ---------------- CUENTAS PENDIENTES ----------------
@@ -93,7 +94,7 @@ export function PendientesView({ deudas, usuarioActual, turnoAbierto, config }) 
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
         {estado !== "pendiente" && resueltas === null ? (
-          <div style={cj.cargando}>Cargando…</div>
+          <EsqueletoLista filas={3} />
         ) : filtradas.length === 0 ? (
           <EmptyState icon={Clock} titulo={hayFiltro ? "Sin resultados" : estado === "pendiente" ? "No hay cuentas pendientes" : "Nada por aquí"}
             texto={hayFiltro ? "Prueba con otro nombre, teléfono o rango de fechas." : estado === "pendiente" ? "Cuando un cliente se vaya debiendo, la cuenta aparecerá aquí para cobrarla después." : "No hay cuentas en este estado para el periodo elegido."} />
@@ -150,7 +151,7 @@ function DetalleDeuda({ deuda, esAdmin, turnoAbierto, usuarioActual, onCerrar })
     if (!turnoAbierto || !valido || procesando) return;
     setProcesando(true);
     try {
-      const pago = reintento || { id: uid(), metodoPago: metodo, monto: aCobrar, procesadoPor: usuarioActual.nombre };
+      const pago = reintento || { id: uid(), metodoPago: metodo, monto: aCobrar, procesadoPor: usuarioActual.nombre, ...(turnoAbierto && turnoAbierto.cajaId ? { cajaId: turnoAbierto.cajaId } : {}) };
       const r = await cobrarPendiente({ deuda, pago, usuario: usuarioActual });
       if (r.ok) { onCerrar(); return; }
       if (r.parcial) setReintento(pago);

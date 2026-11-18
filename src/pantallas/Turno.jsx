@@ -16,11 +16,16 @@ import { InfoTip } from "../componentes/InfoTip.jsx";
 import { MontoSigno } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { descargarRespaldo } from "../exportar.js";
+import { hayVariasCajas } from "../pisos.js";
+import { reversosEnRango } from "../facturacion/reversos.js";
+import { useDocumentosFiscales } from "../useFacturacion.js";
 import { agruparPorMes, arqueosDe, dateTimeLabel, dayKey, duracionLabel, mesaNombre, movimientosDe, propinasEnRango, tieneRol, timeLabel, totalesMovimientos, ventasDelTurno } from "../utilidades.js";
 
 /* ---------------- Turno / arqueo de caja ---------------- */
 
-export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, config, persistConfig, usuarioActual, menu, mesas, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, equipo }) {
+export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, config, persistConfig, usuarioActual, menu, mesas, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, equipo, cajaActual = null }) {
+  const variasCajas = hayVariasCajas(config);
+  const documentosFiscales = useDocumentosFiscales(!!turnoAbierto); // Notas Crédito: el efectivo devuelto sale del cajón
   const [base, setBase] = useState("0");
   const [contado, setContado] = useState("0");
   const [contadoTarjeta, setContadoTarjeta] = useState("0");
@@ -42,7 +47,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
     const baseNum = parseFloat(base) || 0;
     const ahora = Date.now(), tramoId = uid();
     const turno = {
-      id: uid(), aperturaTs: ahora, baseEfectivo: baseNum, estado: "abierto", abiertoPor: usuarioActual.nombre, abiertoPorUid: usuarioActual.uid,
+      id: uid(), aperturaTs: ahora, baseEfectivo: baseNum, estado: "abierto", ...(variasCajas && cajaActual ? { cajaId: cajaActual.id, cajaNombre: cajaActual.nombre } : {}), abiertoPor: usuarioActual.nombre, abiertoPorUid: usuarioActual.uid,
       // La caja queda a cargo de quien abre; si hay relevos, cada persona responde solo por su tramo.
       responsableActual: { uid: usuarioActual.uid, nombre: usuarioActual.nombre, desdeTs: ahora },
       tramos: { [tramoId]: { id: tramoId, uid: usuarioActual.uid, nombre: usuarioActual.nombre, inicioTs: ahora, base: baseNum, estado: "activo" } },
@@ -58,7 +63,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
   const mov = totalesMovimientos(turnoAbierto);
   const movimientos = movimientosDe(turnoAbierto);
   const tramo = turnoAbierto ? tramoVigente(turnoAbierto) : null;
-  const stTramo = tramo ? statsTramo(turnoAbierto, cuentas, tramo) : null;
+  const stTramo = tramo ? statsTramo(turnoAbierto, cuentas, tramo, documentosFiscales) : null;
   const baseTurno = tramo ? tramo.base : 0;
   const esperado = stTramo ? stTramo.esperado : 0;
   const tarjetaEsperada = ventas.tarjeta;
@@ -109,8 +114,8 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
     const difEfectivoDia = Object.values(tramos).reduce((a, t2) => a + (t2.diferencia || 0), 0);
     return {
       ...turnoAbierto, tramos, relevo: null, estado: "cerrado", cierreTs: ahora,
-      ventasEfectivo: ventas.efectivo, entradas: mov.entradas, salidas: mov.salidas,
-      propinas: propinasEnRango(cuentas, turnoAbierto.aperturaTs, ahora + 1),
+      ventasEfectivo: ventas.efectivo, entradas: mov.entradas, salidas: mov.salidas, reversosNotas: (({ notas, ...tot }) => tot)(reversosEnRango(documentosFiscales, turnoAbierto.aperturaTs, ahora + 1)),
+      propinas: propinasEnRango(cuentas, turnoAbierto.aperturaTs, ahora + 1, turnoAbierto.cajaId || null),
       esperado, contado: contadoNum, diferencia: difEfectivoDia,   // diferencia = suma de lo que dejó cada tramo
       tarjetaEsperada, transferenciaEsperada, tarjetaContada: tarjetaNum, transferenciaContada: transfNum,
       difTarjeta, difTransferencia: difTransf,
@@ -132,7 +137,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
       {!turnoAbierto ? (
         <div className="despliega" style={t.puerta}>
           <div style={t.puertaIcono}><Lock size={26} /></div>
-          <div style={t.puertaTitulo}>Abre la caja para empezar</div>
+          <div style={t.puertaTitulo}>{variasCajas && cajaActual ? `Abre «${cajaActual.nombre}» para empezar` : "Abre la caja para empezar"}</div>
           <div style={t.puertaTexto}>Cuenta el efectivo que hay en el cajón. Hasta que abras el turno no se pueden cobrar mesas. Quedará registrado que lo abre <b>{usuarioActual.nombre}</b>.</div>
           <div style={{ width: "100%", maxWidth: 360 }}>
             <CampoMonto placeholder="Efectivo inicial en caja" value={base} onChange={setBase} />
@@ -145,7 +150,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
           <div style={t.estado}>
             <span style={t.estadoPunto} />
             <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 15, fontWeight: 700 }}>Caja abierta <span style={t.estadoChip}>a cargo de {responsable.nombre || "—"}{esResponsable ? " (tú)" : ""}</span></span>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{variasCajas && turnoAbierto.cajaNombre ? `${turnoAbierto.cajaNombre} abierta` : "Caja abierta"} <span style={t.estadoChip}>a cargo de {responsable.nombre || "—"}{esResponsable ? " (tú)" : ""}</span></span>
               <span style={t.meta}>Desde {timeLabel(turnoAbierto.aperturaTs)} · apertura {money(turnoAbierto.baseEfectivo || 0)} · lleva {duracionLabel(Date.now() - turnoAbierto.aperturaTs)}</span>
             </span>
           </div>
@@ -158,7 +163,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
               <div style={{ ...t.stat, ...t.statVerde }}><span style={t.statEt}>EFECTIVO EN CAJA</span><span style={t.statVal}>{money(esperado)}</span><span style={t.statSub}>Lo que deberías contar al cerrar</span></div>
               <div style={t.stat}><span style={t.statEt}>TOTAL VENDIDO</span><span style={t.statVal}>{money(ventas.efectivo + ventas.tarjeta + ventas.transferencia)}</span><span style={t.statSub}>Todos los métodos</span></div>
               <div style={t.stat}><span style={t.statEt}>OTROS MÉTODOS</span><span style={t.statVal}>{money(ventas.tarjeta + ventas.transferencia)}</span><span style={t.statSub}>Tarjeta y transferencia</span></div>
-              <div style={t.stat}><span style={t.statEt}>PROPINAS</span><span style={t.statVal}>{money(propinasEnRango(cuentas, turnoAbierto.aperturaTs))}</span><span style={t.statSub}>No cuentan como venta</span></div>
+              <div style={t.stat}><span style={t.statEt}>PROPINAS</span><span style={t.statVal}>{money(propinasEnRango(cuentas, turnoAbierto.aperturaTs, Infinity, turnoAbierto.cajaId || null))}</span><span style={t.statSub}>No cuentan como venta</span></div>
             </div>
           )}
 
@@ -199,6 +204,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                 <div style={t.cuadreFila}><span>Ventas en efectivo</span><MontoSigno valor={ventas.efectivo} signo="+" positivo /></div>
                 <div style={t.cuadreFila}><span>Ingresos manuales</span><MontoSigno valor={mov.entradas} signo="+" positivo /></div>
                 <div style={t.cuadreFila}><span>Gastos y retiros</span><MontoSigno valor={mov.salidas} signo="−" /></div>
+                {!!(stTramo && stTramo.reversoEfectivo) && <div style={t.cuadreFila}><span>Devoluciones por Nota Crédito</span><MontoSigno valor={stTramo.reversoEfectivo} signo="−" /></div>}
                 <div style={{ ...t.cuadreFila, borderTop: "1px solid var(--c-e4dfce-o)", paddingTop: 10, fontSize: 15 }}><b>Efectivo esperado</b><b style={{ color: "var(--pago-ok)", fontSize: 18 }}>{money(esperado)}</b></div>
               </div>
             )}

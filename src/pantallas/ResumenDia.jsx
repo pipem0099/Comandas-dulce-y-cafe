@@ -42,14 +42,14 @@ export function ResumenDia({ turno, cuentas }) {
   const relevos = turno.relevos ? Object.values(turno.relevos).sort((a, b) => a.ts - b.ts) : [];
   const movs = movimientosDe(turno);
   const arqueos = arqueosDe(turno);
-  const porMetodo = ventasEnRango(cuentas || [], turno.aperturaTs, fin + 1);
+  const porMetodo = ventasEnRango(cuentas || [], turno.aperturaTs, fin + 1, turno.cajaId || null);
   const ventas = {
     efectivo: typeof turno.ventasEfectivo === "number" ? turno.ventasEfectivo : porMetodo.efectivo,
     tarjeta: typeof turno.tarjetaEsperada === "number" ? turno.tarjetaEsperada : porMetodo.tarjeta,
     transferencia: typeof turno.transferenciaEsperada === "number" ? turno.transferenciaEsperada : porMetodo.transferencia,
   };
   const totalVendido = ventas.efectivo + ventas.tarjeta + ventas.transferencia;
-  const propinas = typeof turno.propinas === "number" ? turno.propinas : propinasEnRango(cuentas || [], turno.aperturaTs, fin + 1);
+  const propinas = typeof turno.propinas === "number" ? turno.propinas : propinasEnRango(cuentas || [], turno.aperturaTs, fin + 1, turno.cajaId || null);
   const difEfectivo = tramos.reduce((a, t) => a + (t.diferencia || 0), 0);
   const difTarjeta = turno.difTarjeta || 0, difTransf = turno.difTransferencia || 0;
   const todoCuadra = difEfectivo === 0 && difTarjeta === 0 && difTransf === 0 && tramos.every((t) => !t.diferencia);
@@ -98,6 +98,7 @@ export function ResumenDia({ turno, cuentas }) {
               {typeof t.ventasEfectivo === "number" && <L k="+ Ventas en efectivo" v={money(t.ventasEfectivo)} />}
               {t.entradas > 0 && <L k="+ Entradas de dinero" v={money(t.entradas)} />}
               {t.salidas > 0 && <L k="− Salidas de dinero" v={money(t.salidas)} />}
+              {t.reversoEfectivo > 0 && <L k="− Devoluciones por Nota Crédito" v={money(t.reversoEfectivo)} />}
               {typeof t.esperado === "number" && <L k="Debía haber" v={money(t.esperado)} fuerte />}
               {typeof t.contado === "number" && <L k={t.entregadoA ? "Contó y entregó" : "Contó al cerrar"} v={money(t.contado)} fuerte />}
               {conteos > 1 && <div style={r.meta}>Contó {conteos} veces antes de confirmar (todos los conteos quedan guardados).</div>}
@@ -154,6 +155,15 @@ export function ResumenDia({ turno, cuentas }) {
         <L k="Tarjeta" v={money(ventas.tarjeta)} />
         <L k="Transferencia" v={money(ventas.transferencia)} />
         <L k="Total vendido" v={money(totalVendido)} fuerte />
+        {turno.reversosNotas && turno.reversosNotas.cantidad > 0 && (
+          <>
+            <div style={r.titulo}>DEVUELTO POR NOTAS CRÉDITO ({turno.reversosNotas.cantidad})</div>
+            {turno.reversosNotas.efectivo > 0 && <L k="− Efectivo devuelto" v={money(turno.reversosNotas.efectivo)} />}
+            {turno.reversosNotas.tarjeta > 0 && <L k="− Tarjeta devuelta" v={money(turno.reversosNotas.tarjeta)} />}
+            {turno.reversosNotas.transferencia > 0 && <L k="− Transferencia devuelta" v={money(turno.reversosNotas.transferencia)} />}
+            <L k="Venta neta del día" v={money(totalVendido - turno.reversosNotas.monto)} fuerte />
+          </>
+        )}
         {propinas > 0 && <div style={r.meta}>Incluye {money(propinas)} de propinas.</div>}
       </div>
     </div>

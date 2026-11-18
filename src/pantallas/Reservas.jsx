@@ -2,13 +2,14 @@ import React, { useState } from "react";
 import { Plus, Phone, Users, X, Check, MessageCircle, Pencil, Minus } from "lucide-react";
 import { styles } from "../estilos.js";
 import { uid } from "../logica.js";
-import { mesaNombre } from "../utilidades.js";
+import { mesaNombre, mesasDeReserva } from "../utilidades.js";
+import { hayVariosPisos, nombrePiso, pisoIdDeMesa } from "../pisos.js";
 import { Acordeon } from "../componentes/Comunes.jsx";
 import { CampoFecha, CampoHora } from "../componentes/Campos.jsx";
 
 import { Hoja } from "../componentes/Hoja.jsx";
 /* ---------------- RESERVAS ---------------- */
-/* reserva: { id, nombre, telefono, personas, fecha "YYYY-MM-DD", hora "HH:MM", ts, mesaId?, nota, estado, creadaPor, creadaTs }
+/* reserva: { id, nombre, telefono, personas, fecha "YYYY-MM-DD", hora "HH:MM", ts, mesaId?, mesasExtra? (mesas juntas), nota, estado, creadaPor, creadaTs }
    estados: pendiente → confirmada → llego | no_asistio | cancelada */
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -46,7 +47,7 @@ function TarjetaReserva({ r, mesas, cambiarEstado, onEditar }) {
         <span style={rv.hora}>{horaLabel(r)}</span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={rv.nombre}>{r.nombre}</span>
-          <span style={rv.meta}><Users size={12} /> {r.personas} {r.personas === 1 ? "persona" : "personas"}{r.mesaId ? ` · ${mesaNombre(mesas, r.mesaId)}` : " · sin mesa asignada"}</span>
+          <span style={rv.meta}><Users size={12} /> {r.personas} {r.personas === 1 ? "persona" : "personas"}{mesasDeReserva(r).length ? ` · ${mesasDeReserva(r).map((m) => mesaNombre(mesas, m)).join(" + ")}` : " · sin mesa asignada"}</span>
         </span>
         <span style={{ ...rv.estado, color: e.color, borderColor: e.color + "66", background: e.color + "1F" }}>{e.label}</span>
       </div>
@@ -69,7 +70,7 @@ function TarjetaReserva({ r, mesas, cambiarEstado, onEditar }) {
   );
 }
 
-export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usuarioActual }) {
+export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usuarioActual, config = {} }) {
   const [dia, setDia] = useState(fechaStr());
   const [form, setForm] = useState(null); // null | reserva en edición (o nueva)
   const dias = diasSiguientes(7);
@@ -124,7 +125,7 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
         )}
       </div>
 
-      {form && <FormReserva inicial={form} mesas={mesas} reservas={reservas} usuarioActual={usuarioActual}
+      {form && <FormReserva config={config} inicial={form} mesas={mesas} reservas={reservas} usuarioActual={usuarioActual}
         onGuardar={async (r) => { await saveReserva(r); setDia(r.fecha); setForm(null); }}
         onEliminar={form.id ? async () => { await deleteReserva(form.id); setForm(null); } : null}
         onCerrar={() => setForm(null)} />}
@@ -132,19 +133,30 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
   );
 }
 
-function FormReserva({ inicial, mesas, reservas, usuarioActual, onGuardar, onEliminar, onCerrar }) {
-  const [f, setF] = useState({ ...inicial, mesaId: inicial.mesaId || "" });
+function FormReserva({ config = {}, inicial, mesas, reservas, usuarioActual, onGuardar, onEliminar, onCerrar }) {
+  const [f, setF] = useState({ ...inicial, mesaId: inicial.mesaId || "", mesasExtra: inicial.mesasExtra || [] });
+  const elegidas = mesasDeReserva(f);
+  const variosPisos = hayVariosPisos(config);
+  // Se pueden elegir varias mesas (para juntarlas): tocar una la agrega, volver a tocarla la quita
+  const alternarMesa = (id) => setF((p) => {
+    const actual = mesasDeReserva(p).map(String);
+    const sig = actual.includes(String(id)) ? actual.filter((x) => x !== String(id)) : [...actual, String(id)];
+    const orig = (x) => (mesas.find((m) => String(m.id) === x) || { id: x }).id;
+    return { ...p, mesaId: sig.length ? orig(sig[0]) : "", mesasExtra: sig.slice(1).map(orig) };
+  });
   const [confirmarBorrar, setConfirmarBorrar] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
   const ts = tsDe(f.fecha, f.hora);
   const valido = f.nombre.trim() && f.personas >= 1 && f.fecha && f.hora;
   // Aviso (no bloquea): la misma mesa ya tiene otra reserva cerca de esa hora
-  const choque = f.mesaId ? reservas.find((r) => r.id !== f.id && ACTIVA(r) && String(r.mesaId) === String(f.mesaId) && Math.abs(r.ts - ts) < 90 * 60 * 1000) : null;
+  const choque = elegidas.length ? reservas.find((r) => r.id !== f.id && ACTIVA(r) && mesasDeReserva(r).some((m) => elegidas.some((e) => String(e) === String(m))) && Math.abs(r.ts - ts) < 90 * 60 * 1000) : null;
+  const mesaChoque = choque ? mesasDeReserva(choque).filter((m) => elegidas.some((e) => String(e) === String(m))).map((m) => mesaNombre(mesas, m)).join(" + ") : "";
   const guardar = () => {
     if (!valido) return;
     const base = { ...f, id: f.id || uid(), nombre: f.nombre.trim(), telefono: f.telefono.trim(), nota: (f.nota || "").trim(), ts };
     if (!f.id) { base.creadaTs = Date.now(); base.creadaPor = usuarioActual.nombre; }
     if (!base.mesaId) delete base.mesaId;
+    if (!base.mesasExtra || base.mesasExtra.length === 0) delete base.mesasExtra;
     onGuardar(base);
   };
   return (
@@ -160,16 +172,17 @@ function FormReserva({ inicial, mesas, reservas, usuarioActual, onGuardar, onEli
         </div>
         <div style={rv.et}>Personas</div>
         <div style={rv.stepper}>
-          <button style={rv.stepBtn} onClick={() => set("personas", Math.max(1, f.personas - 1))}><Minus size={16} /></button>
+          <button aria-label="Una persona menos" style={rv.stepBtn} onClick={() => set("personas", Math.max(1, f.personas - 1))}><Minus size={16} /></button>
           <span style={{ fontSize: 20, fontWeight: 700, minWidth: 34, textAlign: "center" }}>{f.personas}</span>
-          <button style={rv.stepBtn} onClick={() => set("personas", Math.min(40, f.personas + 1))}><Plus size={16} /></button>
+          <button aria-label="Una persona más" style={rv.stepBtn} onClick={() => set("personas", Math.min(40, f.personas + 1))}><Plus size={16} /></button>
         </div>
-        <div style={rv.et}>Mesa (opcional)</div>
+        <div style={rv.et}>Mesa (opcional) · toca varias para juntarlas</div>
         <div style={rv.pastillas}>
-          <button style={{ ...rv.pastilla, ...(!f.mesaId ? rv.pastillaOn : {}) }} onClick={() => set("mesaId", "")}>Sin asignar</button>
-          {mesas.map((m) => <button key={m.id} style={{ ...rv.pastilla, ...(String(f.mesaId) === String(m.id) ? rv.pastillaOn : {}) }} onClick={() => set("mesaId", m.id)}>{m.nombre}</button>)}
+          <button aria-pressed={elegidas.length === 0} style={{ ...rv.pastilla, ...(elegidas.length === 0 ? rv.pastillaOn : {}) }} onClick={() => setF((p) => ({ ...p, mesaId: "", mesasExtra: [] }))}>Sin asignar</button>
+          {mesas.map((m) => { const on = elegidas.some((e) => String(e) === String(m.id)); return <button key={m.id} aria-pressed={on} style={{ ...rv.pastilla, ...(on ? rv.pastillaOn : {}) }} onClick={() => alternarMesa(m.id)}>{m.nombre}{variosPisos ? ` · ${nombrePiso(config, pisoIdDeMesa(m, config))}` : ""}</button>; })}
         </div>
-        {choque && <div style={rv.aviso}>Esa mesa ya está reservada cerca de esa hora por {choque.nombre}.</div>}
+        {elegidas.length > 1 && <div style={{ fontSize: 13, color: "var(--c-5c5648-t)" }}>Mesas juntas: <b>{elegidas.map((m) => mesaNombre(mesas, m)).join(" + ")}</b></div>}
+        {choque && <div style={rv.aviso}>{mesaChoque || "Esa mesa"} ya está reservada cerca de esa hora por {choque.nombre}.</div>}
         <input style={styles.editInput} placeholder="Nota (cumpleaños, alergias, silla de bebé…)" value={f.nota || ""} onChange={(e) => set("nota", e.target.value)} />
         <button style={{ ...styles.sendBtn, opacity: valido ? 1 : 0.4 }} disabled={!valido} onClick={guardar}><Check size={16} /> {f.id ? "Guardar cambios" : "Guardar reserva"}</button>
         {onEliminar && (confirmarBorrar

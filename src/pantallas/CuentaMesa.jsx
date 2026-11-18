@@ -14,6 +14,8 @@ import { MODOS_PROPINA, MODO_PROPINA_META, propinaPersona, resumenPropina, perso
 import { clienteValido } from "../deudas.js";
 import { registrarPendiente } from "../deudasOps.js";
 import { Hoja } from "../componentes/Hoja.jsx";
+import { DatosFactura } from "../componentes/DatosFactura.jsx";
+import { etiquetaDocumento } from "../facturacion/datosFiscales.js";
 
 // Enter dentro de un monto = pulsar el botón principal del cobro (si está disponible)
 const confirmarConEnter = () => {
@@ -25,7 +27,16 @@ import { METODO_META, PROPINA_OPCIONES } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { conProgreso, cuentaGranTotal, cuentaItemCount, cuentaOrders, cuentaSubtotal, dateTimeLabel, itemsAgregados, mesaNombre, orderTotal, pagosDe, pagosTotal, qtyAsignadaPorProducto, tieneRol, timeLabel } from "../utilidades.js";
 
-export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turnoAbierto, usuarioActual, mesas, ajustarInventario, expanded, onToggle, modoPanel }) {
+// Detalle de la cuenta junto a la lista (tablet/escritorio): angosto como un recibo. Arriba se desplaza lo que se consumió;
+// abajo queda fijo todo lo del cobro (subtotal, propina, total y botones), así nunca hay que bajar para cobrar.
+const panelCobro = {
+  card: { display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, marginBottom: 0, overflow: "hidden" },
+  cuerpo: { display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, padding: 0, gap: 0 },
+  scroll: { flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "14px 14px 10px", display: "flex", flexDirection: "column", gap: 8, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" },
+  pie: { flex: "0 0 auto", maxHeight: "calc(var(--alto-panel, 700px) * .64)", overflowY: "auto", padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", boxShadow: "0 -10px 18px -14px rgba(0,0,0,.45)", overscrollBehavior: "contain" },
+};
+
+export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turnoAbierto, cajaId = null, pisoNombre = null, usuarioActual, mesas, ajustarInventario, expanded, onToggle, modoPanel }) {
   const subtotal = cuentaSubtotal(orders, cuenta.id);
   const total = cuentaGranTotal(orders, cuenta);
   const items = cuentaItemCount(orders, cuenta.id);
@@ -62,6 +73,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
   const [nPagadoresLocal, setNPagadoresLocal] = useState(() => limitarPagadores(cuenta.personas || 2));
   // Saldo pendiente: hoja para identificar al cliente que se lleva la deuda
   const [verPendiente, setVerPendiente] = useState(false);
+  const [verFactura, setVerFactura] = useState(false);
   const [cliNombre, setCliNombre] = useState("");
   const [cliTelefono, setCliTelefono] = useState("");
   const [cliDoc, setCliDoc] = useState("");
@@ -124,7 +136,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
       const ahora = Date.now();
       let resultado = null;
       const r = await actualizarCuenta(cuenta.id, (actual) => {
-        resultado = aplicarPagos(actual, entradas, { orders, modoSplit: effectiveModo, externa: esExterna(cuenta), ahora, extra });
+        resultado = aplicarPagos(actual, entradas, { orders, modoSplit: effectiveModo, externa: esExterna(cuenta), ahora, extra, cajaId });
         return resultado.error ? undefined : resultado.cuenta;
       });
       if (!r.ok) {
@@ -417,11 +429,11 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
   );
 
   return (
-    <div className="anim-in" style={styles.mesaCuentaCard}>
+    <div className="anim-in" style={modoPanel ? { ...styles.mesaCuentaCard, ...panelCobro.card } : styles.mesaCuentaCard}>
       {modoPanel ? (
         <div style={{ ...styles.mesaCuentaHead, cursor: "default" }}>
           <div style={styles.mesaCuentaLeft}>
-            <span style={styles.mesaCuentaNum}>{mesaNombre(mesas, cuenta.mesa)}{esExterna(cuenta) && <span style={styles.extTag}>{TIPO_META[cuenta.tipo].corto}</span>}</span>
+            <span style={styles.mesaCuentaNum}>{mesaNombre(mesas, cuenta.mesa)}{esExterna(cuenta) && <span style={styles.extTag}>{TIPO_META[cuenta.tipo].corto}</span>}{pisoNombre && !esExterna(cuenta) && <span style={styles.extTag}>{pisoNombre}</span>}</span>
             <span style={styles.mesaCuentaSince}>{ords.length} {ords.length === 1 ? "ronda" : "rondas"} · desde {timeLabel(cuenta.ts)}{cuenta.mesero ? ` · ${cuenta.mesero}` : ""}</span>
           </div>
           <button className="toque44" style={styles.cerrarPanelBtn} onClick={onToggle} aria-label="Cerrar detalle">✕</button>
@@ -429,7 +441,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
       ) : (
       <button style={styles.mesaCuentaHead} onClick={onToggle}>
         <div style={styles.mesaCuentaLeft}>
-          <span style={styles.mesaCuentaNum}>{mesaNombre(mesas, cuenta.mesa)}{esExterna(cuenta) && <span style={styles.extTag}>{TIPO_META[cuenta.tipo].corto}</span>}</span>
+          <span style={styles.mesaCuentaNum}>{mesaNombre(mesas, cuenta.mesa)}{esExterna(cuenta) && <span style={styles.extTag}>{TIPO_META[cuenta.tipo].corto}</span>}{pisoNombre && !esExterna(cuenta) && <span style={styles.extTag}>{pisoNombre}</span>}</span>
           <span style={styles.mesaCuentaSince}>{ords.length} {ords.length === 1 ? "ronda" : "rondas"} · desde {timeLabel(cuenta.ts)}{cuenta.mesero ? ` · ${cuenta.mesero}` : ""}</span>
           {enCurso && <span style={styles.enCursoTag}>Cobro en curso · {money(cobrado)} de {money(total)}</span>}
         </div>
@@ -438,7 +450,8 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
       )}
 
       {(expanded || modoPanel) && (
-        <div style={styles.mesaCuentaBody}>
+        <div style={modoPanel ? { ...styles.mesaCuentaBody, ...panelCobro.cuerpo } : styles.mesaCuentaBody}>
+          <div style={modoPanel ? panelCobro.scroll : { display: "contents" }}>
           {/* Saldo pendiente: lo primero que se ve al cobrar */}
           <div style={styles.saldoCard}>
             <span style={styles.saldoEt}>SALDO PENDIENTE</span>
@@ -484,6 +497,30 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
               </div>
             </div>
           )}
+          {pagos.length > 0 && (
+            <div style={styles.pagosRegistradosBox}>
+              <div style={styles.pagosRegistradosLabel}>PAGOS REGISTRADOS</div>
+              {pagos.map((p) => {
+                const meta = METODO_META[p.metodoPago]; const Icon = meta.icon;
+                return (
+                  <div key={p.id} style={styles.pagoRow}>
+                    <span style={styles.pagoIcono}><Icon size={14} color="var(--pago-ok)" /></span>
+                    <div style={styles.pagoRowMid}>
+                      <span style={styles.pagoRowEtiqueta}>{p.etiqueta || "Cuenta completa"}</span>
+                      {p.tipo === "por_producto" && (p.items || []).length > 0 && <span style={styles.pagoRowItems}>{p.items.map((it) => `${it.qty}× ${it.name}`).join(", ")}</span>}
+                      <span style={styles.pagoRowTime}>{timeLabel(p.ts)} · {meta.label}{p.procesadoPor ? ` · cobró ${p.procesadoPor}` : ""}</span>
+                      {p.propinaMonto > 0 && <span style={styles.pagoRowItems}>Incluye {money(p.propinaMonto)} de propina{cuenta.propinaModo ? ` (${MODO_PROPINA_META[cuenta.propinaModo] ? MODO_PROPINA_META[cuenta.propinaModo].label.toLowerCase() : cuenta.propinaModo})` : ""}</span>}
+                      {p.propinaVuelta > 0 && <span style={styles.pagoRowItems}>Incluye {money(p.propinaVuelta)} de propina (la vuelta)</span>}
+                    </div>
+                    <span style={styles.pagoRowMonto}>{money(p.monto)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          </div>
+          <div style={modoPanel ? panelCobro.pie : { display: "contents" }}>
           <div style={styles.subtotalRow}>
             <span>Subtotal</span><span>{money(subtotal)}</span>
           </div>
@@ -558,7 +595,11 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
           )}
 
           <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Total a cobrar</span><span>{money(total)}</span></div>
-          <button style={styles.cuentaClienteBtn} onClick={() => mostrarComprobante({ tipo: "cuenta", cuenta, orders })}><Receipt size={14} /> Cuenta para el cliente</button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button style={styles.cuentaClienteBtn} onClick={() => mostrarComprobante({ tipo: "cuenta", cuenta, orders })}><Receipt size={14} /> Cuenta para el cliente</button>
+            <button style={styles.cuentaClienteBtn} onClick={() => setVerFactura(true)}><Receipt size={14} /> {cuenta.datosFiscales ? `Factura: ${etiquetaDocumento(cuenta.datosFiscales) || "datos"}` : "Datos para factura"}</button>
+          </div>
+          {verFactura && <DatosFactura valor={cuenta.datosFiscales} onGuardar={(d) => patchCuenta({ datosFiscales: d })} onQuitar={() => patchCuenta({ datosFiscales: null })} onCerrar={() => setVerFactura(false)} />}
 
           {total === 0 && pagos.length === 0 && (
             <div style={styles.cerrarVaciaBox}>
@@ -572,28 +613,6 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
               ) : (
                 <button style={styles.inlineAddLink} onClick={() => setConfirmCancelarCuenta(true)}><Ban size={16} /> Cerrar mesa (sin consumo)</button>
               )}
-            </div>
-          )}
-
-          {pagos.length > 0 && (
-            <div style={styles.pagosRegistradosBox}>
-              <div style={styles.pagosRegistradosLabel}>PAGOS REGISTRADOS</div>
-              {pagos.map((p) => {
-                const meta = METODO_META[p.metodoPago]; const Icon = meta.icon;
-                return (
-                  <div key={p.id} style={styles.pagoRow}>
-                    <span style={styles.pagoIcono}><Icon size={14} color="var(--pago-ok)" /></span>
-                    <div style={styles.pagoRowMid}>
-                      <span style={styles.pagoRowEtiqueta}>{p.etiqueta || "Cuenta completa"}</span>
-                      {p.tipo === "por_producto" && (p.items || []).length > 0 && <span style={styles.pagoRowItems}>{p.items.map((it) => `${it.qty}× ${it.name}`).join(", ")}</span>}
-                      <span style={styles.pagoRowTime}>{timeLabel(p.ts)} · {meta.label}{p.procesadoPor ? ` · cobró ${p.procesadoPor}` : ""}</span>
-                      {p.propinaMonto > 0 && <span style={styles.pagoRowItems}>Incluye {money(p.propinaMonto)} de propina{cuenta.propinaModo ? ` (${MODO_PROPINA_META[cuenta.propinaModo] ? MODO_PROPINA_META[cuenta.propinaModo].label.toLowerCase() : cuenta.propinaModo})` : ""}</span>}
-                      {p.propinaVuelta > 0 && <span style={styles.pagoRowItems}>Incluye {money(p.propinaVuelta)} de propina (la vuelta)</span>}
-                    </div>
-                    <span style={styles.pagoRowMonto}>{money(p.monto)}</span>
-                  </div>
-                );
-              })}
             </div>
           )}
 
@@ -652,9 +671,9 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                     <div style={styles.partesStepperRow}>
                       <span style={styles.closeConfirmText}>Dividir entre:</span>
                       <div style={styles.stepper}>
-                        <button style={styles.stepBtn} onClick={() => { setAbonos([]); setNumPartes((n) => Math.max(2, n - 1)); }}><Minus size={14} /></button>
+                        <button aria-label="Una parte menos" style={styles.stepBtn} onClick={() => { setAbonos([]); setNumPartes((n) => Math.max(2, n - 1)); }}><Minus size={14} /></button>
                         <span style={styles.stepVal}>{numPartes}</span>
-                        <button style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} onClick={() => { setAbonos([]); setNumPartes((n) => Math.min(12, n + 1)); }}><Plus size={14} /></button>
+                        <button aria-label="Una parte más" style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} onClick={() => { setAbonos([]); setNumPartes((n) => Math.min(12, n + 1)); }}><Plus size={14} /></button>
                       </div>
                       <span style={styles.closeConfirmText}>personas</span>
                     </div>
@@ -722,9 +741,9 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                     <div key={it.key} style={styles.productoSplitRow}>
                       <div><div style={styles.menuItemName}>{it.name}</div><div style={styles.menuItemPrice}>{money(it.price)} · quedan {it.qtyPend}</div></div>
                       <div style={styles.stepper}>
-                        <button style={styles.stepBtn} onClick={() => addToCart(it.key, -1)}><Minus size={14} /></button>
+                        <button aria-label={`Quitar uno de ${it.name}`} style={styles.stepBtn} onClick={() => addToCart(it.key, -1)}><Minus size={14} /></button>
                         <span style={styles.stepVal}>{cart[it.key] || 0}</span>
-                        <button style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} onClick={() => addToCart(it.key, 1)}><Plus size={14} /></button>
+                        <button aria-label={`Agregar uno de ${it.name}`} style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} onClick={() => addToCart(it.key, 1)}><Plus size={14} /></button>
                       </div>
                     </div>
                   ))}
@@ -815,6 +834,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
               )}
             </div>
           )}
+          </div>
         </div>
       )}
     </div>
