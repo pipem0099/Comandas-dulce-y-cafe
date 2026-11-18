@@ -11,6 +11,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 const DUR_SALIDA = 320;
 const CURVA = "cubic-bezier(.32,.72,0,1)";
 
+// Pila de hojas abiertas: Esc y el gesto/botón "atrás" cierran SOLO la de encima (antes cerraban todas a la vez).
+const pila = [];
+let idSecuencia = 0;
+let ignorarPop = 0;
+
 export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60, padding, centro = false }) {
   const [fase, setFase] = useState("entrando");
   const panelRef = useRef(null);
@@ -43,11 +48,25 @@ export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60,
   }, []);
   const cerrarPublico = useCallback(() => cerrar(false), [cerrar]);
 
-  // Esc cierra
+  // Esc y "atrás" (gesto de borde en iPhone, botón en Android) cierran solo la hoja de encima.
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") cerrar(false); };
+    const yo = { id: ++idSecuencia, cerrar: () => cerrar(false), tieneEntrada: false };
+    pila.push(yo);
+    try { window.history.pushState({ hoja: yo.id }, ""); yo.tieneEntrada = true; } catch (e) { /* sin historial */ }
+    const onKey = (e) => { if (e.key === "Escape" && pila[pila.length - 1] === yo) { e.stopPropagation(); cerrar(false); } };
+    const onPop = () => {
+      if (ignorarPop > 0) { ignorarPop--; return; }
+      if (pila[pila.length - 1] === yo) { yo.tieneEntrada = false; cerrar(false); }
+    };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    window.addEventListener("popstate", onPop);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("popstate", onPop);
+      const i = pila.indexOf(yo); if (i >= 0) pila.splice(i, 1);
+      // Se cerró con la ✕ o tocando el fondo: se quita la entrada que se había agregado al historial
+      if (yo.tieneEntrada) { try { if (window.history.state && window.history.state.hoja === yo.id) { ignorarPop++; window.history.back(); } } catch (e) {} }
+    };
   }, [cerrar]);
 
   // Arrastrar hacia abajo para cerrar (solo celular, con el dedo).

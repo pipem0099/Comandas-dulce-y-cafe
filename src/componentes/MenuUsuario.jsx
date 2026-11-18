@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { X, Sun, Moon, Palette, UserRound, Settings, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup, BookOpen, BarChart3 } from "lucide-react";
+import { X, Sun, Moon, Palette, UserRound, Settings, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup, BookOpen, BarChart3, Printer, FileCheck2 } from "lucide-react";
 import { AyudaRoles } from "./AyudaRoles.jsx";
 import { guardarTema, temaGuardado, vibrar } from "../theme.js";
 import { enviarCorreoCambioClave } from "../firebase.js";
 import { rolesLabel } from "../utilidades.js";
 import { VERSION } from "../constantes.js";
 import { Hoja } from "./Hoja.jsx";
+import { ImpresoraTermica } from "./ImpresoraTermica.jsx";
 
 /*
  * Menú de la persona que inició sesión: se abre al tocar su nombre en la barra de arriba.
@@ -27,6 +28,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   const esAdminU = usuarioActual.roles.includes("admin");
   const [seccion, setSeccion] = useState(esAdminU ? "admin" : "cuenta"); // pastilla activa
   const [verAyuda, setVerAyuda] = useState(false);
+  const [verImpresora, setVerImpresora] = useState(false);
   const [confirmClave, setConfirmClave] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [puedeInstalar, setPuedeInstalar] = useState(!!window.__instalarApp);
@@ -65,6 +67,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   );
 
   if (verAyuda) return <AyudaRoles usuario={usuarioActual} config={config} onCerrar={() => setVerAyuda(false)} />;
+  if (verImpresora) return <ImpresoraTermica onCerrar={() => setVerImpresora(false)} />;
   return (
     <Hoja onCerrar={onCerrar} ancho={440} gap={10} label="Mi cuenta" z={70} centro>
       {({ cerrar }) => {
@@ -101,6 +104,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
             <Fila icon={LayoutGrid} titulo="Mesas y plano" sub="Mesas, espacios y su distribución" onClick={ir(() => onIr("mesas"))} />
             <Fila icon={Users} titulo="Equipo y usuarios" sub="Cuentas, roles y propiedad" onClick={ir(() => onIr("equipo"))} />
             <Fila icon={BarChart3} titulo="Análisis y control" sub="Comparativos, rentabilidad, pérdidas y semana" onClick={ir(() => onIr("analisis"))} />
+            <Fila icon={FileCheck2} titulo="Facturación electrónica" sub="Proveedor DIAN, impuestos y resolución" onClick={ir(() => onIr("facturacion"))} />
             <Fila icon={DatabaseBackup} titulo="Respaldos y datos" sub="Copias de seguridad y restauración" onClick={ir(() => onIr("respaldos"))} />
             <Fila icon={SlidersHorizontal} titulo="Ajustes del negocio" sub="Marca, estaciones e inventario" onClick={ir(() => onIr("ajustes"))} />
           </div>
@@ -110,6 +114,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
           <div className="despliega" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={s.grupo}>
               <Fila icon={BookOpen} titulo="Cómo se usa la app" sub="Guía corta según tu rol" onClick={() => setVerAyuda(true)} />
+              <Fila icon={Printer} titulo="Impresora de tickets" sub="Imprime cuentas y pedidos de cocina" onClick={() => setVerImpresora(true)} />
               <Fila icon={KeyRound} titulo="Cambiar mi clave" sub="Te enviamos un enlace a tu correo" onClick={() => { setConfirmClave(true); setAviso(""); setConfirmSalir(false); }} />
               {puedeInstalar && <Fila icon={Download} titulo="Instalar la app" sub="Ábrela desde tu pantalla de inicio" onClick={instalar} />}
               <Fila icon={LogOut} titulo="Cerrar sesión" peligro onClick={() => { setConfirmSalir(true); setAviso(""); setConfirmClave(false); }} />

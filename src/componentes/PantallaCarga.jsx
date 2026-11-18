@@ -1,5 +1,6 @@
 import React from "react";
 import { leerMarcaCache } from "../marcaCache.js";
+import { AvisoLento } from "./Esqueletos.jsx";
 
 // Pantalla de carga con la marca del negocio (si este dispositivo ya la conoce).
 export function PantallaCarga() {
@@ -15,12 +16,13 @@ export function PantallaCarga() {
         <div style={p.nombre}>{nombre.toUpperCase()}</div>
         <div style={p.barra}><div style={p.barraInterna} /></div>
       </div>
+      <div style={{ position: "absolute", left: 0, right: 0, bottom: "calc(24px + env(safe-area-inset-bottom))" }}><AvisoLento despuesMs={10000} /></div>
     </div>
   );
 }
 
 const p = {
-  pagina: { height: "100dvh", minHeight: "100vh", background: "var(--c-f7f4ec-b)", display: "flex", alignItems: "center", justifyContent: "center" },
+  pagina: { height: "100dvh", minHeight: "100vh", background: "var(--c-f7f4ec-b)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" },
   centro: { display: "flex", flexDirection: "column", alignItems: "center", gap: 16, animation: "respirar 2.4s ease-in-out infinite" },
   logo: { height: 56, width: "auto", maxWidth: 220, objectFit: "contain" },
   monograma: { width: 64, height: 64, borderRadius: 16, border: "1.5px solid var(--accent)", color: "var(--accent-t)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 },

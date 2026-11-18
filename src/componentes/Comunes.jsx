@@ -52,7 +52,7 @@ export function AvisoActivarNotificaciones() {
       <span>Activa las notificaciones para enterarte aunque cambies de pantalla (no llegan con el celular bloqueado).</span>
       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
         <button style={styles.avisoNotifBtn} onClick={() => Notification.requestPermission().then(setPermiso)}>Activar</button>
-        <button style={styles.avisoNotifCerrar} onClick={() => setDescartado(true)}>✕</button>
+        <button aria-label="Cerrar aviso de notificaciones" style={styles.avisoNotifCerrar} onClick={() => setDescartado(true)}>✕</button>
       </div>
     </div>
   );

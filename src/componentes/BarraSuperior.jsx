@@ -23,7 +23,7 @@ export function itemsNavegacion(usuarioActual) {
 }
 
 const Avatar = ({ usuarioActual, size = 30 }) => (
-  <span style={{ width: size, height: size, borderRadius: size / 2, background: "var(--accent)", color: "#F4F6F8", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.46, fontWeight: 700, flexShrink: 0 }}>
+  <span style={{ width: size, height: size, borderRadius: size / 2, background: "var(--accent)", color: "var(--accent-fg)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.46, fontWeight: 700, flexShrink: 0 }}>
     {(usuarioActual.nombre || "?").trim().charAt(0).toUpperCase()}
   </span>
 );
@@ -32,7 +32,7 @@ const Avatar = ({ usuarioActual, size = 30 }) => (
 export function TopBar({ config, usuarioActual, onIr, onSalir, online, alertas, onIrAlerta }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   return (
-    <div className="no-imprimir" style={{ ...styles.topBar, flexWrap: "nowrap", padding: "10px 16px" }}>
+    <div className="no-imprimir" style={{ ...styles.topBar, flexWrap: "nowrap", padding: "calc(10px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 10px calc(16px + env(safe-area-inset-left))" }}>
       <div style={styles.brand}>
         <LogoMarca marca={config.marca} />
         <span style={styles.brandText}>{(config.businessName || "LA COMANDA").toUpperCase()}</span>
@@ -55,13 +55,13 @@ export function TopBar({ config, usuarioActual, onIr, onSalir, online, alertas, 
 export function BarraInferior({ items, role, setRole }) {
   if (items.length < 2) return null;
   return (
-    <div className="no-imprimir" style={{ flexShrink: 0, padding: "6px 14px calc(10px + env(safe-area-inset-bottom))", background: "var(--chrome-solid)" }}>
+    <div className="no-imprimir" style={{ flexShrink: 0, padding: "6px calc(14px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))", background: "var(--chrome-solid)" }}>
       <nav style={{ display: "flex", gap: 4, padding: 6, borderRadius: 26, background: "var(--nav-float)", WebkitBackdropFilter: "blur(18px) saturate(140%)", backdropFilter: "blur(18px) saturate(140%)", boxShadow: "var(--shadow-nav)", maxWidth: 520, margin: "0 auto" }}>
         {items.map((it) => {
           const Icon = it.icon; const on = role === it.id;
           return (
             <button key={it.id} onClick={() => setRole(it.id)} aria-current={on ? "page" : undefined}
-              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "8px 4px", border: "none", borderRadius: 20, background: on ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "transparent", color: on ? "var(--accent-t)" : "var(--c-8a8272-t)", fontSize: 11.5, fontWeight: on ? 700 : 600, cursor: "pointer", transition: "background-color .25s cubic-bezier(.32,.72,0,1), color .25s ease, transform .22s cubic-bezier(.32,.72,0,1)" }}>
+              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "8px 4px", border: "none", borderRadius: 20, background: on ? "var(--chip-on-bg)" : "transparent", color: on ? "var(--chip-on-fg)" : "var(--btn2-mute)", fontSize: 11.5, fontWeight: on ? 700 : 600, cursor: "pointer", transition: "background-color .25s cubic-bezier(.32,.72,0,1), color .25s ease, transform .22s cubic-bezier(.32,.72,0,1)" }}>
               <Icon size={21} strokeWidth={on ? 2.3 : 1.9} /> {it.label}
             </button>
           );
@@ -76,7 +76,7 @@ export function Lateral({ items, role, setRole, config, usuarioActual, onIr, onS
   const [menuAbierto, setMenuAbierto] = useState(false);
   const compacto = !ancho; // tablet: solo íconos
   return (
-    <aside className="no-imprimir" style={{ width: compacto ? 84 : 232, flexShrink: 0, background: "var(--chrome-solid)", display: "flex", flexDirection: "column", gap: 6, padding: compacto ? "16px 10px" : "18px 14px", borderRight: "1px solid var(--chrome-line)", overflowY: "auto" }}>
+    <aside className="no-imprimir" style={{ width: compacto ? 84 : 232, flexShrink: 0, background: "var(--chrome-solid)", display: "flex", flexDirection: "column", gap: 6, padding: compacto ? "calc(16px + env(safe-area-inset-top)) 10px 16px calc(10px + env(safe-area-inset-left))" : "calc(18px + env(safe-area-inset-top)) 14px 18px calc(14px + env(safe-area-inset-left))", borderRight: "1px solid var(--chrome-line)", overflowY: "auto" }}>
       <div style={{ ...styles.brand, justifyContent: compacto ? "center" : "flex-start", padding: compacto ? "0 0 14px" : "2px 6px 16px", flexDirection: compacto ? "column" : "row" }}>
         <LogoMarca marca={config.marca} />
         {!compacto && <span style={{ ...styles.brandText, fontSize: 14, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{(config.businessName || "LA COMANDA").toUpperCase()}</span>}
@@ -87,7 +87,7 @@ export function Lateral({ items, role, setRole, config, usuarioActual, onIr, onS
         const Icon = it.icon; const on = role === it.id;
         return (
           <button key={it.id} onClick={() => setRole(it.id)} aria-current={on ? "page" : undefined}
-            style={{ display: "flex", flexDirection: compacto ? "column" : "row", alignItems: "center", justifyContent: compacto ? "center" : "flex-start", gap: compacto ? 4 : 12, padding: compacto ? "11px 4px" : "12px 14px", border: "none", borderRadius: 12, background: on ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "transparent", color: on ? "var(--accent-t)" : "var(--c-5c5648-t)", boxShadow: on ? "inset 3px 0 0 var(--accent)" : "none", fontSize: compacto ? 11.5 : 14.5, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+            style={{ display: "flex", flexDirection: compacto ? "column" : "row", alignItems: "center", justifyContent: compacto ? "center" : "flex-start", gap: compacto ? 4 : 12, padding: compacto ? "11px 4px" : "12px 14px", border: "none", borderRadius: 12, background: on ? "var(--chip-on-bg)" : "transparent", color: on ? "var(--chip-on-fg)" : "var(--btn2-mute)", boxShadow: on ? "inset 3px 0 0 var(--accent)" : "none", fontSize: compacto ? 11.5 : 14.5, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
             <Icon size={compacto ? 22 : 19} strokeWidth={on ? 2.3 : 1.9} /> {it.label}
           </button>
         );
