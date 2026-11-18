@@ -52,7 +52,17 @@ self.addEventListener("install", (event) => {
       nombreCache = nuevo;
       await (await caches.open(CACHE_META)).put(CLAVE_NOMBRE, new Response(nuevo));
     } catch (_) { /* sin precache.json: la app funciona igual, solo sin modo sin conexión */ }
-  })().then(() => self.skipWaiting()));
+  })().then(() => {
+    // Primera instalación (aún no hay un service worker activo): se activa de una vez.
+    // Versión nueva sobre una app que ya está en uso: ESPERA, y solo toma el control cuando la persona pulsa «Actualizar»
+    // (así una pantalla abierta nunca se queda con la mitad de los archivos de una versión y la otra mitad de otra).
+    if (!(self.registration && self.registration.active)) return self.skipWaiting();
+    return undefined;
+  }));
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.tipo === "SALTAR_ESPERA") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
