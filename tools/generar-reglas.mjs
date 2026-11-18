@@ -93,7 +93,7 @@ const reglas = {
     orders: {
       ".read": ACTIVO,
       ".write": ADMIN, // restaurar respaldos completos
-      ".indexOn": ["ts"],
+      ".indexOn": ["ts", "cuentaId"], // cuentaId: la función de facturación busca los pedidos de una cuenta
       $id: {
         ".write": `(${PEDIDO_SALA}) || (${PEDIDO_COCINA})`, // nadie más que el administrador borra pedidos: se cancelan
         ".validate": "newData.hasChildren(['ts','estado']) && newData.child('ts').isNumber() && newData.child('estado').isString() && newData.child('estado').val().length <= 30",
@@ -101,6 +101,18 @@ const reglas = {
           qty: { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999" },
           price: { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000" },
           name: { ".validate": "newData.isString() && newData.val().length <= 200" },
+        } },
+        // Impresiones ya hechas: «n» = la comanda del pedido, «aj-<hora>» = un ticket de ajuste. Se anotan SOLO cuando la impresora confirmó
+        // que imprimió; así el equipo del mesero y la pantalla de Cocina no sacan el mismo ticket dos veces.
+        // Último ajuste enviado a cocina (lo agregado y lo cancelado): con esto cualquier equipo puede sacar el ticket de ajuste.
+        ultimoAjuste: {
+          ts: { ".validate": "newData.isNumber()" },
+          agregados: { $i: { qty: { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999" }, name: { ".validate": "newData.isString() && newData.val().length <= 200" } } },
+          cancelados: { $i: { qty: { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999" }, name: { ".validate": "newData.isString() && newData.val().length <= 200" } } },
+        },
+        impresiones: { $evento: {
+          ".validate": "$evento.length <= 60 && newData.hasChildren(['ts','por']) && newData.child('ts').isNumber() && newData.child('por').isString() && newData.child('por').val().length <= 120",
+          equipo: { ".validate": "newData.isString() && newData.val().length <= 80" },
         } },
       },
     },
@@ -112,6 +124,13 @@ const reglas = {
         ".write": `(${CUENTA_ADMIN}) || (${CUENTA_CAJERO}) || (${CUENTA_SALA})`,
         ".validate": "newData.hasChildren(['mesa','ts','estado']) && newData.child('ts').isNumber() && newData.child('estado').isString()",
         personas: { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 50" }, // cuántas personas comieron (ticket por persona)
+        datosFiscales: { // datos del cliente para factura (con tope de tamaño)
+          numero: { ".validate": "newData.isString() && newData.val().length <= 30" },
+          nombre: { ".validate": "newData.isString() && newData.val().length <= 120" },
+          correo: { ".validate": "newData.isString() && newData.val().length <= 120" },
+          direccion: { ".validate": "newData.isString() && newData.val().length <= 160" },
+          nivelTributario: { ".validate": "newData.isString() && (newData.val() === 'O-47' || newData.val() === 'O-48' || newData.val() === 'R-99-PN')" },
+        },
       },
     },
     deudas: {
@@ -133,6 +152,7 @@ const reglas = {
     turnos: {
       ".read": ACTIVO,
       ".write": ADMIN,
+      ".indexOn": ["aperturaTs"], // la app solo descarga los turnos de los últimos 6 meses
       $id: {
         // el cajero abre, hace relevos y cierra; un turno ya CERRADO solo lo corrige un administrador
         ".write": `${COBRA} && newData.exists() && (!data.exists() || data.child('estado').val() !== 'cerrado')`,
@@ -149,6 +169,47 @@ const reglas = {
     reservas: { ".read": ACTIVO, ".write": SALON },
     respaldos: { ".read": ADMIN, ".write": ADMIN },
     equipo: { ".read": ACTIVO, ".write": ADMIN },
+    // Facturación electrónica (DIAN). TRES ramas con permisos distintos:
+    //  · facturacion/ajustes    configuración NO secreta: el equipo la lee (Caja necesita saber si está activa); solo el administrador la escribe.
+    //  · facturacion/credencial/{modo}, catalogo/{modo}, mapeo/{modo}: solo el admin lee; solo el servidor escribe. Credencial: solo «proveedor + ••••1234»: la escribe ÚNICAMENTE la función del servidor (cuenta de servicio).
+    //  · facturacion/documentos una factura por cuenta (la llave es el id de la cuenta): la lee la caja; SOLO el servidor escribe (así nadie
+    //    del navegador puede marcar algo como «emitida» o «anulada»).
+    //  · facturacionSecretos    credenciales CIFRADAS (AES-256-GCM): ningún navegador lee ni escribe, ni siquiera el administrador.
+    facturacion: {
+      ajustes: {
+        ".read": ACTIVO, ".write": ADMIN,
+        activa: { ".validate": "newData.isBoolean()" },
+        emisionAutomatica: { ".validate": "newData.isBoolean()" },
+        modo: { ".validate": "newData.isString() && (newData.val() === 'pruebas' || newData.val() === 'produccion')" },
+        proveedor: { ".validate": "newData.isString() && (newData.val() === 'simulado' || newData.val() === 'factus' || newData.val() === 'alegra' || newData.val() === 'siigo' || newData.val() === 'dataico')" },
+        tipoDocumento: { ".validate": "newData.isString() && (newData.val() === 'factura' || newData.val() === 'pos')" },
+        impuesto: { ".validate": "newData.isString() && (newData.val() === 'inc' || newData.val() === 'iva' || newData.val() === 'exento')" },
+        precios: { ".validate": "newData.isString() && (newData.val() === 'incluyen' || newData.val() === 'suman')" },
+        propina: { ".validate": "newData.isString() && (newData.val() === 'excluir' || newData.val() === 'incluir')" },
+        valorUvt: { ".validate": "newData.isNumber() && newData.val() >= 10000 && newData.val() <= 500000" },
+        emisor: {
+          razonSocial: { ".validate": "newData.isString() && newData.val().length <= 200" },
+          nit: { ".validate": "newData.isString() && newData.val().length <= 20" },
+          dv: { ".validate": "newData.isString() && newData.val().length <= 1" },
+          regimen: { ".validate": "newData.isString() && (newData.val() === '' || newData.val() === 'responsable_iva' || newData.val() === 'no_responsable' || newData.val() === 'simple')" },
+          municipio: { ".validate": "newData.isString() && newData.val().length <= 120" },
+          codigoDane: { ".validate": "newData.isString() && newData.val().length <= 5" },
+          correo: { ".validate": "newData.isString() && newData.val().length <= 200" },
+          $otro: { ".validate": false },
+        },
+        resolucion: { $k: { ".validate": "newData.isString() && newData.val().length <= 30" } },
+        actualizadoTs: { ".validate": "newData.isNumber()" },
+        actualizadoPor: { ".validate": "newData.isString() && newData.val().length <= 120" },
+        $otro: { ".validate": false },
+      },
+      // credencial, catalogo y mapeo cuelgan de /pruebas y /produccion (ambientes separados). Solo el administrador los lee; solo el servidor los escribe.
+      credencial: { ".read": ADMIN, ".write": false },
+      catalogo: { ".read": ADMIN, ".write": false },
+      mapeo: { ".read": ADMIN, ".write": false },
+      documentos: { ".read": COBRA, ".write": false },
+      $otro: { ".read": false, ".write": false },
+    },
+    facturacionSecretos: { ".read": false, ".write": false },
     // Bitácora de control: cada cancelación, descuento o anulación queda escrita con QUIÉN (su uid de verdad), CUÁNDO y CUÁNTO.
     // Solo se puede CREAR (nadie la edita ni la borra, ni siquiera el administrador) y solo el administrador la lee.
     auditoria: {
@@ -161,7 +222,7 @@ const reglas = {
         uid: { ".validate": "newData.isString() && newData.val().length <= 80" },
         nombre: { ".validate": "newData.isString() && newData.val().length <= 120" },
         rol: { ".validate": "newData.isString() && newData.val().length <= 80" },
-        accion: { ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'deshacer_cancelacion' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago' || newData.val() === 'dejar_pendiente' || newData.val() === 'cobrar_pendiente' || newData.val() === 'condonar_deuda')" },
+        accion: { ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'deshacer_cancelacion' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago' || newData.val() === 'dejar_pendiente' || newData.val() === 'cobrar_pendiente' || newData.val() === 'condonar_deuda' || newData.val() === 'emitir_factura' || newData.val() === 'anular_factura' || newData.val() === 'guardar_credenciales_fiscales' || newData.val() === 'guardar_mapeo_fiscal' || newData.val() === 'prueba_emision_fiscal')" },
         cuentaId: { ".validate": "newData.isString() && newData.val().length <= 80" },
         mesa: { ".validate": "(newData.isString() && newData.val().length <= 80) || newData.isNumber()" },
         monto: { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000" },

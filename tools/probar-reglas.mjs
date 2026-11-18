@@ -164,6 +164,14 @@ const BASE = normalizar({
   inventario: { i1: { nombre: "Harina", unidad: "kg", stock: 10, minimo: 2, costo: 3000 } },
   reservas: { r1: { id: "r1", nombre: "Felipe", personas: 6 } },
   mesas: [{ id: "1", nombre: "Mesa 1" }],
+  facturacion: {
+    ajustes: { activa: true, modo: "pruebas", proveedor: "factus", tipoDocumento: "factura", impuesto: "inc", precios: "incluyen", propina: "excluir", emisionAutomatica: false, resolucion: { prefijo: "SETT", numero: "123456789" } },
+    credencial: { pruebas: { proveedor: "factus", mascara: "••••1234", ts: 1 } },
+    catalogo: { pruebas: { impuestos: [{ id: "1", etiqueta: "IVA" }] } },
+    mapeo: { pruebas: { resolucion: "9" } },
+    documentos: { c2: { cuentaId: "c2", estado: "emitida", numero: "SETT1", cufe: "abc" } },
+  },
+  facturacionSecretos: { pruebas: { proveedor: "factus", datos: "v1.aaa.bbb.ccc", ts: 1 } },
 });
 const U = (uid) => ({ uid });
 const usuarios = { dueno: U("dueno"), admin2: U("admin2"), cajero: U("cajero"), mesero: U("mesero"), cocina: U("cocina"), mixto: U("mixto"), inactivo: U("inactivo"), sinrol: U("sinrol"), extrano: U("extrano"), anon: null };
@@ -206,6 +214,11 @@ caso("Uso normal", "dueno", "cambia los permisos de un administrador", "set", "p
 caso("Uso normal", "admin2", "publica la marca para la pantalla de ingreso", "update", "sistema", { marca: { nombre: "Dulce", logo: "data:..." } }, SI);
 caso("Uso normal", "admin2", "mantiene el directorio del equipo", "update", "equipo", { mesero: { uid: "mesero", nombre: "Ana", roles: { mesero: true }, activo: true } }, SI);
 caso("Uso normal", "admin2", "guarda un respaldo automático", "set", "respaldos/2026-10-21", { dia: "2026-10-21", cuentas: [] }, SI);
+
+/* — Datos del cliente para factura — */
+const fiscales = { tipoDoc: "NIT", numero: "800197268", dv: "4", nombre: "Mi Empresa SAS", correo: "a@b.co", direccion: "Calle 1" };
+caso("Factura", "cajero", "guarda los datos del cliente para factura en la cuenta", "set", "cuentas/c1", cuentaAbierta({ datosFiscales: fiscales }), SI);
+caso("Factura", "cajero", "NO guarda un nombre gigante (tope de tamaño)", "set", "cuentas/c1", cuentaAbierta({ datosFiscales: { ...fiscales, nombre: "x".repeat(500) } }), NO);
 
 /* — Cuentas pendientes — */
 const deuda1 = { ...(JSON.parse(JSON.stringify({ id: "d1", cuentaId: "c5", mesa: "5", ts: 1500, total: 50000, saldo: 20000, estado: "pendiente", registradaPor: "Caja", cliente: { nombre: "Carlos", telefono: "3001234567", busqueda: "carlos 3001234567" }, cobros: [] }))) };
@@ -285,6 +298,23 @@ caso("Pedidos", "cocina", "NO puede mover el pedido a otra cuenta o mesa", "set"
 caso("Pedidos", "cocina", "NO puede agregar ítems al pedido", "set", "orders/o1", { ...o1, items: [o1.items[0], { id: "m1", name: "Limonada", qty: 1, price: 0 }] }, NO);
 caso("Pedidos", "cocina", "NO puede crear pedidos nuevos", "set", "orders/o9", { id: "o9", cuentaId: "c1", mesa: "1", ts: 6, estado: "pendiente", items: [] }, NO);
 caso("Pedidos", "cocina", "SÍ puede avisar que vio un cambio y cambiar el estado", "set", "orders/o1", { ...o1, estado: "listo", listoTs: 5, cambioVisto: true }, SI);
+const marca = (extra = {}) => ({ ...o1, impresiones: { n: { ts: 2000, por: "Ana", equipo: "Mesero", ...extra } } });
+caso("Impresión", "mesero", "SÍ puede anotar que imprimió la comanda del pedido", "set", "orders/o1", marca(), SI);
+caso("Impresión", "cocina", "SÍ puede anotar que imprimió (pantalla de Cocina)", "set", "orders/o1", marca({ equipo: "Cocina" }), SI);
+caso("Impresión", "cajero", "SÍ puede anotar un ticket de ajuste", "set", "orders/o1", { ...o1, impresiones: { "aj-1700000000000": { ts: 2000, por: "Luis" } } }, SI);
+const ajuste = (extra = {}) => ({ ...o1, ultimoAjuste: { ts: 3000, agregados: [{ name: "Limonada", qty: 1 }], cancelados: [{ name: "Sándwich", qty: 2 }], ...extra } });
+caso("Impresión", "mesero", "SÍ puede guardar el último ajuste (lo agregado y lo cancelado)", "set", "orders/o1", ajuste(), SI);
+caso("Impresión", "mesero", "NO se acepta un ajuste con cantidades en texto", "set", "orders/o1", ajuste({ agregados: [{ name: "Limonada", qty: "uno" }] }), NO);
+caso("Impresión", "mesero", "NO se acepta un ajuste con nombres kilométricos", "set", "orders/o1", ajuste({ cancelados: [{ name: "z".repeat(300), qty: 1 }] }), NO);
+caso("Impresión", "mesero", "NO se acepta un ajuste con hora en texto", "set", "orders/o1", ajuste({ ts: "hoy" }), NO);
+caso("Impresión", "mesero", "NO se acepta una marca sin quién imprimió", "set", "orders/o1", { ...o1, impresiones: { n: { ts: 2000 } } }, NO);
+caso("Impresión", "mesero", "NO se acepta una marca con la hora en texto", "set", "orders/o1", marca({ ts: "ayer" }), NO);
+caso("Impresión", "mesero", "NO se acepta una marca con un nombre enorme", "set", "orders/o1", marca({ por: "x".repeat(200) }), NO);
+caso("Impresión", "mesero", "NO se acepta una clave de impresión kilométrica", "set", "orders/o1", { ...o1, impresiones: { ["k".repeat(80)]: { ts: 2000, por: "Ana" } } }, NO);
+caso("Impresión", "mesero", "NO se acepta un nombre de equipo enorme", "set", "orders/o1", marca({ equipo: "y".repeat(200) }), NO);
+caso("Impresión", "sinrol", "NO puede anotar impresiones sin ningún rol", "set", "orders/o1", marca(), NO);
+caso("Impresión", "anon", "NO puede anotar impresiones sin iniciar sesión", "set", "orders/o1", marca(), NO);
+caso("Impresión", "cocina", "NO puede aprovechar la marca para cambiar precios", "set", "orders/o1", { ...marca(), items: [{ ...o1.items[0], price: 1 }] }, NO);
 caso("Pedidos", "mesero", "NO puede guardar un precio negativo", "set", "orders/o1", conItem({ price: -5 }), NO);
 caso("Pedidos", "mesero", "NO puede guardar una cantidad absurda", "set", "orders/o1", conItem({ qty: 100000 }), NO);
 caso("Pedidos", "mesero", "SÍ puede editar la cantidad de un ítem (cambio normal del mesero)", "set", "orders/o1", conItem({ qty: 2 }), SI);
@@ -309,6 +339,36 @@ caso("Auditoría", "cajero", "NO puede guardar un monto negativo", "set", "audit
 caso("Auditoría", "cajero", "NO puede meter datos extra", "set", "auditoria/a7", ev({ uid: "cajero", truco: 1 }), NO);
 caso("Auditoría", "admin2", "NO puede borrar un evento ya registrado (ni el administrador)", "set", "auditoria/a0", null, NO);
 caso("Auditoría", "admin2", "NO puede editar un evento ya registrado (ni el administrador)", "set", "auditoria/a0", ev({ uid: "admin2", monto: 1 }), NO);
+/* ── Facturación electrónica: credenciales y documentos ── */
+const ajF = (extra = {}) => ({ activa: true, modo: "pruebas", proveedor: "alegra", tipoDocumento: "factura", impuesto: "iva", precios: "suman", propina: "incluir", emisionAutomatica: true, resolucion: { prefijo: "SETT", numero: "123" }, ...extra });
+caso("Facturación", "admin2", "SÍ puede configurar la facturación (ajustes no secretos)", "set", "facturacion/ajustes", ajF(), SI);
+caso("Facturación", "cajero", "NO puede cambiar los ajustes fiscales", "set", "facturacion/ajustes", ajF(), NO);
+caso("Facturación", "mesero", "NO puede cambiar los ajustes fiscales", "update", "facturacion/ajustes", { activa: false }, NO);
+caso("Facturación", "admin2", "NO puede guardar un proveedor inventado", "set", "facturacion/ajustes", ajF({ proveedor: "otro" }), NO);
+caso("Facturación", "admin2", "NO puede guardar un impuesto inventado", "set", "facturacion/ajustes", ajF({ impuesto: "iva5" }), NO);
+caso("Facturación", "admin2", "NO puede colar campos extra (por ejemplo un secreto) en los ajustes", "set", "facturacion/ajustes", ajF({ clientSecret: "abc" }), NO);
+caso("Facturación", "admin2", "NO puede escribir credenciales directamente desde el navegador", "set", "facturacionSecretos/pruebas", { proveedor: "factus", datos: "x" }, NO);
+caso("Facturación", "dueno", "NO puede escribir credenciales ni siquiera el dueño (solo el servidor)", "set", "facturacionSecretos/pruebas", { proveedor: "factus", datos: "x" }, NO);
+caso("Facturación", "admin2", "NO puede borrar las credenciales cifradas desde el navegador", "set", "facturacionSecretos/pruebas", null, NO);
+caso("Facturación", "admin2", "NO puede falsear la máscara de la credencial", "set", "facturacion/credencial/pruebas", { proveedor: "factus", mascara: "••••0000" }, NO);
+caso("Facturación", "admin2", "NO puede marcar una factura como emitida desde el navegador", "set", "facturacion/documentos/c1", { cuentaId: "c1", estado: "emitida", numero: "X1" }, NO);
+caso("Facturación", "cajero", "NO puede marcar una factura como emitida desde el navegador", "set", "facturacion/documentos/c1", { cuentaId: "c1", estado: "emitida", numero: "X1" }, NO);
+caso("Facturación", "admin2", "NO puede anular una factura editando la base de datos", "update", "facturacion/documentos/c2", { estado: "anulada" }, NO);
+caso("Facturación", "cajero", "NO puede borrar una factura", "set", "facturacion/documentos/c2", null, NO);
+const emF = { razonSocial: "Dulce y Café SAS", nit: "900123456", dv: "8", regimen: "responsable_iva", municipio: "Bogotá", codigoDane: "11001", correo: "a@b.co" };
+caso("Facturación", "admin2", "SÍ puede guardar los datos del emisor y el valor de la UVT", "set", "facturacion/ajustes", ajF({ emisor: emF, valorUvt: 52374 }), SI);
+caso("Facturación", "admin2", "NO puede guardar un régimen inventado", "set", "facturacion/ajustes", ajF({ emisor: { ...emF, regimen: "otro" } }), NO);
+caso("Facturación", "admin2", "NO puede colar campos extra en el emisor", "set", "facturacion/ajustes", ajF({ emisor: { ...emF, token: "x" } }), NO);
+caso("Facturación", "admin2", "NO puede guardar una UVT absurda", "set", "facturacion/ajustes", ajF({ valorUvt: 5 }), NO);
+caso("Facturación", "cajero", "NO puede cambiar el emisor", "set", "facturacion/ajustes/emisor", emF, NO);
+caso("Facturación", "admin2", "NO puede escribir el mapeo desde el navegador (solo el servidor)", "set", "facturacion/mapeo/pruebas", { resolucion: "1" }, NO);
+caso("Facturación", "admin2", "NO puede escribir el catálogo sincronizado desde el navegador", "set", "facturacion/catalogo/produccion", { impuestos: [] }, NO);
+caso("Facturación", "admin2", "NO puede escribir la credencial de producción desde el navegador", "set", "facturacion/credencial/produccion", { proveedor: "factus", mascara: "••••9999" }, NO);
+caso("Facturación", "admin2", "NO puede escribir secretos de producción", "set", "facturacionSecretos/produccion", { datos: "x" }, NO);
+caso("Facturación", "admin2", "NO puede editar la Nota Crédito registrada en la factura", "update", "facturacion/documentos/c2/anulacion", { monto: 1 }, NO);
+caso("Facturación", "admin2", "NO puede crear ramas nuevas bajo facturacion", "set", "facturacion/otra", { x: 1 }, NO);
+caso("Auditoría", "cajero", "SÍ puede dejar constancia de una factura emitida", "set", "auditoria/f1", ev({ uid: "cajero", accion: "emitir_factura" }), SI);
+caso("Auditoría", "admin2", "SÍ puede dejar constancia de una factura anulada", "set", "auditoria/f2", ev({ uid: "admin2", accion: "anular_factura", motivo: "error de digitación" }), SI);
 caso("Cuentas", "cajero", "SÍ puede anotar cuántas personas eran", "update", "cuentas/c1", { personas: 3 }, SI);
 caso("Cuentas", "cajero", "NO puede anotar 0 ni 500 personas", "update", "cuentas/c1", { personas: 500 }, NO);
 
@@ -343,6 +403,24 @@ const lecturas = [
   ["mesero", "deudas", NO, "el mesero no ve quién debe"],
   ["cocina", "deudas", NO, "la cocina no ve quién debe"],
   ["anon", "deudas", NO, "sin sesión no se ve ninguna deuda"],
+  ["admin2", "facturacionSecretos", NO, "las credenciales cifradas NO las lee ni el administrador desde el navegador"],
+  ["dueno", "facturacionSecretos/pruebas", NO, "ni el dueño"],
+  ["cajero", "facturacionSecretos", NO, "ni la caja"],
+  ["anon", "facturacionSecretos", NO, "ni sin sesión"],
+  ["admin2", "facturacion/credencial/pruebas", SI, "el administrador ve «Configurado (••••1234)»"],
+  ["cajero", "facturacion/credencial/pruebas", NO, "la caja no necesita ver la credencial"],
+  ["cajero", "facturacion/ajustes", SI, "la caja sabe si la facturación está activa"],
+  ["mesero", "facturacion/ajustes", SI, "el equipo lee los ajustes no secretos"],
+  ["anon", "facturacion/ajustes", NO, "sin sesión no se ve nada"],
+  ["cajero", "facturacion/documentos", SI, "la caja ve el estado de las facturas"],
+  ["mesero", "facturacion/documentos", NO, "el mesero no ve facturas"],
+  ["cocina", "facturacion/documentos", NO, "la cocina no ve facturas"],
+  ["anon", "facturacion/documentos", NO, "sin sesión no se ven facturas"],
+  ["admin2", "facturacion/mapeo/pruebas", SI, "el administrador ve el mapeo de conceptos"],
+  ["admin2", "facturacion/catalogo/pruebas", SI, "el administrador ve el catálogo sincronizado"],
+  ["cajero", "facturacion/mapeo/pruebas", NO, "la caja no ve el mapeo"],
+  ["cajero", "facturacion", NO, "no se puede leer la rama padre completa (arrastraría lo reservado)"],
+  ["admin2", "facturacion", NO, "ni siquiera el administrador lee la rama raíz"],
   ["cajero", "auditoria", NO, "la bitácora no la ve la caja"],
   ["mesero", "auditoria", NO, "ni el mesero"],
 ];

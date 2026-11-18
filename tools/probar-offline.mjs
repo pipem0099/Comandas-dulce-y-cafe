@@ -10,7 +10,7 @@ const ORIGEN = "https://app.test";
 const abs = (k) => new URL(typeof k === "string" ? k : k.url, ORIGEN).href;
 
 /* ───── Cargar el service worker en un entorno simulado ───── */
-function crearEntorno({ versionCache = "v1", archivos = ["/", "/assets/app-1.js", "/assets/Caja-1.js", "/manifest.json"], almacen = new Map() } = {}) {
+function crearEntorno({ yaHayActivo = false, versionCache = "v1", archivos = ["/", "/assets/app-1.js", "/assets/Caja-1.js", "/manifest.json"], almacen = new Map() } = {}) {
   // `almacen` (nombre → Map(url → Response)) se puede reutilizar para simular que el navegador reinició el service worker.
   const caches = {
     async open(n) { if (!almacen.has(n)) almacen.set(n, new Map()); const m = almacen.get(n);
@@ -30,14 +30,15 @@ function crearEntorno({ versionCache = "v1", archivos = ["/", "/assets/app-1.js"
     return c === undefined ? new Response("no", { status: 404 }) : new Response(c, { status: 200 });
   };
   const manejadores = {}; const estado = { saltado: false, reclamado: false };
-  const self_ = { location: { origin: ORIGEN }, addEventListener: (t, f) => { manejadores[t] = f; }, skipWaiting: () => { estado.saltado = true; }, clients: { claim: async () => { estado.reclamado = true; } } };
+  const self_ = { registration: { active: yaHayActivo ? { state: "activated" } : null }, location: { origin: ORIGEN }, addEventListener: (t, f) => { manejadores[t] = f; }, skipWaiting: () => { estado.saltado = true; }, clients: { claim: async () => { estado.reclamado = true; } } };
   vm.runInNewContext(readFileSync("public/sw.js", "utf8"), { self: self_, caches, fetch: fetchFalso, Response, URL, Promise, setTimeout, console });
   const evento = (tipo) => { const e = { _p: null, waitUntil(p) { this._p = p; } }; manejadores[tipo](e); return e._p; };
   const pedir = (url, { metodo = "GET", modo = "cors" } = {}) => {
     let respuesta = null; const e = { request: { method: metodo, url: new URL(url, ORIGEN).href, mode: modo }, respondWith(p) { respuesta = p; } };
     manejadores.fetch(e); return respuesta; // null = el service worker NO interviene
   };
-  return { almacen, caches, red, estado, evento, pedir };
+  const mensaje = (data) => manejadores.message({ data });
+  return { almacen, caches, red, estado, evento, pedir, mensaje };
 }
 
 console.log("── Instalar: guarda la cáscara de la app ──");
@@ -46,7 +47,14 @@ await A.evento("install");
 const nombreV1 = [...A.almacen.keys()].find((n) => n.startsWith("comandas-shell-"));
 ok(nombreV1 === "comandas-shell-v1", "crea la caché de la versión (comandas-shell-v1)");
 ok(["/", "/assets/app-1.js", "/assets/Caja-1.js", "/manifest.json"].every((u) => A.almacen.get(nombreV1).has(abs(u))), "guarda el paquete completo, incluidas las pantallas que se cargan después");
-ok(A.estado.saltado, "se activa de inmediato (skipWaiting)");
+ok(A.estado.saltado, "primera instalación (aún no hay service worker activo): se activa de inmediato");
+{
+  const N = crearEntorno({ yaHayActivo: true, versionCache: "v2" });
+  await N.evento("install");
+  ok(!N.estado.saltado && N.almacen.has("comandas-shell-v2"), "versión nueva sobre una app en uso: guarda su paquete pero ESPERA (no toma el control sola)");
+  N.mensaje({ tipo: "otra-cosa" }); ok(!N.estado.saltado, "un mensaje desconocido no lo activa");
+  N.mensaje({ tipo: "SALTAR_ESPERA" }); ok(N.estado.saltado, "al recibir «SALTAR_ESPERA» (botón Actualizar) toma el control");
+}
 
 console.log("\n── Sin internet ──");
 await A.evento("activate");
