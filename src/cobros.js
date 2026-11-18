@@ -13,12 +13,13 @@ import { cuentaGranTotal, pagosDe, dayKey } from "./dinero.js";
  *  · "no-existe" · "no-abierta" (ya pagada, cancelada o fusionada: evita cobrar dos veces desde dos dispositivos)
  *  · "duplicado" (esos mismos pagos ya estaban guardados: un reintento no los repite)
  */
-export function aplicarPagos(actual, entradas, { orders, modoSplit = null, externa = false, ahora = Date.now(), extra = null }) {
+export function aplicarPagos(actual, entradas, { orders, modoSplit = null, externa = false, ahora = Date.now(), extra = null, cajaId = null }) {
   if (!actual) return { error: "no-existe" };
   const previos = pagosDe(actual);
   const vueltaTotal = entradas.reduce((s, e) => s + (e.vuelta || 0), 0);
   // La vuelta dejada como propina sube la propina de la cuenta y el monto cobrado en la misma cantidad.
-  const nuevos = entradas.map(({ pago, vuelta }) => (vuelta > 0 ? { ...pago, monto: pago.monto + vuelta, propinaVuelta: vuelta } : pago));
+  const conCaja = (p) => (cajaId ? { ...p, cajaId } : p); // la caja que RECIBIÓ el dinero (cualquier caja puede cobrar cualquier cuenta)
+  const nuevos = entradas.map(({ pago, vuelta }) => conCaja(vuelta > 0 ? { ...pago, monto: pago.monto + vuelta, propinaVuelta: vuelta } : pago));
   if (nuevos.length > 0 && nuevos.every((p) => p.id && previos.some((x) => x.id === p.id))) return { error: "duplicado" };
   if (actual.estado && actual.estado !== "abierta") return { error: "no-abierta", estado: actual.estado };
   const totalNuevo = cuentaGranTotal(orders, actual) + vueltaTotal; // con la propina y el descuento MÁS recientes
@@ -30,6 +31,7 @@ export function aplicarPagos(actual, entradas, { orders, modoSplit = null, exter
     ...actual, propina, pagos: nuevosPagos, splitMode: modoSplit || actual.splitMode || null,
     estado: completo ? "pagada" : "abierta", pagadaTs: completo ? ahora : actual.pagadaTs,
     ...(completo && !externa ? { liberada: false } : {}),
+    ...(completo && cajaId ? { cajaId } : {}),
     ...(extra || {}), // campos que deben guardarse en el MISMO instante que el pago (ej. el modo de propina por producto)
   };
   return { cuenta, completo, totalNuevo, totalPagado, montoRegistrado: nuevos.reduce((s, p) => s + p.monto, 0), nuevos };
@@ -44,11 +46,13 @@ export function deshacerPagos(actual, antes, nuevos) {
   const ids = new Set(nuevos.map((p) => p.id).filter(Boolean));
   if (ids.size !== nuevos.length) return { ...antes }; // pagos sin id (datos viejos): se restaura la copia previa
   const resto = pagosDe(actual).filter((p) => !ids.has(p.id));
-  return {
+  const r = {
     ...actual, pagos: resto, estado: antes.estado, pagadaTs: antes.pagadaTs, propina: antes.propina,
     splitMode: antes.splitMode, liberada: antes.liberada,
     propinaModo: antes.propinaModo, propinaPagadores: antes.propinaPagadores,
   };
+  if (antes.cajaId === undefined) delete r.cajaId; // la caja se sella al cobrar por completo: al deshacer, se quita
+  return r;
 }
 
 /** Deshace una cancelación sobre la cuenta tal como está ahora. */

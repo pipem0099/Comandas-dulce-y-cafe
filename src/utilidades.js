@@ -241,11 +241,13 @@ export function arqueosDe(turno) {
 }
 // Lo cobrado por método entre dos momentos (desde incluido, hasta excluido). Se suman los pagos hechos
 // en ese lapso, incluidos los pagos parciales de cuentas que siguen abiertas.
-export function ventasEnRango(cuentas, desde, hasta = Infinity) {
+// Con `cajaId` solo se cuenta lo que recibió esa caja (varias cajas abiertas a la vez); sin él, todo.
+export function ventasEnRango(cuentas, desde, hasta = Infinity, cajaId = null) {
   const t = { efectivo: 0, tarjeta: 0, transferencia: 0 };
   cuentas.filter((c) => c.estado !== "cancelada").forEach((c) => {
     pagosDe(c).forEach((p) => {
       const ts = p.ts || c.pagadaTs || 0;
+      if (cajaId && ((p.cajaId || c.cajaId || "principal") !== cajaId)) return;
       if (ts >= desde && ts < hasta && t[p.metodoPago] !== undefined) t[p.metodoPago] += p.monto;
     });
   });
@@ -253,12 +255,12 @@ export function ventasEnRango(cuentas, desde, hasta = Infinity) {
 }
 export function ventasDelTurno(cuentas, turno) {
   if (!turno) return { efectivo: 0, tarjeta: 0, transferencia: 0 };
-  return ventasEnRango(cuentas, turno.aperturaTs, turno.cierreTs ? turno.cierreTs + 1 : Infinity);
+  return ventasEnRango(cuentas, turno.aperturaTs, turno.cierreTs ? turno.cierreTs + 1 : Infinity, turno.cajaId || null);
 }
 // Propinas de las cuentas cobradas por completo en ese lapso
-export function propinasEnRango(cuentas, desde, hasta = Infinity) {
+export function propinasEnRango(cuentas, desde, hasta = Infinity, cajaId = null) {
   return cuentas
-    .filter((c) => c.estado === "pagada" && c.pagadaTs >= desde && c.pagadaTs < hasta)
+    .filter((c) => c.estado === "pagada" && c.pagadaTs >= desde && c.pagadaTs < hasta && (!cajaId || (c.cajaId || "principal") === cajaId))
     .reduce((a, c) => a + ((c.propina && c.propina.monto) || 0), 0);
 }
 export function duracionLabel(ms) {
@@ -292,9 +294,12 @@ export function cuentaDeMesa(cuentas, mesaId) {
   return lista.find((c) => c.estado === "abierta") || lista.find(esPorLiberar);
 }
 
+/** Todas las mesas de una reserva: la principal (mesaId) y las que se juntan (mesasExtra). */
+export const mesasDeReserva = (r) => (r ? [r.mesaId, ...(r.mesasExtra || [])].filter((m) => m !== undefined && m !== null && m !== "") : []);
+
 /** Reserva (pendiente o confirmada) de esta mesa que llega pronto: de 20 min antes a 90 min después de ahora. */
 export function reservaProxima(reservas, mesaId, ahora = Date.now()) {
   return (reservas || [])
-    .filter((r) => (r.estado === "pendiente" || r.estado === "confirmada") && r.mesaId && mesaMatch(r.mesaId, mesaId) && r.ts >= ahora - 20 * 60e3 && r.ts <= ahora + 90 * 60e3)
+    .filter((r) => (r.estado === "pendiente" || r.estado === "confirmada") && mesasDeReserva(r).some((m) => mesaMatch(m, mesaId)) && r.ts >= ahora - 20 * 60e3 && r.ts <= ahora + 90 * 60e3)
     .sort((a, b) => a.ts - b.ts)[0];
 }

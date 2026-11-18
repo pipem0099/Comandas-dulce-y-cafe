@@ -96,7 +96,19 @@ input, select, textarea { transition: border-color .18s ease, box-shadow .18s ea
 .campo-prefijo:focus-within { border-color: var(--accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .campo-prefijo input, .campo-prefijo input:focus { border: none !important; box-shadow: none !important; background: transparent !important; outline: none; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Foco: el anillo solo aparece cuando se navega con el teclado (Tab). Con mouse, dedo o lápiz nunca queda un
+   borde pegado en el último botón tocado (antes quedaba un contorno blanco en cada opción elegida). */
+:focus { outline: none; }
+html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focus-visible, html[data-teclado] a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Con mouse: el botón sube un poquito mientras el puntero está encima y baja al salir (no se queda marcado).
+   Solo en pantallas con mouse real: en táctiles no existe "pasar por encima". */
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):not([aria-disabled="true"]):hover { transform: translateY(-1.5px); }
+  button:not(:disabled):not([aria-disabled="true"]):hover:active { transform: translateY(0) scale(.97); }
+  .fila-tap:hover, .sin-elevar:hover { transform: none !important; }
+  .elevar:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 10px 22px -12px rgba(0,0,0,.45); }
+}
 ::selection { background: var(--accent); color: #fff; }
 /* Barras de desplazamiento: en pantallas táctiles no se muestran (se veían como una línea pegada a las
    categorías y al borde); con mouse quedan finas. Las filas que se deslizan de lado nunca la muestran. */
@@ -131,7 +143,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 [style*="overflow-y: auto"], [style*="overflow: auto"] {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  scroll-behavior: smooth;
 }
 [style*="overflow-x: auto"] { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
 
@@ -302,3 +313,20 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
    de al menos 44 px (recomendación de Apple/Material), sin empujar ni mover nada a su alrededor. */
 .toque44 { position: relative; }
 .toque44::after { content: ""; position: absolute; inset: -9px; }
+
+/* Campos de texto a 16 px en pantallas táctiles: iPhone hace zoom automático al enfocar un campo menor a 16 px.
+   Así no hace falta bloquear el zoom de la página (accesibilidad). */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px !important; }
+}
+
+/* ───────── Esqueletos de carga ───────── */
+@keyframes brillo { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+.esq {
+  display: block; border-radius: 10px; min-height: 12px;
+  background-color: var(--c-ede7d8-b, rgba(127,127,127,.14));
+  background-image: linear-gradient(100deg, transparent 30%, var(--c-fffdf8-b, rgba(255,255,255,.4)) 50%, transparent 70%); background-size: 240% 100%; animation: brillo 1.4s ease-in-out infinite;
+}
+.esq-tarjeta { border-radius: 16px; border: 1px solid var(--c-e4dfce-o, rgba(127,127,127,.2)); background: var(--c-fffdf8-b, transparent); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.esq-aparece { animation: fadeIn .25s ease both; }
+@media (prefers-reduced-motion: reduce) { .esq { animation: none; } }

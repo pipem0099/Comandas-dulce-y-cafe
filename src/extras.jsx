@@ -4,6 +4,8 @@ import { Plus, Minus, Trash2, Check, X, Upload, Boxes, AlertTriangle, Pencil, Sh
 import { ACENTOS, FUENTES, MARCA_POR_DEFECTO, reducirLogo, vibrar } from "./theme.js";
 import { Hoja } from "./componentes/Hoja.jsx";
 import { Selector } from "./componentes/Campos.jsx";
+import { getCajas, CAJA_BASE, turnosSinCaja } from "./pisos.js";
+import { updateRecord } from "./firebase.js";
 import {
   uid, money, fmtNum, precioUnitario, getEstaciones, UNIDADES, estadoStock, costoReceta, TIPO_META,
 } from "./logica.js";
@@ -226,9 +228,9 @@ export function ModalOpciones({ item, onClose, onAdd }) {
             <div style={{ fontSize: 14, fontWeight: 600, color: K.sub }}>{totalCant} {totalCant === 1 ? "unidad" : "unidades"}</div>
           ) : (
             <div style={x.stepper}>
-              <button style={x.stepBtn} onClick={() => setQty((q) => Math.max(1, q - 1))}><Minus size={15} /></button>
+              <button aria-label="Una menos" style={x.stepBtn} onClick={() => setQty((q) => Math.max(1, q - 1))}><Minus size={15} /></button>
               <span style={x.stepVal}>{qty}</span>
-              <button style={{ ...x.stepBtn, ...x.stepBtnPlus }} onClick={() => setQty((q) => Math.min(99, q + 1))}><Plus size={15} /></button>
+              <button aria-label="Una más" style={{ ...x.stepBtn, ...x.stepBtnPlus }} onClick={() => setQty((q) => Math.min(99, q + 1))}><Plus size={15} /></button>
             </div>
           )}
           <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: K.ink }}>{money(grupoCant ? totalPrecio : unit * qty)}</div>
@@ -369,7 +371,7 @@ export function ProductoConfig({ item, config, insumos, onSave, onClose }) {
 
 /* ───────── 3. Ajustes del negocio: marca, estaciones, inventario ───────── */
 
-export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsistente }) {
+export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsistente, turnosAbiertos = [] }) {
   const marca = { ...MARCA_POR_DEFECTO, ...(config.marca || {}) };
   const estaciones = getEstaciones(config);
   const categorias = [...new Set(menu.map((m) => m.cat))];
@@ -424,6 +426,33 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
     const mapa = { ...(config.estacionPorCategoria || {}) };
     Object.keys(mapa).forEach((c) => { if (mapa[c] === id) delete mapa[c]; });
     setEstaciones(estaciones.filter((e) => e.id !== id), { estacionPorCategoria: mapa });
+  };
+  // ── Cajas: cada una con su turno y su arqueo; cualquiera puede cobrar cualquier cuenta ──
+  const cajas = getCajas(config);
+  const [nuevaCaja, setNuevaCaja] = useState("");
+  const [errorCaja, setErrorCaja] = useState("");
+  const setCajas = (lista) => persistConfig({ ...config, cajas: lista });
+  const [agregandoCaja, setAgregandoCaja] = useState(false);
+  const agregarCaja = async () => {
+    const n = nuevaCaja.trim(); if (!n || agregandoCaja) return;
+    setAgregandoCaja(true); setErrorCaja("");
+    try {
+      const renombradas = cajas.map((c, i) => (i === 0 && cajas.length === 1 && c.nombre === "Caja" ? { ...c, nombre: "Caja 1" } : c));
+      // Un turno que ya estaba abierto sigue abierto: queda marcado como la caja principal, así su arqueo
+      // solo cuenta lo que ella cobre desde ahora y todo lo cobrado antes (que fue de ella) sigue cuadrando.
+      for (const t of turnosSinCaja(turnosAbiertos)) {
+        const ok = await updateRecord("turnos", t.id, { cajaId: CAJA_BASE, cajaNombre: renombradas[0].nombre });
+        if (!ok) { setErrorCaja("No se pudo marcar el turno abierto como la caja principal. Revisa la conexión e inténtalo de nuevo."); return; }
+      }
+      setCajas([...renombradas, { id: "c" + uid().slice(0, 6), nombre: n }]);
+      setNuevaCaja("");
+    } finally { setAgregandoCaja(false); }
+  };
+  const renombrarCaja = (id, nombre) => { if (nombre.trim()) setCajas(cajas.map((c) => (c.id === id ? { ...c, nombre: nombre.trim() } : c))); };
+  const borrarCaja = (id) => {
+    if (cajas.length <= 1 || id === CAJA_BASE) return;
+    if (turnosAbiertos.some((t) => t.cajaId === id)) { setErrorCaja("Esa caja tiene el turno abierto: ciérrala primero."); return; }
+    setErrorCaja(""); setCajas(cajas.filter((c) => c.id !== id));
   };
   const asignarCategoria = (cat, id) => persistConfig({ ...config, estacionPorCategoria: { ...(config.estacionPorCategoria || {}), [cat]: id } });
 
@@ -502,7 +531,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
         {/* Estaciones */}
         <div style={x.card}>
           <div style={x.eyebrow}>Estaciones de preparación</div>
-          <div style={x.hint}>Si tienes cocina y barra (u otras), crea una estación para cada una. Cada estación ve en su pantalla solo los productos que le tocan. Con una sola estación todo funciona como siempre.</div>
+          <div style={x.hint}>Crea una estación por cada lugar donde se prepara algo (cocina, barra, postres…). Al enviar un pedido, el mesero elige a qué estación y a qué piso va; cada pantalla de preparación ve solo lo suyo. Con una sola estación y un solo piso todo funciona como siempre.</div>
           {estaciones.map((e) => (
             <div key={e.id} style={x.row}>
               <input style={{ ...x.input, flex: 1 }} defaultValue={e.nombre} onBlur={(ev) => renombrar(e.id, ev.target.value)} />
@@ -515,7 +544,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
           </div>
           {estaciones.length > 1 && categorias.length > 0 && (
             <>
-              <div style={{ ...x.label, marginTop: 4 }}>¿Qué estación prepara cada categoría?</div>
+              <div style={{ ...x.label, marginTop: 4 }}>Sugerencia por categoría (el mesero siempre puede cambiarla al enviar)</div>
               {categorias.map((c) => (
                 <div key={c} style={{ ...x.row, justifyContent: "space-between" }}>
                   <span style={{ fontSize: 13.5, flex: 1 }}>{c}</span>
@@ -526,6 +555,23 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
               <div style={x.hint}>Un producto puntual puede ir a otra estación desde Menú → Configurar.</div>
             </>
           )}
+        </div>
+
+        {/* Cajas */}
+        <div style={x.card}>
+          <div style={x.eyebrow}>Cajas</div>
+          <div style={x.hint}>Si tienes más de una caja (por ejemplo una por piso), créalas aquí. Cada caja abre y cierra su propio turno y cuadra su efectivo; los clientes pueden pagar en cualquiera de ellas. Puedes agregar una caja con el negocio abierto: el turno que está abierto sigue como «Caja 1» y la nueva se abre aparte.</div>
+          {cajas.length > 1 && cajas.map((c) => (
+            <div key={c.id} style={x.row}>
+              <input style={{ ...x.input, flex: 1 }} defaultValue={c.nombre} onBlur={(ev) => renombrarCaja(c.id, ev.target.value)} />
+              {c.id !== CAJA_BASE && <button className="toque44" style={x.btnDanger} onClick={() => borrarCaja(c.id)} aria-label="Quitar caja"><Trash2 size={14} /></button>}
+            </div>
+          ))}
+          {errorCaja && <div style={{ ...x.hint, color: "var(--c-c1442d-t)" }}>{errorCaja}</div>}
+          <div style={x.row}>
+            <input style={{ ...x.input, flex: 1 }} placeholder={cajas.length > 1 ? "Nueva caja (ej: Caja piso 3)" : "Agregar otra caja (ej: Caja piso 2)"} value={nuevaCaja} onChange={(e) => setNuevaCaja(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agregarCaja()} />
+            <button style={x.btnSmall} onClick={agregarCaja}><Plus size={13} /> Agregar</button>
+          </div>
         </div>
 
         {/* Inventario */}

@@ -9,6 +9,9 @@ import { MARCA_POR_DEFECTO } from "./theme.js";
 // Historial y Exportar/Respaldar sí piden todo, pero solo cuando se usan.
 export const VENTANA_DIAS = 35;
 export const VENTANA_MS = VENTANA_DIAS * 24 * 60 * 60 * 1000;
+// Turnos de caja: solo se descargan los de los últimos 6 meses (el historial viejo no hace crecer la descarga cada día).
+export const VENTANA_TURNOS_DIAS = 180;
+export const VENTANA_TURNOS_MS = VENTANA_TURNOS_DIAS * 24 * 60 * 60 * 1000;
 
 export const DEFAULT_MESAS = [
   { id: "1", nombre: "Mesa 1" },
@@ -108,4 +111,4 @@ export const ROLES_ORDEN = ["mesero", "cajero", "cocina", "admin"];
 export const DEFAULT_CONFIG = { businessName: "Dulce & Café", usuarios: [], auditLog: [], marca: MARCA_POR_DEFECTO };
 
 // Versión visible en el menú de usuario
-export const VERSION = "2.9";
+export const VERSION = "23.0";

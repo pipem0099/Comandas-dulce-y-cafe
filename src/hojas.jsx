@@ -251,12 +251,12 @@ export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = 
 /* ═════════════════════════ 3) Cierre de caja de un turno ═════════════════════════ */
 function ventasDeTurno(tr, cuentas) {
   const fin = tr.cierreTs || Date.now();
-  const pm = ventasEnRango(cuentas || [], tr.aperturaTs, fin + 1);
+  const pm = ventasEnRango(cuentas || [], tr.aperturaTs, fin + 1, tr.cajaId || null);
   return {
     efectivo: typeof tr.ventasEfectivo === "number" ? tr.ventasEfectivo : pm.efectivo,
     tarjeta: typeof tr.tarjetaEsperada === "number" ? tr.tarjetaEsperada : pm.tarjeta,
     transferencia: typeof tr.transferenciaEsperada === "number" ? tr.transferenciaEsperada : pm.transferencia,
-    propinas: typeof tr.propinas === "number" ? tr.propinas : propinasEnRango(cuentas || [], tr.aperturaTs, fin + 1),
+    propinas: typeof tr.propinas === "number" ? tr.propinas : propinasEnRango(cuentas || [], tr.aperturaTs, fin + 1, tr.cajaId || null),
   };
 }
 

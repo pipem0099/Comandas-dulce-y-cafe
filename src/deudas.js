@@ -93,7 +93,7 @@ export function cobrarDeuda(actual, pago, ahora = Date.now()) {
   const monto = Math.round(Number(pago && pago.monto) || 0);
   if (!(pago && pago.id) || !pago.metodoPago || monto < 1 || monto > actual.saldo) return { error: "monto-invalido" };
   const saldo = actual.saldo - monto;
-  const cobro = { id: pago.id, ts: ahora, monto, metodoPago: pago.metodoPago, procesadoPor: String(pago.procesadoPor || "").slice(0, 120) };
+  const cobro = { id: pago.id, ts: ahora, monto, metodoPago: pago.metodoPago, procesadoPor: String(pago.procesadoPor || "").slice(0, 120), ...(pago.cajaId ? { cajaId: String(pago.cajaId).slice(0, 60) } : {}) };
   const completo = saldo <= 0;
   const deuda = { ...actual, saldo, estado: completo ? "pagada" : "pendiente", cobros: [...previos, cobro], ...(completo ? { pagadaTs: ahora } : {}) };
   return { deuda, completo, yaAplicado: false, cobro };
@@ -109,9 +109,9 @@ export function aplicarCobroACuenta(actual, cobro, { completo = false, ahora = D
   const previos = pagosDe(actual);
   const ya = previos.some((p) => p.id === cobro.id);
   if (!ya && actual.estado !== "pendiente") return { error: "no-pendiente", estado: actual.estado };
-  const pagos = ya ? previos : [...previos, { id: cobro.id, ts: ahora, metodoPago: cobro.metodoPago, monto: cobro.monto, tipo: "deuda", etiqueta: "Cobro de saldo pendiente", procesadoPor: cobro.procesadoPor || "" }];
+  const pagos = ya ? previos : [...previos, { id: cobro.id, ts: ahora, metodoPago: cobro.metodoPago, monto: cobro.monto, tipo: "deuda", etiqueta: "Cobro de saldo pendiente", procesadoPor: cobro.procesadoPor || "", ...(cobro.cajaId ? { cajaId: cobro.cajaId } : {}) }];
   const cierra = completo && actual.estado !== "pagada";
-  const cuenta = { ...actual, pagos, ...(cierra ? { estado: "pagada", pagadaTs: ahora, liberada: true } : {}) };
+  const cuenta = { ...actual, pagos, ...(cierra ? { estado: "pagada", pagadaTs: ahora, liberada: true, ...(cobro.cajaId ? { cajaId: cobro.cajaId } : {}) } : {}) };
   return { cuenta, yaAplicado: ya };
 }
 

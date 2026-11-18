@@ -11,6 +11,7 @@
 import { uid } from "./logica.js";
 import { updateRecord } from "./firebase.js";
 import { movimientosDe, ventasEnRango } from "./utilidades.js";
+import { reversosEnRango } from "./facturacion/reversos.js";
 
 export function tramosDe(turno) {
   if (turno && turno.tramos) return Object.values(turno.tramos).sort((a, b) => a.inicioTs - b.inicioTs);
@@ -36,15 +37,17 @@ export function responsableDe(turno) {
   return { uid: turno && turno.abiertoPorUid, nombre: turno && turno.abiertoPor };
 }
 // Ventas en efectivo, entradas, salidas y esperado de un tramo (hasta ahora, o hasta su fin)
-export function statsTramo(turno, cuentas, tramo) {
+export function statsTramo(turno, cuentas, tramo, documentos = null) {
   const desde = tramo.inicioTs, hasta = tramo.finTs || Infinity;
-  const ventasEfectivo = ventasEnRango(cuentas, desde, hasta).efectivo;
+  const ventasEfectivo = ventasEnRango(cuentas, desde, hasta, turno.cajaId || null).efectivo;
   let entradas = 0, salidas = 0;
   movimientosDe(turno).forEach((m) => {
     if (m.anulado || m.ts < desde || m.ts >= hasta) return;
     if (m.tipo === "entrada") entradas += m.monto || 0; else salidas += m.monto || 0;
   });
-  return { ventasEfectivo, entradas, salidas, esperado: (tramo.base || 0) + ventasEfectivo + entradas - salidas };
+  // Notas crédito del tramo: el efectivo devuelto sale del cajón en el momento de la nota (no en el de la venta original).
+  const reversoEfectivo = documentos ? reversosEnRango(documentos, desde, hasta).efectivo : 0;
+  return { ventasEfectivo, entradas, salidas, reversoEfectivo, esperado: (tramo.base || 0) + ventasEfectivo + entradas - salidas - reversoEfectivo };
 }
 
 const guardar = (turno, cambios) => updateRecord("turnos", turno.id, cambios);
@@ -55,10 +58,10 @@ const guardar = (turno, cambios) => updateRecord("turnos", turno.id, cambios);
  * `forzado` (la persona se fue sin entregar) quien cuenta asume la caja de una vez y se deja constancia.
  * Todo se escribe en una sola operación: o se guarda completo o no se guarda nada.
  */
-export async function proponerRelevo({ turno, cuentas, a, contado, observaciones, forzado, porNombre }) {
+export async function proponerRelevo({ turno, cuentas, documentos = null, a, contado, observaciones, forzado, porNombre }) {
   const ahora = Date.now();
   const actual = tramoVigente(turno);
-  const st = statsTramo(turno, cuentas, actual);
+  const st = statsTramo(turno, cuentas, actual, documentos);
   const de = responsableDe(turno);
   const diferencia = contado - st.esperado;
   const nuevoId = uid(), relevoId = uid();

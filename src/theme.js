@@ -8,7 +8,7 @@
  * de datos y es la misma para todos los dispositivos.
  */
 
-import { fichaActiva } from "./contraste.js";
+import { fichaActiva, textoSobre } from "./contraste.js";
 
 // variable → [modo claro, modo oscuro]
 export const PALETA = {
@@ -150,7 +150,7 @@ export function aplicarMarca(marca) {
   let st = document.getElementById("marca-css");
   if (!st) { st = document.createElement("style"); st.id = "marca-css"; document.head.appendChild(st); }
   const fc = fichaActiva(ac.c, ac.t, "claro"), fo = fichaActiva(ac.c, ac.t, "oscuro");
-  st.textContent = `:root{--accent-t:${ac.c};--chip-on-bg:${fc.bg};--chip-on-fg:${fc.fg};--chip-on-line:${fc.linea};}`
+  st.textContent = `:root{--accent-fg:${textoSobre(ac.c)};--neon-text:${textoSobre(ac.c)};--accent-t:${ac.c};--chip-on-bg:${fc.bg};--chip-on-fg:${fc.fg};--chip-on-line:${fc.linea};}`
     + `:root[data-theme="dark"]{--accent-t:${ac.t};--chip-on-bg:${fo.bg};--chip-on-fg:${fo.fg};--chip-on-line:${fo.linea};}`
     + `@media print{:root[data-theme="dark"]{--accent-t:${ac.c};}}`;
   // tipografías (Google Fonts) — IBM Plex Mono se usa siempre para etiquetas y horas

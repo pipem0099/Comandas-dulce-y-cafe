@@ -18,9 +18,14 @@ export async function importarConReintento(importador, { reintentos = 1, esperaM
 }
 
 const CLAVE_RECARGA = "cargaDiferida:recargado";
+function escribiendo() {
+  try { const a = document.activeElement; return !!a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.isContentEditable); } catch { return false; }
+}
 function recargarUnaVez() {
   try {
     if (typeof window === "undefined" || typeof sessionStorage === "undefined") return;
+    // No se recarga mientras alguien escribe una nota o un pedido: se espera a que termine (para no perder lo escrito).
+    if (escribiendo()) { setTimeout(recargarUnaVez, 3000); return; }
     if (sessionStorage.getItem(CLAVE_RECARGA)) return;
     sessionStorage.setItem(CLAVE_RECARGA, String(Date.now()));
     window.location.reload();

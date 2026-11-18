@@ -1,7 +1,8 @@
 // El Excel (xlsx) pesa mucho: se baja solo en el momento de exportar, no al abrir la app.
 const cargarXLSX = () => import("xlsx");
 import { METODO_META } from "./constantes.js";
-import { cuentaOrders, mesaNombre, pagosDe, timeLabel } from "./utilidades.js";
+import { cuentaOrders, cuentaSubtotal, mesaNombre, pagosDe, timeLabel } from "./utilidades.js";
+import { normalizar, etiquetaDocumento } from "./facturacion/datosFiscales.js";
 
 /* La carga/guardado de datos en vivo ahora vive en ./firebase.js (Firebase Realtime Database) */
 
@@ -53,8 +54,22 @@ export async function exportarExcel(cuentas, orders, config, mesas) {
     .sort((a, b) => b[1].subtotal - a[1].subtotal)
     .map(([name, d]) => ({ Producto: name, Cantidad: d.qty, Subtotal: d.subtotal }));
 
+  // Hoja para el contador o el proveedor de facturación electrónica. NO es una factura: son los datos de cada venta y de su cliente.
+  const filasFactura = pagadas.map((c) => {
+    const f = c.datosFiscales ? normalizar(c.datosFiscales) : null;
+    const subtotal = cuentaSubtotal(orders, c.id), descuento = Number(c.descuento && c.descuento.monto) || 0, propina = Number(c.propina && c.propina.monto) || 0, envio = Number(c.costoEnvio) || 0;
+    const metodos = [...new Set(pagosDe(c).map((p) => METODO_META[p.metodoPago]?.label || p.metodoPago))].join(", ");
+    return {
+      Fecha: new Date(c.pagadaTs).toLocaleDateString("es-CO"), Cuenta: c.id, Mesa: mesaNombre(mesas, c.mesa),
+      Cliente: (f && f.nombre) || (c.cliente && c.cliente.nombre) || "", "Tipo de documento": f ? f.tipoDoc : "CF", "Número de documento": f ? f.numero : "", "Dígito de verificación": f ? f.dv : "",
+      Documento: f ? etiquetaDocumento(f) : "Consumidor final", Correo: (f && f.correo) || "", Dirección: (f && f.direccion) || "",
+      Subtotal: subtotal, Descuento: descuento, Domicilio: envio, "Propina (voluntaria)": propina, Total: Math.max(0, subtotal - descuento + propina + envio), "Medios de pago": metodos,
+    };
+  });
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasPagos), "Pagos");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasFactura), "Para facturación");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasProductos), "Productos");
   XLSX.writeFile(wb, `${(config.businessName || "comandas").replace(/\s+/g, "_")}_historial.xlsx`);
 }

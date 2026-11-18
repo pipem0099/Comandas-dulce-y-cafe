@@ -6,6 +6,9 @@ import { METODO_META } from "./constantes.js";
 import { cuentaSubtotal, itemsAgregados, mesaNombre } from "./utilidades.js";
 import { imprimir } from "./impresion.jsx";
 import { Hoja } from "./componentes/Hoja.jsx";
+import { impresora } from "./termica/impresora.js";
+import { ticketRecibo } from "./termica/tickets.js";
+import { etiquetaDocumento } from "./facturacion/datosFiscales.js";
 
 /*
  * Comprobante de venta y cuenta para el cliente.
@@ -42,7 +45,8 @@ export function datosComprobante({ cuenta, orders, tipo = "comprobante" }) {
     mensaje: neg.mensaje || "¡Gracias por tu visita!",
     logo: (config.marca && config.marca.logo) || "",
     mesero: cuenta.mesero || "",
-    cliente: (cuenta.cliente && cuenta.cliente.nombre) || "",
+    cliente: (cuenta.datosFiscales && cuenta.datosFiscales.nombre) || (cuenta.cliente && cuenta.cliente.nombre) || "",
+    documento: etiquetaDocumento(cuenta.datosFiscales),
     lineas: itemsAgregados(orders, cuenta.id).map((l) => ({ qty: l.qty, name: l.name, total: l.qty * l.price })),
     subtotal, descuento, propina, envio, total,
     propinaSugerida: tipo === "cuenta" && !propina ? Math.round((subtotal * 0.1) / 100) * 100 : 0,
@@ -59,7 +63,7 @@ export function textoComprobante(d) {
   if (d.nit) L.push(`NIT ${d.nit}`);
   if (d.direccion) L.push(d.direccion);
   if (d.telefono) L.push(`Tel. ${d.telefono}`);
-  L.push("────────────", `*${d.titulo}*`, d.tipo === "comprobante" ? `N.° ${d.numero}` : "", fechaLarga(d.cuando), `${d.lugar}${d.mesero ? ` · Atendió: ${d.mesero}` : ""}`, d.cliente ? `Cliente: ${d.cliente}` : "", "");
+  L.push("────────────", `*${d.titulo}*`, d.tipo === "comprobante" ? `N.° ${d.numero}` : "", fechaLarga(d.cuando), `${d.lugar}${d.mesero ? ` · Atendió: ${d.mesero}` : ""}`, d.cliente ? `Cliente: ${d.cliente}` : "", d.documento ? `Documento: ${d.documento}` : "", "");
   d.lineas.forEach((l) => L.push(`${l.qty}× ${l.name} — ${money(l.total)}`));
   L.push("", `Subtotal: ${money(d.subtotal)}`);
   if (d.descuento) L.push(`Descuento: -${money(d.descuento)}`);
@@ -87,6 +91,7 @@ export function HojaComprobante({ d }) {
       <div className="imp-rec-centro">{fechaLarga(d.cuando)}</div>
       <div className="imp-rec-centro">{d.lugar}{d.mesero ? ` · Atendió: ${d.mesero}` : ""}</div>
       {d.cliente && <div className="imp-rec-centro">Cliente: {d.cliente}</div>}
+      {d.documento && <div className="imp-rec-centro">Documento: {d.documento}</div>}
       <div className="imp-rec-sep" />
       {d.lineas.map((l, i) => (
         <div key={i} className="imp-rec-fila"><span>{l.qty}× {l.name}</span><span>{money(l.total)}</span></div>
@@ -124,7 +129,19 @@ function VentanaComprobante({ trabajo, cerrar }) {
   const d = datosComprobante(trabajo);
   const [tel, setTel] = useState((trabajo.cuenta.cliente && trabajo.cuenta.cliente.telefono) || "");
   const [copiado, setCopiado] = useState(false);
+  const [avisoImpresion, setAvisoImpresion] = useState("");
   const texto = textoComprobante(d);
+  // Con impresora térmica configurada en este equipo se imprime directo; si no está lista, se abre la impresión normal del navegador.
+  const imprimirAhora = async () => {
+    setAvisoImpresion("");
+    if (impresora.estado().configurada) {
+      const c = impresora.config();
+      const r = await impresora.imprimir(ticketRecibo(d, { columnas: c.columnas, tabla: c.tabla }));
+      if (r.ok) { setAvisoImpresion("Enviado a la impresora."); return; }
+      setAvisoImpresion(`${r.motivo} Se abrió la impresión del navegador.`);
+    }
+    imprimirRecibo(d);
+  };
   const whatsapp = () => { const n = telefonoWhatsApp(tel); window.open(`https://wa.me/${n}?text=${encodeURIComponent(texto)}`, "_blank", "noopener"); };
   const copiar = async () => { try { await navigator.clipboard.writeText(texto); setCopiado(true); setTimeout(() => setCopiado(false), 1800); } catch (e) { window.prompt("Copia el texto:", texto); } };
   return (
@@ -138,17 +155,18 @@ function VentanaComprobante({ trabajo, cerrar }) {
           <div className="recibo-vista"><HojaComprobante d={d} /></div>
           <input style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", minHeight: 44, borderRadius: 12, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-242019-t)", fontSize: 14 }} inputMode="tel" placeholder="Celular del cliente (opcional, para WhatsApp)" value={tel} onChange={(e) => setTel(e.target.value)} />
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button style={estiloBoton(true)} onClick={() => imprimirRecibo(d)}><Printer size={16} /> Imprimir</button>
+            <button style={estiloBoton(true)} onClick={imprimirAhora}><Printer size={16} /> Imprimir</button>
             <button style={estiloBoton(false)} onClick={whatsapp}><MessageCircle size={16} /> WhatsApp</button>
             <button style={estiloBoton(false)} onClick={copiar}>{copiado ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar</>}</button>
           </div>
+          {avisoImpresion && <div role="status" style={{ fontSize: 12.5, color: "var(--c-5c5648-t)", lineHeight: 1.45 }}>{avisoImpresion}</div>}
           <div style={{ fontSize: 11.5, color: "var(--c-8a8272-t)", lineHeight: 1.45 }}>Es un comprobante interno del negocio. No reemplaza la factura electrónica de venta.</div>
         </>
       )}
     </Hoja>
   );
 }
-const estiloBoton = (principal) => ({ flex: "1 1 auto", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 44, padding: "10px 14px", borderRadius: 12, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 700, background: principal ? "var(--seg-on-bg)" : "var(--c-ede7d8-b)", color: principal ? "var(--seg-on-fg)" : "var(--c-242019-t)" });
+const estiloBoton = (principal) => ({ flex: "1 1 auto", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 44, padding: "10px 14px", borderRadius: 12, border: principal ? "none" : "1px solid var(--btn2-line)", cursor: "pointer", fontSize: 14, fontWeight: 700, background: principal ? "var(--accent)" : "var(--btn2-bg)", color: principal ? "var(--accent-fg)" : "var(--btn2-fg)" });
 
 export function AnfitrionComprobante() {
   const [trabajo, setTrabajo] = useState(null);

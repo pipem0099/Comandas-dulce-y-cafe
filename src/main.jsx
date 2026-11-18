@@ -33,3 +33,7 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch((e) => console.error("Error registrando el service worker:", e));
   });
 }
+
+// Modo de entrada: con Tab se muestra el anillo de foco; con mouse o toque se oculta (ver index.css).
+window.addEventListener("keydown", (e) => { if (e.key === "Tab") document.documentElement.setAttribute("data-teclado", ""); }, true);
+window.addEventListener("pointerdown", () => document.documentElement.removeAttribute("data-teclado"), true);

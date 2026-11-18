@@ -3,24 +3,29 @@ import { calcularAlertas } from "./alertas.js";
 import { contextoErrores } from "./errores.js";
 import { contextoComprobante } from "./comprobante.jsx";
 import { avisar } from "./avisos.jsx";
+import { desbloquearAudio } from "./avisos.js";
 import {
   AlertTriangle,
 } from "lucide-react";
 import { aplicarMarca } from "./theme.js";
 import { esExterna, etiquetaExterna } from "./logica.js";
-import { subscribeShared, saveShared, subscribeCollection, subscribeCollectionWhere, subscribeCollectionSince, getCollectionAll, getCollectionRange, getRecord, saveRecord, saveRecords, deleteRecord, updateRecord, ajustarStock, guardarPedidoYStock, observarSesion, cerrarSesion, updateShared, ultimoErrorDeEscritura, observarPendientes, borrarColeccion } from "./firebase.js";
+import { observarConexion, estaConectado, subscribeShared, saveShared, subscribeCollection, subscribeCollectionWhere, subscribeCollectionSince, getCollectionAll, getCollectionRange, getRecord, saveRecord, saveRecords, deleteRecord, updateRecord, ajustarStock, guardarPedidoYStock, observarSesion, cerrarSesion, updateShared, ultimoErrorDeEscritura, observarPendientes, borrarColeccion } from "./firebase.js";
 import { TopBar, BarraInferior, Lateral, itemsNavegacion } from "./componentes/BarraSuperior.jsx";
 import { useDispositivo } from "./useAncho.js";
 import { instalarEnterSiguiente } from "./enterSiguiente.js";
 import { PantallaCarga } from "./componentes/PantallaCarga.jsx";
+import { CascaronCarga, CargandoContenido } from "./componentes/Esqueletos.jsx";
 import { AvisoRelevo } from "./pantallas/RelevoCaja.jsx";
 import { AjustesPanel } from "./extras.jsx";
 import { guardarMarcaCache } from "./marcaCache.js";
-import { DEFAULT_CONFIG, DEFAULT_MENU, DEFAULT_MESAS, VENTANA_MS } from "./constantes.js";
+import { DEFAULT_CONFIG, DEFAULT_MENU, DEFAULT_MESAS, VENTANA_MS, VENTANA_TURNOS_MS } from "./constantes.js";
 import { styles } from "./estilos.js";
 import { AccesoDenegado, InicioSesion, SinAcceso } from "./pantallas/Acceso.jsx";
 import { NOMBRES_EXTERNOS, dayKey, rolesDe, tieneRol } from "./utilidades.js";
 import { perezoso } from "./cargaDiferida.js";
+import { turnosAbiertosDe, turnoDeEsteEquipo } from "./pisos.js";
+import { BannerConexion } from "./componentes/BannerConexion.jsx";
+import { AvisoVersion } from "./componentes/AvisoVersion.jsx";
 
 // Cada pantalla se descarga solo cuando se usa: un mesero no baja la caja, los reportes, el Excel ni la administración.
 const AsistenteInicio = perezoso(() => import("./componentes/AsistenteInicio.jsx"), "AsistenteInicio");
@@ -28,6 +33,7 @@ const MenuEditor = perezoso(() => import("./pantallas/Menu.jsx"), "MenuEditor");
 const ReservasView = perezoso(() => import("./pantallas/Reservas.jsx"), "ReservasView");
 const MesasEditor = perezoso(() => import("./pantallas/Mesas.jsx"), "MesasEditor");
 const Equipo = perezoso(() => import("./pantallas/Equipo.jsx"), "Equipo");
+const PanelFacturacion = perezoso(() => import("./pantallas/Facturacion.jsx"), "PanelFacturacion");
 const Respaldos = perezoso(() => import("./pantallas/Respaldos.jsx"), "Respaldos");
 const Analisis = perezoso(() => import("./pantallas/Analisis.jsx"), "Analisis");
 const CajaView = perezoso(() => import("./pantallas/Caja.jsx"), "CajaView");
@@ -89,28 +95,17 @@ export default function App() {
   }, []);
   // (el login de caja usa el mismo usuarioActual de arriba — ya no hay un estado separado)
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  // Estado real de la conexión con el servidor y de los cambios hechos sin internet que esperan enviarse
+  const [conexion, setConexion] = useState({ conectado: true, pendientes: 0, conflictos: 0, sincronizando: false });
+  useEffect(() => observarConexion(setConexion), []);
 
-  // Los navegadores bloquean audio automático hasta que hay una interacción real
-  // del usuario. Con el primer toque en cualquier parte de la app "despertamos"
-  // el audio para que la campanita de cocina sí pueda sonar más adelante.
+  // Los navegadores bloquean audio automático hasta que hay una interacción real del usuario.
+  // Con los primeros toques se "despierta" el audio compartido (el mismo que usa la campana de cocina).
   useEffect(() => {
-    const unlock = () => {
-      try {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        const ctx = new Ctx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        gain.gain.value = 0;
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime + 0.01);
-        setTimeout(() => ctx.close(), 200);
-      } catch (e) {}
-      window.removeEventListener("touchstart", unlock);
-      window.removeEventListener("click", unlock);
-    };
-    window.addEventListener("touchstart", unlock, { once: true });
-    window.addEventListener("click", unlock, { once: true });
-    return () => { window.removeEventListener("touchstart", unlock); window.removeEventListener("click", unlock); };
+    const unlock = () => desbloquearAudio();
+    window.addEventListener("touchend", unlock, { passive: true });
+    window.addEventListener("click", unlock);
+    return () => { window.removeEventListener("touchend", unlock); window.removeEventListener("click", unlock); };
   }, []);
 
   // Estado de conexión real del navegador (sirve como indicador de "en vivo").
@@ -184,7 +179,7 @@ export default function App() {
       subscribeCollectionSince("orders", "ts", desde, (v) => { setOrders(v); markLoaded("orders"); }),
       subscribeCollectionSince("cuentas", "ts", desde, (v) => { setCuentas(v); markLoaded("cuentas"); }),
       subscribeShared("config", DEFAULT_CONFIG, (v) => { setConfig({ ...DEFAULT_CONFIG, ...v }); markLoaded("config"); }),
-      subscribeCollection("turnos", (v) => { setTurnos(v); markLoaded("turnos"); }),
+      subscribeCollectionSince("turnos", "aperturaTs", Date.now() - VENTANA_TURNOS_MS, (v) => { setTurnos(v); markLoaded("turnos"); }),
       subscribeCollection("reservas", (v) => setReservas(v || [])),
       subscribeCollection("inventario", (v) => {
         // Un registro SIN nombre es un "fantasma": lo crea un descuento de stock sobre un insumo ya borrado.
@@ -252,7 +247,8 @@ export default function App() {
   // ESE día puntual (no todo el historial), así el respaldo automático nunca
   // se vuelve más pesado sin importar cuántos años lleve funcionando esto.
   useEffect(() => {
-    if (!usuarioActual || !tieneRol(usuarioActual, "admin") || !loaded) return;
+    // Sin conexión NO se hace: no se puede saber si ya existe el respaldo de ayer, y se guardaría uno vacío marcado como hecho.
+    if (!usuarioActual || !tieneRol(usuarioActual, "admin") || !loaded || !conexion.conectado) return;
     let cancelado = false;
     (async () => {
       const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -266,14 +262,14 @@ export default function App() {
         getCollectionRange("orders", "ts", inicioDia.getTime(), finDia.getTime()),
         getCollectionRange("deudas", "ts", inicioDia.getTime(), finDia.getTime()),
       ]);
-      if (cancelado) return;
+      if (cancelado || !estaConectado()) return; // si se cayó el internet a mitad de camino, las listas pueden venir vacías: no se guarda
       await saveShared(`respaldos/${dk}`, {
         hecho: true, generadoTs: Date.now(), dia: dk,
         cuentas: cuentasDia, orders: ordersDia, deudas: deudasDia, menu, mesas, config,
       });
     })();
     return () => { cancelado = true; };
-  }, [usuarioActual, loaded]);
+  }, [usuarioActual, loaded, conexion.conectado]);
 
   const MSG_SIN_CONEXION = "No se pudo guardar — revisa tu conexión a internet e inténtalo de nuevo.";
   const persistMenu = useCallback(async (next) => { setMenu(next); const ok = await saveShared("menu", next); if (!ok) avisarErrorGuardado(MSG_SIN_CONEXION); }, [avisarErrorGuardado]);
@@ -369,7 +365,11 @@ export default function App() {
     if (res.some((r) => !r)) avisarErrorGuardado(MSG_SIN_CONEXION);
   }, [avisarErrorGuardado]);
 
-  const turnoAbierto = turnos.find((t) => t.estado === "abierto") || null;
+  // Varias cajas: cada dispositivo trabaja con UNA (la que eligió); cualquier caja abierta puede cobrar cualquier cuenta.
+  const [cajaElegida, setCajaElegidaEstado] = useState(() => { try { return localStorage.getItem("comandas_caja") || null; } catch (e) { return null; } });
+  const setCajaElegida = useCallback((id) => { setCajaElegidaEstado(id); try { id ? localStorage.setItem("comandas_caja", id) : localStorage.removeItem("comandas_caja"); } catch (e) { /* sin almacenamiento */ } }, []);
+  const turnosAbiertos = useMemo(() => turnosAbiertosDe(turnos), [turnos]);
+  const turnoAbierto = turnoDeEsteEquipo(turnos, config, cajaElegida, usuarioActual);
 
   // Asistente de primer ingreso: aparece solo en un negocio nuevo (menú todavía de fábrica) y para el administrador
   const [verAsistente, setVerAsistente] = useState(false);
@@ -397,9 +397,9 @@ export default function App() {
   const esAdminActual = !!usuarioActual && tieneRol(usuarioActual, "admin");
   const minutoActual = Math.floor(Date.now() / 60000);
   const alertas = useMemo(
-    () => (esAdminActual ? calcularAlertas({ turnoAbierto, cuentas, orders, menu, insumos, errores, config, deudas }) : []),
+    () => (esAdminActual ? calcularAlertas({ turnoAbierto: turnosAbiertos[0] || null, cuentas, orders, menu, insumos, errores, config, deudas }) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [esAdminActual, turnoAbierto, cuentas, orders, deudas, menu, insumos, errores, config, minutoActual]
+    [esAdminActual, turnosAbiertos, cuentas, orders, deudas, menu, insumos, errores, config, minutoActual]
   );
   // Una alerta urgente NUEVA se anuncia con un aviso (la primera carga no, para no recibir una avalancha al entrar)
   const alertasVistas = useRef(null);
@@ -439,9 +439,9 @@ export default function App() {
   }, [loaded, esAdminApp]);
   // Aviso público de que el negocio ya tiene propietario (oculta la opción de "primer ingreso").
   useEffect(() => {
-    if (!loaded || !usuarioActual || !usuarioActual.propietario) return;
+    if (!loaded || !usuarioActual || !usuarioActual.propietario || !conexion.conectado) return;
     getRecord("sistema/inicializado").then((v) => { if (v !== true) updateShared("sistema", { inicializado: true }); });
-  }, [loaded, usuarioActual]);
+  }, [loaded, usuarioActual, conexion.conectado]);
 
   // nombres de los pedidos para llevar / domicilio (se usan en cocina, caja e historial).
   // Es un caché compartido que se llena de forma idempotente, y solo cuando cambian las cuentas (ya no en cada render).
@@ -454,7 +454,7 @@ export default function App() {
   if (!accesoOk) return <SinAcceso sesion={sesion} perfil={perfil} onSalir={cerrarSesionYRecargar} />;
 
   if (!loaded) {
-    return <PantallaCarga />;
+    return <CascaronCarga />;
   }
 
   const movil = dispositivo === "movil";
@@ -470,19 +470,21 @@ export default function App() {
   };
 
   return (
-    <div style={styles.app}>
+    <div style={ocultarNav ? { ...styles.app, paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" } : styles.app}>
       <React.Suspense fallback={null}>
       {verAsistente && (
         <AsistenteInicio config={config} menu={menu} menuDeFabrica={menu === DEFAULT_MENU} persistConfig={persistConfig} persistMenu={persistMenu} persistMesas={persistMesas}
           onIrEquipo={() => setVista("equipo")} onCerrar={() => setVerAsistente(false)} />
       )}
       </React.Suspense>
-      {movil && !ocultarNav && <TopBar config={config} usuarioActual={usuarioActual} online={online} alertas={alertas} onIrAlerta={irDesdeAlerta} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
+      {movil && !ocultarNav && <TopBar config={config} usuarioActual={usuarioActual} online={online && conexion.conectado} alertas={alertas} onIrAlerta={irDesdeAlerta} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: movil ? "column" : "row" }}>
-        {!movil && !ocultarNav && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online} alertas={alertas} onIrAlerta={irDesdeAlerta} ancho={dispositivo === "escritorio"} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
+        {!movil && !ocultarNav && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online && conexion.conectado} alertas={alertas} onIrAlerta={irDesdeAlerta} ancho={dispositivo === "escritorio"} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <AvisoRelevo turno={turnoAbierto} usuarioActual={usuarioActual} />
-      {pendientes > 0 && pendientesLentos && !errorGuardado && (
+      <AvisoRelevo turno={(usuarioActual && turnosAbiertos.find((t) => t.relevo && t.relevo.aUid === usuarioActual.uid)) || turnoAbierto} usuarioActual={usuarioActual} />
+      <BannerConexion conexion={conexion} esAdmin={esAdminApp} />
+      <AvisoVersion />
+      {pendientes > 0 && pendientesLentos && !errorGuardado && conexion.conectado && (
         <div style={styles.pendientesBanner} role="status">
           <span style={styles.pendientesPunto} />
           <span style={{ flex: 1 }}>Sin conexión estable · <b>{pendientes}</b> {pendientes === 1 ? "cambio espera" : "cambios esperan"} subirse. Se guardan solos al volver el internet; no cierres la app.</span>
@@ -492,16 +494,17 @@ export default function App() {
         <div style={styles.errorGuardadoBanner}>
           <AlertTriangle size={14} />
           <span style={{ flex: 1 }}>{errorGuardado}</span>
-          <button style={styles.errorGuardadoCerrar} onClick={() => setErrorGuardado(null)}>✕</button>
+          <button aria-label="Cerrar aviso" style={styles.errorGuardadoCerrar} onClick={() => setErrorGuardado(null)}>✕</button>
         </div>
       )}
       <div key={vista ? `v-${vista}` : `r-${role}`} className="vista-anim" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <React.Suspense fallback={<PantallaCarga />}>
+      <React.Suspense fallback={<CargandoContenido tipo={vista ? "lista" : role === "mesero" ? "mesas" : role === "cocina" ? "comandas" : "lista"} />}>
       {vista && esAdminApp && (
         <>
           {vista === "menu" && <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} insumos={insumos} onClose={() => setVista(null)} />}
           {vista === "mesas" && <MesasEditor mesas={mesas} persistMesas={persistMesas} cuentas={cuentas} orders={orders} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} onClose={() => setVista(null)} />}
-          {vista === "ajustes" && <div style={styles.screen}><AjustesPanel config={config} persistConfig={persistConfig} menu={menu} onClose={() => setVista(null)} onAbrirAsistente={() => setVerAsistente(true)} /></div>}
+          {vista === "ajustes" && <div style={styles.screen}><AjustesPanel turnosAbiertos={turnosAbiertos} config={config} persistConfig={persistConfig} menu={menu} onClose={() => setVista(null)} onAbrirAsistente={() => setVerAsistente(true)} /></div>}
+          {vista === "facturacion" && <div style={styles.screen}><PanelFacturacion usuarioActual={usuarioActual} onClose={() => setVista(null)} /></div>}
           {vista === "equipo" && <div style={styles.screen}><Equipo config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} onClose={() => setVista(null)} /></div>}
           {vista === "analisis" && (
             <div style={styles.screen}>
@@ -542,14 +545,14 @@ export default function App() {
           />
         )
       )}
-      {!vista && role === "reservas" && puede("reservas") && <ReservasView reservas={reservas} saveReserva={saveReserva} deleteReserva={deleteReserva} mesas={mesas} usuarioActual={usuarioActual} />}
+      {!vista && role === "reservas" && puede("reservas") && <ReservasView config={config} reservas={reservas} saveReserva={saveReserva} deleteReserva={deleteReserva} mesas={mesas} usuarioActual={usuarioActual} />}
       {!vista && role === "cocina" && puede("cocina") && <CocinaView orders={orders} saveOrder={saveOrder} mesas={mesas} config={config} onKiosko={setKioskoCocina} />}
       {!vista && role === "caja" && puede("caja") && (
         !tieneRol(usuarioActual, "cajero") && !tieneRol(usuarioActual, "admin") ? (
           <AccesoDenegado mensaje="Tu usuario no tiene el rol de Cajero — esto es Caja." accion="Ir a Mesero" onAccion={() => setRole("mesero")} onCambiarUsuario={cerrarSesionYRecargar} />
         ) : (
           <CajaView
-            deudas={deudas} abrirTab={abrirTabCaja}
+            deudas={deudas} abrirTab={abrirTabCaja} cajaElegida={cajaElegida} setCajaElegida={setCajaElegida} turnosAbiertos={turnosAbiertos}
             menu={menu} orders={orders} cuentas={cuentas} saveCuenta={saveCuenta} saveOrdersMap={saveOrdersMap}
             turnos={turnos} turnoAbierto={turnoAbierto} saveTurno={saveTurno}
             config={config} persistConfig={persistConfig} usuarioActual={usuarioActual}

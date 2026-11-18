@@ -240,9 +240,9 @@ export const styles = {
   pendientesPunto: { width: 9, height: 9, borderRadius: 5, background: "var(--warn-solid)", flexShrink: 0, animation: "pulso 1.4s ease-in-out infinite" },
   errorGuardadoBanner: { display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", background: "var(--danger-solid)", color: "#F4F6F8", fontSize: 12.5, fontWeight: 600, flexShrink: 0 },
   avisoListoBanner: { display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: "var(--info-solid)", color: "#F4F6F8", fontSize: 14, fontWeight: 700, flexShrink: 0, lineHeight: 1.35 },
-  avisoNotifBanner: { display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: "var(--c-242019-b)", color: "#C5CCD5", fontSize: 11.5, flexShrink: 0 },
-  avisoNotifBtn: { padding: "6px 12px", background: "var(--warn-solid)", color: "var(--c-242019-t)", border: "none", borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" },
-  avisoNotifCerrar: { background: "transparent", border: "none", color: "#C5CCD5", fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "0 4px" },
+  avisoNotifBanner: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 16px", background: "var(--btn2-bg)", color: "var(--btn2-fg)", borderBottom: "1px solid var(--btn2-line)", fontSize: 13, lineHeight: 1.45 },
+  avisoNotifBtn: { minHeight: 40, padding: "0 16px", borderRadius: 10, border: "none", background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontSize: 13, fontWeight: 700, cursor: "pointer" },
+  avisoNotifCerrar: { width: 40, height: 40, borderRadius: 10, border: "none", background: "transparent", color: "var(--btn2-mute)", fontSize: 16, cursor: "pointer" },
   errorGuardadoCerrar: { background: "transparent", border: "none", color: "#F4F6F8", fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "0 4px" },
   goHistLink: { textAlign: "center", padding: "12px 0", color: "var(--link)", fontSize: 12.5, fontWeight: 500, cursor: "pointer" },
 
