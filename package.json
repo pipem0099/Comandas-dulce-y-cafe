@@ -1,7 +1,7 @@
 {
   "name": "comandas",
   "private": true,
-  "version": "23.3.0",
+  "version": "23.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
