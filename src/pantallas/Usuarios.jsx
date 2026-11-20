@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, UserCircle2, UserPlus, ShieldCheck, ChevronUp, ChevronDown } from "lucide-react";
 
-import { subscribeCollection, saveRecord, updateRecord, updateShared, enviarCorreoCambioClave, crearCuentaEmpleado } from "../firebase.js";
+import { subscribeCollection, saveRecord, updateRecord, deleteRecord, updateShared, enviarCorreoCambioClave, crearCuentaEmpleado } from "../firebase.js";
 import { ROLES_ORDEN } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { msgAuth } from "../pantallas/Acceso.jsx";
@@ -23,6 +23,7 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
   const [aviso, setAviso] = useState({}); // mensajes por usuario (ej. "correo enviado")
   const [crearAbierto, setCrearAbierto] = useState(false); // formulario "Agregar persona" plegado por defecto
   const [logAbierto, setLogAbierto] = useState(false);       // registro de seguridad plegado por defecto
+  const [confirmEliminar, setConfirmEliminar] = useState(null); // uid de quien se va a eliminar
   const [confirmTransfer, setConfirmTransfer] = useState(null); // uid de quien recibiría la propiedad
   const yoPropietario = usuarioActual.propietario === true;
 
@@ -76,6 +77,17 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
     await log(`${activo ? "Reactivó" : "Desactivó"} la cuenta de "${u.nombre}"`);
   };
 
+  // Elimina por completo a la persona del equipo: se borra su perfil y queda sin acceso a la app.
+  const eliminar = async (u) => {
+    setError(""); setConfirmEliminar(null);
+    if (u.propietario) { setError("Al propietario no se le puede eliminar. Primero transfiere la propiedad."); return; }
+    if (u.uid === usuarioActual.uid) { setError("No puedes eliminar tu propia cuenta."); return; }
+    if (u.activo && rolesDe(u).includes("admin") && adminsActivos.length <= 1) { setError("Debe quedar al menos un administrador."); return; }
+    const ok = await deleteRecord("perfiles", u.uid);
+    if (!ok) { setError("No se pudo eliminar. Revisa tu conexión e inténtalo de nuevo."); return; }
+    await log(`Eliminó la cuenta de "${u.nombre}"`);
+  };
+
   // Pasa la propiedad a otra persona (que debe estar activa). Quien la entrega sigue como administrador.
   // Se escriben los dos perfiles en una sola operación: o cambian los dos o no cambia ninguno.
   const transferir = async (u) => {
@@ -116,6 +128,7 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
               !u.propietario && u.uid !== usuarioActual.uid && (u.activo
                 ? { label: "Desactivar cuenta", peligro: true, onClick: () => cambiarActivo(u, false) }
                 : { label: "Reactivar cuenta", onClick: () => cambiarActivo(u, true) }),
+              !u.propietario && u.uid !== usuarioActual.uid && { label: "Eliminar usuario", peligro: true, onClick: () => setConfirmEliminar(u.uid) },
               yoPropietario && !u.propietario && u.activo && { label: "Transferir propiedad", onClick: () => setConfirmTransfer(u.uid) },
             ]} />
           )}
@@ -134,6 +147,17 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
                     >{rolLabel(r)}</button>
                   );
                 })}
+              </div>
+            </div>
+          )}
+          {confirmEliminar === u.uid && (
+            <div style={{ ...styles.turnoBox, marginTop: 6 }}>
+              <div style={styles.closeConfirmText}>
+                ¿Eliminar a <b>{u.nombre}</b>? Se borra de la lista y queda sin acceso a la app. Sus ventas y registros pasados se conservan. Esta acción no se puede deshacer.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={styles.cancelEditBtn} onClick={() => setConfirmEliminar(null)}>Cancelar</button>
+                <button style={{ ...styles.addItemBtn, flex: 1 }} onClick={() => eliminar(u)}>Sí, eliminar</button>
               </div>
             </div>
           )}

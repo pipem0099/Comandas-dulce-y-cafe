@@ -59,7 +59,7 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
   })));
   // Margen: el costo sale de la venta, de la receta o del % estimado por categoría (src/analitica.js). Lo que no tiene
   // costo NO se cuenta como costo 0 (inventaba margen) y los descuentos se restan del margen.
-  const rentab = rentabilidad(prepararVentas(pagadasRango, orders), menu, { insumos, plantilla: (config && config.plantillaCostos) || {} });
+  const rentab = rentabilidad(prepararVentas(pagadasRango, orders), menu, { insumos, plantilla: (config && config.margenActivo && config.plantillaCostos) || {} });
   const huboCostosCargados = rentab.ventaConCosto > 0;
   const costoProductos = rentab.ventaConCosto - rentab.margenTotal;
   const topProductos = Object.entries(productoMap).sort((a, b) => b[1].qty - a[1].qty).slice(0, 5);

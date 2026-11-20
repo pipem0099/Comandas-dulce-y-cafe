@@ -13,7 +13,7 @@ import { HojaTurno, HojaMes } from "../hojas.jsx";
 import { responsableDe, statsTramo, tramoVigente, tramosDe } from "../relevoCaja.js";
 import { CampoMonto, Acordeon, Chevron } from "../componentes/Comunes.jsx";
 import { InfoTip } from "../componentes/InfoTip.jsx";
-import { MontoSigno } from "../componentes/Comunes.jsx";
+import { MontoSigno, GrupoSecciones, Seccion } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { descargarRespaldo } from "../exportar.js";
 import { hayVariasCajas, getCajas, nombreCaja, CAJA_BASE } from "../pisos.js";
@@ -314,9 +314,9 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
 
       {esAdmin && todosCerrados.length > 0 && (
         <>
-          <div style={{ ...styles.catLabel, marginTop: 20 }}>TURNOS ANTERIORES</div>
+          <div style={{ ...styles.catLabel, marginTop: 24 }}>TURNOS ANTERIORES</div>
           {variasCajas && (
-            <div role="tablist" aria-label="Cierres por caja" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "4px 0 2px", WebkitOverflowScrolling: "touch" }}>
+            <div role="tablist" aria-label="Cierres por caja" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "4px 2px", margin: "6px -2px 14px", WebkitOverflowScrolling: "touch" }}>
               {[{ id: "todas", nombre: "Todas" }, ...getCajas(config)].map((c) => {
                 const n = c.id === "todas" ? todosCerrados.length : todosCerrados.filter((tr) => idCajaDe(tr) === c.id).length;
                 const on = filtroCaja === c.id;
@@ -482,12 +482,11 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, deud
   };
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <div style={styles.catLabel}>RESPALDO</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
+    <div style={{ marginTop: 8 }}>
+      <GrupoSecciones>
 
-        <div style={styles.respaldoCard}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}><div style={styles.respaldoTitulo}>Copia de seguridad completa</div><InfoTip titulo="Copia de seguridad completa">
+        <Seccion titulo="Copia de seguridad completa" resumen="Descargar todo el historial">
+          <div style={{ display: "flex", justifyContent: "flex-end" }}><InfoTip titulo="Copia de seguridad completa">
             Guarda un archivo en este dispositivo con todo el historial del negocio:
             <ul style={styles.respaldoLista}>
               <li>Menú, productos y precios</li>
@@ -501,10 +500,10 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, deud
           <button style={styles.modoChoiceBtn} onClick={onClickDescargar} disabled={cargandoHistorial}>
             <Download size={15} /> {cargandoHistorial ? "Preparando respaldo completo…" : "Descargar copia de seguridad completa"}
           </button>
-        </div>
+        </Seccion>
 
-        <div style={styles.respaldoCard}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}><div style={styles.respaldoTitulo}>Restaurar desde un archivo</div><InfoTip titulo="Restaurar desde un archivo">
+        <Seccion titulo="Restaurar desde un archivo" resumen="Volver a un respaldo anterior">
+          <div style={{ display: "flex", justifyContent: "flex-end" }}><InfoTip titulo="Restaurar desde un archivo">
             Vuelve la app al estado de un archivo de respaldo. <b>Reemplaza</b> lo que hay ahora de: menú, pedidos, cuentas, turnos, mesas y ajustes.
             Todo lo registrado después de la fecha del archivo se pierde. No toca el inventario ni los usuarios. Recomendado: descarga una copia de lo actual antes de restaurar.
           </InfoTip></div>
@@ -534,15 +533,15 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, deud
               <button style={styles.cancelEditBtn} onClick={() => { setRestaurando(false); setArchivo(null); setConfirmando(false); setError(""); }}>Cerrar</button>
             </div>
           )}
-        </div>
+        </Seccion>
 
         <RespaldosAutomaticosBox />
-      </div>
+      </GrupoSecciones>
     </div>
   );
 }
 
-export function RespaldosAutomaticosBox() {
+export function RespaldosAutomaticosBox(propsSeccion) {
   const [dias, setDias] = useState(null); // null = sin cargar todavía
   const [cargando, setCargando] = useState(false);
 
@@ -570,8 +569,8 @@ export function RespaldosAutomaticosBox() {
   };
 
   return (
-    <div style={styles.respaldoCard}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}><div style={styles.respaldoTitulo}>Copias automáticas</div><InfoTip titulo="Copias automáticas">
+    <Seccion {...propsSeccion} titulo="Copias automáticas" resumen="Los últimos 14 días">
+      <div style={{ display: "flex", justifyContent: "flex-end" }}><InfoTip titulo="Copias automáticas">
         Cada día, la primera vez que un administrador abre la app, se guarda sola una copia del <b>día anterior</b>: sus cuentas y pedidos, más el menú, las mesas y los ajustes.
         Aquí puedes ver y descargar las de los últimos 14 días, útiles para consultar o recuperar lo de un día puntual.
         Cada una trae <b>un solo día</b> de ventas y no incluye turnos, así que no sirven para restaurar todo el negocio (para eso usa la copia completa).
@@ -592,7 +591,7 @@ export function RespaldosAutomaticosBox() {
           ))}
         </div>
       )}
-    </div>
+    </Seccion>
   );
 }
 

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import { FilaTabs } from "../componentes/Comunes.jsx";
 import { InfoTip } from "../componentes/InfoTip.jsx";
+import { Interruptor } from "../componentes/FilasIos.jsx";
+import { Plegable } from "../componentes/Comunes.jsx";
 import { Minus, Plus } from "lucide-react";
 import { horaReloj, rangoHoras, horasDesdeApertura } from "../horas.js";
 import { styles } from "../estilos.js";
@@ -344,12 +346,29 @@ function Semana({ ventas, menu, insumos, config, persistConfig, ahora }) {
 /* ───────── 6 y 7 · Costos automáticos, margen objetivo y alertas ───────── */
 function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, ahora }) {
   const categorias = useMemo(() => [...new Set((menu || []).map((m) => m.cat).filter(Boolean))], [menu]);
+  const activo = !!(config && config.margenActivo);
   const guardada = (config && config.plantillaCostos) || {};
   const [borrador, setBorrador] = useState(() => Object.fromEntries(categorias.map((c) => [c, guardada[c] ? String(guardada[c]) : ""])));
   const [guardado, setGuardado] = useState(false);
   const objetivo = Number(config && config.margenObjetivo) || 65;
-  const plantilla = useMemo(() => Object.fromEntries(Object.entries(guardada).map(([k, v]) => [k, Number(v) || 0])), [guardada]);
+  const plantilla = useMemo(() => (activo ? Object.fromEntries(Object.entries(guardada).map(([k, v]) => [k, Number(v) || 0])) : {}), [guardada, activo]);
   const rent = useMemo(() => rentabilidad(ventas, menu, { rango: [ahora - 30 * DIA, ahora + 1], insumos, plantilla }), [ventas, menu, insumos, plantilla, ahora]);
+  const cambios = (config && config.preciosPrevios) || {};
+  const hayCambios = Object.keys(cambios).length > 0;
+  const alternar = (v) => persistConfig({ ...config, margenActivo: !!v });
+  const restaurar = async (id) => {
+    const c = cambios[id]; if (!c) return;
+    const { [id]: _quitar, ...resto } = cambios;
+    await persistMenu((menu || []).map((m) => (m.id === id ? { ...m, price: c.anterior } : m)));
+    await persistConfig({ ...config, preciosPrevios: resto });
+    setAplicados((a) => { const n = { ...a }; delete n[id]; return n; });
+  };
+  const restaurarTodos = async () => {
+    const ids = Object.keys(cambios);
+    await persistMenu((menu || []).map((m) => (cambios[m.id] ? { ...m, price: cambios[m.id].anterior } : m)));
+    await persistConfig({ ...config, preciosPrevios: {} });
+    setAplicados({});
+  };
   const sensibilidad = (config && config.alertasSensibilidad) || "normal";
   const guardar = async () => {
     const limpio = {};
@@ -364,15 +383,47 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
   const precioDe = (id) => { const m = (menu || []).find((x) => x.id === id); return m ? m.price : 0; };
   return (
     <>
+      <div style={{ ...caja, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: C.texto, display: "flex", alignItems: "center", gap: 2 }}>Costos estimados y sugerencias de precio
+              <InfoTip titulo="Costos estimados y sugerencias">
+                Apagado (recomendado si ya cuadraste tus precios y costos a mano): la app no estima costos ni te sugiere precios, y no cambia nada. Todo queda exactamente como lo tienes.
+                <br /><br />Encendido: la app usa el % de costo por categoría para estimar márgenes y te muestra el botón “Subir el precio a…”. Cada precio que cambies queda guardado con su valor anterior para que puedas restaurarlo.
+              </InfoTip>
+            </div>
+            <div style={{ fontSize: 12.5, color: C.suave }}>{activo ? "Activado" : "Desactivado · no se modifica nada"}</div>
+          </div>
+          <Interruptor valor={activo} onChange={alternar} etiqueta="Activar costos estimados y sugerencias de precio" />
+        </div>
+      </div>
+      {hayCambios && (
+        <>
+          <div style={titulo}>Precios que cambiaste con sugerencias</div>
+          <div style={caja}>
+            {Object.entries(cambios).map(([id, c]) => (
+              <div key={id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "6px 0" }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 14, color: C.texto, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.nombre || id}</div>
+                  <div style={{ fontSize: 12, color: C.suave }}>{money(c.anterior)} → {money(c.nuevo)}</div>
+                </div>
+                <button style={{ ...boton, minHeight: 44 }} onClick={() => restaurar(id)}>Restaurar {money(c.anterior)}</button>
+              </div>
+            ))}
+            {Object.keys(cambios).length > 1 && <button style={{ ...boton, marginTop: 8, minHeight: 44 }} onClick={restaurarTodos}>Restaurar todos los precios anteriores</button>}
+          </div>
+        </>
+      )}
+      {!activo ? <div style={nota}>Con esta opción apagada, los márgenes solo usan los costos que ya cargaste en Menú y precios o en las recetas. Nada se estima ni se cambia.</div> : (
+      <>
       <div style={styles.cajaTotalCard}>
         <span style={styles.cajaTotalLabel}>Costos conocidos (últimos 30 días)</span>
         <span style={styles.cajaTotalValue}>{Math.round(rent.cobertura * 100)}%</span>
         <span style={styles.turnoEsperadoLabel}>{Math.round(rent.coberturaReal * 100)}% con costo real · {Math.round((rent.cobertura - rent.coberturaReal) * 100)}% estimado · {Math.round((1 - rent.cobertura) * 100)}% sin costo</span>
       </div>
-      <div style={{ ...nota, marginBottom: 8 }}>El costo de cada producto se toma, en este orden: el que quedó en la venta, el de su receta (inventario), o el porcentaje estimado de su categoría. Si no hay ninguno, el producto no entra al margen: no se inventa.</div>
-
-      <div style={titulo}>Costo estimado por categoría (% del precio)</div>
-      <div style={caja}>
+      <Plegable estilo={caja} estiloTitulo={titulo} titulo="Costo estimado por categoría (% del precio)" resumen={`${categorias.length} categorías`}>
+      <div style={{ ...nota, marginBottom: 4 }}>El costo de cada producto se toma, en este orden: el que quedó en la venta, el de su receta (inventario), o el porcentaje estimado de su categoría. Si no hay ninguno, el producto no entra al margen: no se inventa.</div>
+        <div style={{ maxHeight: 300, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
         {categorias.length === 0 ? <Vacio>Aún no hay categorías en el menú.</Vacio> : categorias.map((c) => (
           <div key={c} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "5px 0" }}>
             <span style={{ fontSize: 13.5, color: C.texto }}>{c}</span>
@@ -382,12 +433,13 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
             </span>
           </div>
         ))}
+        </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
           <button style={boton} onClick={() => setBorrador(Object.fromEntries(Object.entries(sugerirPlantillaCostos(menu)).map(([k, v]) => [k, String(v)])))}>Usar valores sugeridos</button>
           <button style={{ ...boton, background: "var(--seg-on-bg)", color: "var(--seg-on-fg)" }} onClick={guardar}>{guardado ? "Guardado ✓" : "Guardar"}</button>
         </div>
         <div style={{ ...nota, color: C.suave, marginTop: 8 }}>Los valores sugeridos son referencias generales del sector (bebidas ~25%, postres y panadería ~30%, comidas ~33%). Ajústalos a tus costos reales; lo estimado se marca con “~”.</div>
-      </div>
+      </Plegable>
 
       <div style={{ ...titulo, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span>Margen objetivo</span>
@@ -437,11 +489,13 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
                       </div>
                     )}
                   </div>
-                  {persistMenu && nuevo > actual && !listo && (
+                  {costoUnit >= actual && actual > 0 && <div style={{ ...nota, marginTop: 6, color: C.rojo }}>El costo ({money(costoUnit)}) es mayor o igual al precio ({money(actual)}). Revisa que el costo sea por unidad vendida antes de cambiar el precio.</div>}
+                  {persistMenu && nuevo > actual && costoUnit < actual && !listo && (
                     <button style={{ ...styles.btnRestringido, minHeight: 40, marginTop: 8, justifyContent: "center", fontSize: 13, ...(confirmaId === p.id ? { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)" } : {}) }}
                       onClick={() => {
                         if (confirmaId !== p.id) { setConfirmaId(p.id); setTimeout(() => setConfirmaId((c) => (c === p.id ? null : c)), 4000); return; }
                         persistMenu((menu || []).map((m) => (m.id === p.id ? { ...m, price: nuevo } : m)));
+                        persistConfig({ ...config, preciosPrevios: { ...cambios, [p.id]: { anterior: (cambios[p.id] && cambios[p.id].anterior) || actual, nuevo, nombre: p.name, ts: Date.now() } } });
                         setAplicados((a) => ({ ...a, [p.id]: nuevo })); setConfirmaId(null);
                       }}>
                       {confirmaId === p.id ? `Toca otra vez para cambiar a ${money(nuevo)}` : `Subir el precio a ${money(nuevo)}`}
@@ -467,6 +521,8 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
         <div style={{ ...nota, marginBottom: 8 }}>Avisan cuando algo se sale de lo habitual del negocio (mismo día de la semana y misma hora): ventas bajas, ticket bajo, cancelaciones y descuentos fuera de lo normal.</div>
         <Tabs valor={sensibilidad} onChange={(v) => persistConfig({ ...config, alertasSensibilidad: v })} opciones={[["apagada", "Apagadas"], ["baja", "Pocas"], ["normal", "Normal"], ["alta", "Muchas"]]} />
       </div>
+      </>
+      )}
     </>
   );
 }
@@ -479,7 +535,7 @@ export function Analisis({ onClose, menu, persistMenu, insumos, config, persistC
   // y traer TODO el historial pesaría cada vez más con los años.
   useEffect(() => { if (cargarHistorialReciente) cargarHistorialReciente(120); }, [cargarHistorialReciente]);
   const ventas = useMemo(() => prepararVentas(cuentasAnalisis || [], ordersAnalisis || []), [cuentasAnalisis, ordersAnalisis]);
-  const plantilla = useMemo(() => Object.fromEntries(Object.entries((config && config.plantillaCostos) || {}).map(([k, v]) => [k, Number(v) || 0])), [config]);
+  const plantilla = useMemo(() => ((config && config.margenActivo) ? Object.fromEntries(Object.entries((config && config.plantillaCostos) || {}).map(([k, v]) => [k, Number(v) || 0])) : {}), [config]);
   return (
     <>
       <CabeceraAdmin titulo="Análisis y control" onClose={onClose} />
@@ -487,11 +543,13 @@ export function Analisis({ onClose, menu, persistMenu, insumos, config, persistC
         <Tabs valor={tab} onChange={setTab} opciones={[["resumen", "Resumen"], ["productos", "Productos"], ["perdidas", "Pérdidas"], ["semana", "Semana"], ["costos", "Costos"]]} />
         {cargandoHistorial && !historialListo && <div style={{ ...nota, color: C.suave, marginBottom: 10 }}>Cargando los últimos 120 días…</div>}
         {errorHistorial && <div style={{ ...nota, color: C.rojo, marginBottom: 10 }}>No se pudo cargar el historial: se muestran solo los últimos días. Revisa tu conexión y vuelve a entrar.</div>}
+        <div key={tab} className="tab-anim">
         {tab === "resumen" && <Resumen ventas={ventas} ahora={ahora} />}
         {tab === "productos" && <Productos ventas={ventas} menu={menu || []} insumos={insumos || []} plantilla={plantilla} ahora={ahora} onCostos={() => setTab("costos")} />}
         {tab === "perdidas" && <Perdidas ventas={ventas} cuentas={cuentasAnalisis || []} ahora={ahora} />}
         {tab === "semana" && <Semana ventas={ventas} menu={menu || []} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
         {tab === "costos" && <Costos ventas={ventas} menu={menu || []} persistMenu={persistMenu} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
+        </div>
       </div>
     </>
   );

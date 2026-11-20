@@ -7,6 +7,7 @@ import {
 import { uid } from "../logica.js";
 import { Selector } from "../componentes/Campos.jsx";
 import { InfoTip } from "../componentes/InfoTip.jsx";
+import { GrupoSecciones, Seccion } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { cuentaCubre } from "../utilidades.js";
 import { getPisos, planoDe, conPlano, pisoIdDeMesa, PISO_BASE } from "../pisos.js";
@@ -154,11 +155,17 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
     <div style={styles.screen}>
       <CabeceraAdmin titulo="Mesas y espacios" onClose={onClose} />
       <div className="ancho" style={styles.menuScroll}>
-        <div style={styles.addItemCard}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={styles.catLabel}>PISOS</div>
-            <InfoTip titulo="Pisos">{varios ? "Cada piso tiene sus propias mesas y su propio plano." : "¿Tu negocio tiene más de un piso? Agrega los demás y cada uno tendrá sus mesas y su plano."}</InfoTip>
+        {varios && (
+          <div role="tablist" aria-label="Piso que estás editando" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "14px 0 2px", WebkitOverflowScrolling: "touch" }}>
+            {pisos.map((p) => (
+              <button key={p.id} role="tab" aria-selected={pisoActual === p.id} disabled={editandoPlano && pisoActual !== p.id} onClick={() => { setPisoEd(p.id); setSel(null); }}
+                style={{ ...pl.pastilla, flexShrink: 0, minHeight: 40, ...(pisoActual === p.id ? pl.on : {}), opacity: editandoPlano && pisoActual !== p.id ? 0.4 : 1 }}>{p.nombre}</button>
+            ))}
           </div>
+        )}
+        <GrupoSecciones>
+        <Seccion titulo="Pisos" resumen={varios ? pisos.map((p) => p.nombre).join(" · ") : "Un solo piso"}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -6 }}><InfoTip titulo="Pisos">{varios ? "Cada piso tiene sus propias mesas y su propio plano." : "¿Tu negocio tiene más de un piso? Agrega los demás y cada uno tendrá sus mesas y su plano."}</InfoTip></div>
           {varios && pisos.map((p, i) => (
             <div key={p.id} style={{ display: "flex", flexDirection: "column", gap: 6, minHeight: 44, justifyContent: "center" }}>
               {editPisoId === p.id ? (
@@ -196,22 +203,9 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
               </div>
             </>
           )}
-        </div>
-
-        {varios && (
-          <div role="tablist" aria-label="Piso que estás editando" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "14px 0 2px", WebkitOverflowScrolling: "touch" }}>
-            {pisos.map((p) => (
-              <button key={p.id} role="tab" aria-selected={pisoActual === p.id} disabled={editandoPlano && pisoActual !== p.id} onClick={() => { setPisoEd(p.id); setSel(null); }}
-                style={{ ...pl.pastilla, flexShrink: 0, minHeight: 40, ...(pisoActual === p.id ? pl.on : {}), opacity: editandoPlano && pisoActual !== p.id ? 0.4 : 1 }}>{p.nombre}</button>
-            ))}
-          </div>
-        )}
-
-        <div style={{ ...styles.addItemCard, marginTop: varios ? 12 : 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={styles.catLabel}>MESAS Y ESPACIOS{varios ? ` · ${(pisos.find((p) => p.id === pisoActual) || {}).nombre}` : ""}</div>
-            <InfoTip titulo="Mesas y espacios">Puedes ponerle cualquier nombre: «Mesa 5», «Barra», «Mesa gris», «Terraza»…</InfoTip>
-          </div>
+        </Seccion>
+        <Seccion titulo="Agregar mesa o espacio">
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -6 }}><InfoTip titulo="Mesas y espacios">Puedes ponerle cualquier nombre: «Mesa 5», «Barra», «Mesa gris», «Terraza»…</InfoTip></div>
           {!abrirMesa ? (
             <button style={styles.addItemBtn} aria-expanded="false" onClick={() => setAbrirMesa(true)}><Plus size={15} style={{ flexShrink: 0 }} /> Agregar mesa o espacio</button>
           ) : (
@@ -223,11 +217,8 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
               </div>
             </>
           )}
-        </div>
-
-        {error && <div style={styles.pinError}>{error}</div>}
-
-        <div style={{ ...styles.catLabel, marginTop: 22 }}>PLANO DEL NEGOCIO{varios ? ` · ${(pisos.find((p) => p.id === pisoActual) || {}).nombre}` : ""}</div>
+        </Seccion>
+        <Seccion titulo="Plano del negocio" resumen="Distribución de mesas y zonas">
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8, marginBottom: 6 }}>
         {!editandoPlano ? (
           <>
@@ -296,8 +287,8 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
           </div>
         )}
         </div>
-
-        <div style={{ ...styles.catLabel, marginTop: 26 }}>TUS MESAS Y ESPACIOS{varios ? ` · ${(pisos.find((p) => p.id === pisoActual) || {}).nombre}` : ""}</div>
+        </Seccion>
+        <Seccion titulo="Tus mesas y espacios" resumen={`${mesasPiso.length} ${mesasPiso.length === 1 ? "espacio" : "espacios"}`}>
         {mesasPiso.length === 0 && <div style={styles.cajaEmptyText}>Todavía no has agregado ninguna.</div>}
         {mesasPiso.map((m, idx) => (
           <div key={m.id} style={styles.editRow}>
@@ -334,6 +325,9 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
             )}
           </div>
         ))}
+        </Seccion>
+        </GrupoSecciones>
+        {error && <div style={styles.pinError}>{error}</div>}
       </div>
     </div>
   );

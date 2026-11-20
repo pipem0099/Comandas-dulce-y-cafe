@@ -22,6 +22,8 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
   const [day, setDay] = useState(null);
   const [expandedCuentaId, setExpandedCuentaId] = useState(null);
   const [verCanceladas, setVerCanceladas] = useState(false);
+  const [cuentasAbiertas, setCuentasAbiertas] = useState(false);   // «Cuentas cobradas ese día» plegado por defecto (la impresión siempre lo muestra todo)
+  const [productosAbiertos, setProductosAbiertos] = useState(false);
   const ajustesFiscales = useAjustesFiscales();
   const facturasEnCola = useFacturasEnCola();
   const [facturaId, setFacturaId] = useState(null); // la factura de una cuenta se abre a demanda (evita escuchar cientos de cuentas a la vez)
@@ -183,6 +185,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
   const d = days[day];
   if (!d) return null;
   const productos = Object.entries(d.productos).sort((a, b) => b[1].subtotal - a[1].subtotal);
+  const mesasAtendidas = new Set(d.cuentas.map((c) => c.mesa)).size;
   return (
     <div className="ancho" style={styles.menuScroll}>
       <button className="no-imprimir" style={styles.backBtn} onClick={() => setView("days")}>← Días</button>
@@ -190,6 +193,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
         <div>
           <div style={styles.pageEyebrow}>{dayLabel(d.ts)}</div>
           <div style={{ ...styles.cajaTotalValue, color: "var(--c-242019-t)" }}>{money(d.total)}</div>
+          <div style={{ fontSize: 13, color: "var(--c-8a8272-t)", marginTop: 2 }}>{mesasAtendidas} {mesasAtendidas === 1 ? "mesa atendida" : "mesas atendidas"} · {d.cuentas.length} {d.cuentas.length === 1 ? "cuenta" : "cuentas"}</div>
         </div>
         {esAdmin && <button className="no-imprimir" style={styles.exportLink} onClick={() => imprimir(<HojaDia d={d} orders={orders} mesas={mesas} canceladas={todasCanceladas.filter((c) => dayKey(c.canceladaTs) === d.key)} config={config} usuario={usuarioActual} />)}><Printer size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Imprimir</button>}
       </div>
@@ -205,8 +209,12 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
         })}
       </div>
 
-      <div style={{ ...styles.catLabel, marginTop: 18 }}>CUENTAS COBRADAS ESE DÍA</div>
-      {d.cuentas.slice().sort((a, b) => a.pagadaTs - b.pagadaTs).map((c) => {
+      <button type="button" aria-expanded={cuentasAbiertas} onClick={() => setCuentasAbiertas((v) => !v)} className="no-imprimir"
+        style={{ ...styles.catLabel, marginTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", minHeight: 44, padding: 0, border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}>
+        <span>CUENTAS COBRADAS ESE DÍA · {d.cuentas.length}</span>
+        <Chevron abierto={cuentasAbiertas} size={16} />
+      </button>
+      {cuentasAbiertas && d.cuentas.slice().sort((a, b) => a.pagadaTs - b.pagadaTs).map((c) => {
         const dividida = c.pagos && c.pagos.length > 1;
         const isExpanded = expandedCuentaId === c.id;
         const meta = !dividida && c.pagos && c.pagos[0] ? METODO_META[c.pagos[0].metodoPago] : null;
@@ -248,8 +256,12 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
         );
       })}
 
-      <div style={{ ...styles.catLabel, marginTop: 18 }}>PRODUCTOS VENDIDOS</div>
-      {productos.map(([name, p]) => (
+      <button type="button" aria-expanded={productosAbiertos} onClick={() => setProductosAbiertos((v) => !v)} className="no-imprimir"
+        style={{ ...styles.catLabel, marginTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", minHeight: 44, padding: 0, border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}>
+        <span>PRODUCTOS VENDIDOS · {productos.length}</span>
+        <Chevron abierto={productosAbiertos} size={16} />
+      </button>
+      {productosAbiertos && productos.map(([name, p]) => (
         <div key={name} style={styles.cajaProductRow}><span style={styles.cajaProductQty}>{p.qty}×</span><span style={styles.cajaProductName}>{name}</span><span style={styles.cajaProductSubtotal}>{money(p.subtotal)}</span></div>
       ))}
     </div>

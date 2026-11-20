@@ -982,11 +982,11 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           </div>
         )}
       {vistaMesas === "plano" ? (
-        <div style={{ padding: "0 16px 16px" }}>
+        <div className="tab-anim" style={{ padding: "0 16px 16px" }}>
           <PlanoSalon mesas={mesasVisibles} zonas={planoDe(config, pisoVista).zonas || []} alto={planoDe(config, pisoVista).alto || 100} cuentas={cuentas} orders={orders} editable={false} onTapMesa={tocarMesa} />
         </div>
       ) : (
-        <div className="ancho" style={styles.mesaGrid}>
+        <div className="ancho tab-anim" style={styles.mesaGrid}>
           {mesasVisibles.length === 0 && (
             <div style={styles.cajaEmptyText}>{variosPisos ? "Este piso todavía no tiene mesas. El administrador las agrega en Mesas." : 'No hay mesas creadas todavía. Toca "Mesas" para agregar la primera.'}</div>
           )}

@@ -147,7 +147,7 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
       )}
 
       {tabActual === "mesas" && (
-        <div className="ancho" style={styles.menuScroll}>
+        <div className="ancho tab-anim" style={styles.menuScroll}>
           {/* Resumen de lo que hay por cobrar */}
           <div style={cj.resumen}>
             <div style={cj.resCelda}><span style={cj.resEt}>Por cobrar</span><span style={cj.resGrande}>{money(porCobrar)}</span></div>
