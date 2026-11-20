@@ -45,7 +45,7 @@ ok(v.valor.activa === false && v.valor.emisionAutomatica === false, "los boolean
 
 console.log("\n── Estado de la resolución ──");
 ok(estadoResolucion(RES, "2026-11-16").estado === "vigente", "vigente");
-ok(estadoResolucion(RES, "2027-12-10").estado === "por_vencer" && estadoResolucion(RES, "2027-12-10").dias === 21, "por vencer (≤ 30 días) con los días que faltan");
+ok(estadoResolucion(RES, "2027-12-20").estado === "por_vencer" && estadoResolucion(RES, "2027-12-20").dias === 11 && estadoResolucion(RES, "2027-12-10").estado === "vigente", "por vencer (≤ 15 días) con los días que faltan");
 ok(estadoResolucion(RES, "2028-01-01").estado === "vencida", "vencida");
 ok(estadoResolucion(RES, "2025-12-31").estado === "aun_no_rige", "aún no rige");
 ok(estadoResolucion({}, "2026-11-16").estado === "sin_configurar", "sin configurar");

@@ -29,18 +29,20 @@ ok(REGIMENES.every((r) => CODIGO_RESPONSABILIDAD[r]) && CODIGO_RESPONSABILIDAD.r
 
 console.log("\n── Resolución: vigencia y folios ──");
 const R = { prefijo: "SETT", numero: "18760000001", desde: "1", hasta: "1000", vigenciaDesde: "2026-01-01", vigenciaHasta: "2027-01-01" };
-ok(estadoResolucion(R, "2026-06-01").estado === "vigente" && estadoResolucion(R, "2026-12-15").estado === "por_vencer" && estadoResolucion(R, "2027-02-01").estado === "vencida", "vigente / por vencer (≤30 días) / vencida");
+ok(estadoResolucion(R, "2026-06-01").estado === "vigente" && estadoResolucion(R, "2026-12-25").estado === "por_vencer" && estadoResolucion(R, "2027-02-01").estado === "vencida", "vigente / por vencer (≤15 días) / vencida");
 let f = estadoFolios(R, 0);
 ok(f.estado === "ok" && f.total === 1000 && f.disponibles === 1000, "sin consecutivos usados: 1000 disponibles");
 f = estadoFolios(R, 500); ok(f.usados === 500 && f.disponibles === 500 && f.estado === "ok", "a mitad de rango: ok");
-f = estadoFolios(R, 901); ok(f.estado === "por_agotarse" && f.disponibles === 99, "quedan 99 (≤10 %): por agotarse");
-f = estadoFolios({ ...R, hasta: "100" }, 60); ok(f.estado === "por_agotarse" && f.disponibles === 40, "rango corto: ≤50 folios → por agotarse");
+f = estadoFolios(R, 901); ok(f.estado === "ok" && f.disponibles === 99, "quedan 99: todavía ok (el aviso es con 25 o menos)");
+f = estadoFolios(R, 975); ok(f.estado === "por_agotarse" && f.disponibles === 25, "quedan 25: por agotarse");
+f = estadoFolios({ ...R, hasta: "100" }, 60); ok(f.estado === "ok" && f.disponibles === 40, "rango corto con 40 libres: ok");
+f = estadoFolios({ ...R, hasta: "100" }, 80); ok(f.estado === "por_agotarse" && f.disponibles === 20, "rango corto con 20 libres: por agotarse");
 f = estadoFolios(R, 1000); ok(f.estado === "agotada" && f.disponibles === 0, "último folio usado: agotada");
 ok(estadoFolios({}, 0).estado === "sin_datos" && estadoFolios({ desde: "10", hasta: "5" }, 0).estado === "sin_datos", "rango vacío o invertido: sin datos");
 ok(estadoFolios({ ...R, desde: "500" }, 0).usados === 0 && estadoFolios({ ...R, desde: "500" }, 0).disponibles === 501, "rango que empieza en 500: el consecutivo 0 no cuenta como usado");
 const docs = [{ estado: "emitida", prefijo: "SETT", numero: "SETT12" }, { estado: "anulada", prefijo: "SETT", numero: "SETT40" }, { estado: "error", prefijo: "SETT", numero: "SETT99" }, { estado: "emitida", prefijo: "OTRO", numero: "OTRO500" }];
 ok(ultimoConsecutivo(docs, "SETT") === 40, "último consecutivo: ignora errores y otros prefijos (las anuladas sí consumieron folio)");
-let al = alertasResolucion({ resolucion: R, ultimo: 950, estadoRes: estadoResolucion(R, "2026-12-20") });
+let al = alertasResolucion({ resolucion: R, ultimo: 980, estadoRes: estadoResolucion(R, "2026-12-20") });
 ok(al.length === 2 && al.every((a) => a.nivel === "alerta"), "vence pronto + pocos folios: dos alertas amarillas");
 ok(alertasResolucion({ resolucion: R, ultimo: 10, estadoRes: estadoResolucion(R, "2026-06-01") }).length === 0, "todo en orden: ninguna alerta");
 
