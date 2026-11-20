@@ -2,9 +2,9 @@
  * Alertas AMARILLAS preventivas de la facturación — funciones PURAS (npm run fiscal:probar).
  * Se muestran en la configuración y en Caja. Nunca bloquean la venta: avisan a tiempo.
  */
-export const UMBRAL_DIAS = 30;          // resolución «por vencer»
-export const UMBRAL_FOLIOS_PCT = 10;    // folios «por agotarse»: queda el 10 % o menos del rango…
-export const UMBRAL_FOLIOS_MIN = 50;    // …o quedan 50 o menos.
+export const UMBRAL_DIAS = 15;          // resolución «por vencer»: quedan 15 días o menos
+export const UMBRAL_FOLIOS_PCT = 0;     // (sin umbral por porcentaje)
+export const UMBRAL_FOLIOS_MIN = 25;    // folios «por agotarse»: quedan 25 o menos
 export const UVT_POR_DEFECTO = 52374;   // valor del UVT 2026 (COP). Es configurable: confírmalo cada enero con la DIAN.
 export const TOPE_POS_UVT = 5;          // tope legal del Documento Equivalente POS, en UVT.
 
@@ -23,6 +23,16 @@ export function estadoFolios(resolucion, ultimoConsecutivo = 0) {
   const porcentajeLibre = Math.round((disponibles / total) * 1000) / 10;
   const estado = disponibles <= 0 ? "agotada" : (porcentajeLibre <= UMBRAL_FOLIOS_PCT || disponibles <= UMBRAL_FOLIOS_MIN ? "por_agotarse" : "ok");
   return { estado, total, usados, disponibles, porcentajeLibre };
+}
+
+/**
+ * Último número ya USADO para contar folios: el mayor entre lo emitido por la app y «consecutivo actual − 1» que el administrador escribió
+ * (restaurantes que migran de otro sistema o que facturaron a mano en el portal del proveedor). La app NUNCA asigna números: lo hace el proveedor.
+ */
+export function ultimoEfectivo(resolucion, ultimoEmitido = 0) {
+  const sig = Number(String((resolucion && resolucion.siguiente) || "").replace(/\D/g, ""));
+  const desdeSig = Number.isFinite(sig) && sig > 0 ? sig - 1 : 0;
+  return Math.max(n(ultimoEmitido), desdeSig);
 }
 
 /** Mayor consecutivo emitido con el prefijo dado, a partir de los documentos (`{ prefijo, numero, estado }`). */

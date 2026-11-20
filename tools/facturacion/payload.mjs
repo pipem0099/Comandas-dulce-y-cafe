@@ -5,6 +5,7 @@
 import { calcularDesgloseFiscal, cuentaParaFiscal } from "./motor.mjs";
 import { configParaMotor } from "./config.mjs";
 import { referenciaProveedor } from "./idempotencia.mjs";
+import { alertaTopeUvt } from "./alertas.mjs";
 
 const pad = (n) => String(n).padStart(2, "0");
 /** Fecha y hora de Colombia (UTC-5, sin horario de verano) de una marca de tiempo. */
@@ -29,11 +30,15 @@ export function construirPayload({ cuenta, pedidos, ajustes, ahora = Date.now() 
   const pagos = (Array.isArray(cuenta.pagos) ? cuenta.pagos : Object.values(cuenta.pagos || {})).filter(Boolean)
     .map((p) => ({ metodo: METODOS[p.metodoPago] || "otro", monto: Number(p.monto) || 0 }));
   const { fecha, hora } = fechaHoraBogota(cuenta.pagadaTs || ahora);
+  // Documento Equivalente POS: si la cuenta pasa de 5 UVT y la conversión automática está activa (por defecto), se emite Factura Electrónica de Venta.
+  const convertida = ajustes.tipoDocumento === "pos" && ajustes.convertirPos !== false
+    && !!alertaTopeUvt({ tipoDocumento: "pos", totalDocumento: desglose.totalDocumento, valorUvt: ajustes.valorUvt || undefined });
   return {
     referencia: referenciaProveedor(cuenta.id),
     cuentaId: cuenta.id,
     modo: ajustes.modo,
-    tipoDocumento: ajustes.tipoDocumento,
+    tipoDocumento: convertida ? "factura" : ajustes.tipoDocumento,
+    ...(convertida ? { convertidoDePos: true } : {}),
     fecha, hora, moneda: "COP",
     resolucion: { ...ajustes.resolucion },
     emisor: { ...((ajustes.emisor) || {}) },

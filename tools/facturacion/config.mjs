@@ -46,10 +46,10 @@ const correoOk = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s);
 const fechaValida = (s) => FECHA.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
 
 export const AJUSTES_POR_DEFECTO = Object.freeze({
-  activa: false, modo: "pruebas", proveedor: "simulado", emisionAutomatica: false,
+  activa: false, modo: "pruebas", proveedor: "simulado", emisionAutomatica: false, consumidorFinal: true, convertirPos: true,
   tipoDocumento: "pos", impuesto: "inc", precios: "incluyen", propina: "excluir", valorUvt: UVT_POR_DEFECTO,
   emisor: EMISOR_VACIO,
-  resolucion: { prefijo: "", numero: "", desde: "", hasta: "", vigenciaDesde: "", vigenciaHasta: "" },
+  resolucion: { prefijo: "", numero: "", desde: "", hasta: "", siguiente: "", vigenciaDesde: "", vigenciaHasta: "" },
 });
 
 /** Completa lo que falte con valores de fábrica (para pintar la pantalla aunque nunca se haya configurado). */
@@ -65,6 +65,7 @@ export function validarResolucion(r, { exigir = false } = {}) {
   const numero = String(x.numero || "").trim();
   const desde = String(x.desde ?? "").trim(), hasta = String(x.hasta ?? "").trim();
   const vd = String(x.vigenciaDesde || "").trim(), vh = String(x.vigenciaHasta || "").trim();
+  const sigRaw = String(x.siguiente ?? "").trim();
   const algo = [prefijo, numero, desde, hasta, vd, vh].some(Boolean);
   if (exigir || algo) {
     if (!/^[A-Z0-9]{0,4}$/.test(prefijo)) e.prefijo = "El prefijo tiene hasta 4 letras o números, sin espacios.";
@@ -72,14 +73,18 @@ export function validarResolucion(r, { exigir = false } = {}) {
     if (!/^\d{1,12}$/.test(desde) || Number(desde) < 1) e.desde = "Escribe el número inicial del rango (1 o más).";
     if (!/^\d{1,12}$/.test(hasta)) e.hasta = "Escribe el número final del rango.";
     else if (!e.desde && Number(hasta) < Number(desde)) e.hasta = "El número final debe ser mayor o igual al inicial.";
+    if (sigRaw !== "") {
+      if (!/^\d{1,12}$/.test(sigRaw)) e.siguiente = "El consecutivo actual son solo dígitos.";
+      else if (!e.desde && !e.hasta && (Number(sigRaw) < Number(desde) || Number(sigRaw) > Number(hasta))) e.siguiente = `El consecutivo actual debe estar entre ${desde} y ${hasta}.`;
+    }
     if (!fechaValida(vd)) e.vigenciaDesde = "Elige la fecha desde la cual rige la resolución.";
     if (!fechaValida(vh)) e.vigenciaHasta = "Elige la fecha hasta la cual rige la resolución.";
     else if (!e.vigenciaDesde && vh < vd) e.vigenciaHasta = "La vigencia final no puede ser anterior a la inicial.";
   }
-  return { ok: Object.keys(e).length === 0, errores: e, valor: { prefijo, numero, desde, hasta, vigenciaDesde: vd, vigenciaHasta: vh } };
+  return { ok: Object.keys(e).length === 0, errores: e, valor: { prefijo, numero, desde, hasta, siguiente: /^\d{1,12}$/.test(sigRaw) ? sigRaw : "", vigenciaDesde: vd, vigenciaHasta: vh } };
 }
 
-/** Estado de la resolución a una fecha dada (`hoy` = "AAAA-MM-DD"): sin_configurar · vigente · por_vencer (≤ 30 días) · vencida · aun_no_rige. */
+/** Estado de la resolución a una fecha dada (`hoy` = "AAAA-MM-DD"): sin_configurar · vigente · por_vencer (≤ 15 días) · vencida · aun_no_rige. */
 export function estadoResolucion(r, hoy) {
   const v = validarResolucion(r);
   if (!r || !v.valor.numero || !v.ok) return { estado: "sin_configurar", dias: null };
@@ -87,7 +92,7 @@ export function estadoResolucion(r, hoy) {
   if (hoy < vd) return { estado: "aun_no_rige", dias: null };
   const dias = Math.round((Date.parse(`${vh}T00:00:00Z`) - Date.parse(`${hoy}T00:00:00Z`)) / 86400000);
   if (dias < 0) return { estado: "vencida", dias };
-  return { estado: dias <= 30 ? "por_vencer" : "vigente", dias };
+  return { estado: dias <= 15 ? "por_vencer" : "vigente", dias };
 }
 
 /**
@@ -118,7 +123,7 @@ export function validarAjustes(a, { credencialConfigurada = false, hoy = "", pro
   if (x.activa && enProduccion && x.proveedor !== "simulado" && hoy && !e["resolucion.vigenciaHasta"] && res.valor.vigenciaHasta && res.valor.vigenciaHasta < hoy) e["resolucion.vigenciaHasta"] = "La resolución ya venció: no se puede facturar en producción.";
   return {
     ok: Object.keys(e).length === 0, errores: e,
-    valor: { activa: x.activa === true, modo: x.modo, proveedor: x.proveedor, emisionAutomatica: x.emisionAutomatica === true, tipoDocumento: x.tipoDocumento, impuesto: x.impuesto, precios: x.precios, propina: x.propina, valorUvt: uvt, emisor: emi.valor, resolucion: res.valor },
+    valor: { activa: x.activa === true, modo: x.modo, proveedor: x.proveedor, emisionAutomatica: x.emisionAutomatica === true, consumidorFinal: x.consumidorFinal !== false, convertirPos: x.convertirPos !== false, tipoDocumento: x.tipoDocumento, impuesto: x.impuesto, precios: x.precios, propina: x.propina, valorUvt: uvt, emisor: emi.valor, resolucion: res.valor },
   };
 }
 

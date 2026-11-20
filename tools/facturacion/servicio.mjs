@@ -170,6 +170,7 @@ export async function procesar(solicitud, token, deps) {
         const pedidos = await db.pedidosDeCuenta(cuentaId);
         const payload = construirPayload({ cuenta: { ...cuenta, id: cuentaId }, pedidos, ajustes: aj, ahora: ahora() });
         if (payload.lineas.length === 0 || !(payload.totales.totalDocumento > 0)) return error(409, "vacia", "La cuenta no tiene valor para facturar.");
+        if (aj.consumidorFinal === false && payload.cliente.consumidorFinal) return error(409, "datos", "Esta cuenta no tiene datos del cliente (cédula o NIT). Agrégalos para facturar, o activa «Permitir venta sin cédula» en la configuración.");
 
         // Reserva atómica: solo UNA solicitud pasa de aquí al proveedor, aunque lleguen dos al tiempo.
         const t0 = ahora();
