@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { uid } from "../logica.js";
 import { Selector } from "../componentes/Campos.jsx";
+import { InfoTip } from "../componentes/InfoTip.jsx";
 import { styles } from "../estilos.js";
 import { cuentaCubre } from "../utilidades.js";
 import { getPisos, planoDe, conPlano, pisoIdDeMesa, PISO_BASE } from "../pisos.js";
@@ -18,6 +19,8 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
   const [editNombre, setEditNombre] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [error, setError] = useState("");
+  const [abrirPiso, setAbrirPiso] = useState(false);   // «Agregar piso» y «Agregar mesa» van plegados para no llenar la pantalla
+  const [abrirMesa, setAbrirMesa] = useState(false);
 
   // ── Pisos: cada piso tiene sus mesas y su propio plano ──
   const pisos = getPisos(config);
@@ -38,7 +41,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
     const n = nuevoPiso.trim(); if (!n) return;
     const id = "p" + uid().slice(0, 6);
     guardarPisos([...pisos, { id, nombre: n }], {}, `Agregó el piso "${n}"`);
-    setNuevoPiso(""); setPisoEd(id);
+    setNuevoPiso(""); setPisoEd(id); setAbrirPiso(false);
   };
   const renombrarPiso = (p) => {
     const n = editPisoNombre.trim(); if (!n) return;
@@ -75,7 +78,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
     const nueva = { id: uid(), nombre: nombre.trim(), ...(varios ? { piso: pisoActual } : {}) };
     persistMesas([...mesas, nueva]);
     registrar(`Agregó la mesa/espacio "${nueva.nombre}"`);
-    setNombre("");
+    setNombre(""); setAbrirMesa(false);
   };
 
   const empezarEdicion = (m) => { setEditId(m.id); setEditNombre(m.nombre); setError(""); };
@@ -152,31 +155,47 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
       <CabeceraAdmin titulo="Mesas y espacios" onClose={onClose} />
       <div className="ancho" style={styles.menuScroll}>
         <div style={styles.addItemCard}>
-          <div style={styles.catLabel}>PISOS</div>
-          <div style={styles.closeConfirmText}>{varios ? "Cada piso tiene sus propias mesas y su propio plano." : "¿Tu negocio tiene más de un piso? Agrega los demás y cada uno tendrá sus mesas y su plano."}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={styles.catLabel}>PISOS</div>
+            <InfoTip titulo="Pisos">{varios ? "Cada piso tiene sus propias mesas y su propio plano." : "¿Tu negocio tiene más de un piso? Agrega los demás y cada uno tendrá sus mesas y su plano."}</InfoTip>
+          </div>
           {varios && pisos.map((p, i) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 44 }}>
+            <div key={p.id} style={{ display: "flex", flexDirection: "column", gap: 6, minHeight: 44, justifyContent: "center" }}>
               {editPisoId === p.id ? (
                 <>
-                  <input autoFocus style={{ ...styles.editInput, flex: 1 }} value={editPisoNombre} onChange={(e) => setEditPisoNombre(e.target.value)} onKeyDown={(e) => e.key === "Enter" && renombrarPiso(p)} />
-                  <button style={styles.confirmYes} onClick={() => renombrarPiso(p)}>Guardar</button>
-                  <button style={styles.confirmNo} onClick={() => setEditPisoId(null)}>Cancelar</button>
-                </>
-              ) : (
-                <>
-                  <span style={{ ...styles.menuItemName, flex: 1 }}>{p.nombre}{i === 0 ? " · base" : ""}</span>
-                  <button aria-label={`Renombrar ${p.nombre}`} className="toque44" style={styles.deleteBtn} onClick={() => { setEditPisoId(p.id); setEditPisoNombre(p.nombre); }}><Pencil size={14} /></button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input autoFocus style={{ ...styles.editInput, flex: 1, minWidth: 0 }} aria-label={`Nombre del piso ${p.nombre}`} value={editPisoNombre} onChange={(e) => setEditPisoNombre(e.target.value)} onKeyDown={(e) => e.key === "Enter" && renombrarPiso(p)} />
+                    <button style={styles.confirmYes} onClick={() => renombrarPiso(p)}>Guardar</button>
+                    <button style={styles.confirmNo} onClick={() => { setEditPisoId(null); setBorrarPisoId(null); }}>Cancelar</button>
+                  </div>
                   {i > 0 && (borrarPisoId === p.id ? (
-                    <div style={{ display: "flex", gap: 4 }}><button style={styles.confirmYes} onClick={() => borrarPiso(p)}>Sí</button><button style={styles.confirmNo} onClick={() => setBorrarPisoId(null)}>No</button></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13.5, color: "var(--c-5c5648-t)", flex: 1 }}>¿Eliminar «{p.nombre}»?</span>
+                      <button style={styles.confirmYes} onClick={() => borrarPiso(p)}>Sí</button><button style={styles.confirmNo} onClick={() => setBorrarPisoId(null)}>No</button>
+                    </div>
                   ) : (
-                    <button aria-label={`Eliminar ${p.nombre}`} className="toque44" style={styles.deleteBtn} onClick={() => { setBorrarPisoId(p.id); setError(""); }}><Trash2 size={14} /></button>
+                    <button style={pl.eliminar} onClick={() => { setBorrarPisoId(p.id); setError(""); }}><Trash2 size={15} style={{ flexShrink: 0 }} /> Eliminar piso</button>
                   ))}
                 </>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ ...styles.menuItemName, flex: 1 }}>{p.nombre}{i === 0 ? " · base" : ""}</span>
+                  <button aria-label={`Editar ${p.nombre}`} className="toque44" style={styles.deleteBtn} onClick={() => { setEditPisoId(p.id); setEditPisoNombre(p.nombre); setBorrarPisoId(null); }}><Pencil size={14} /></button>
+                </div>
               )}
             </div>
           ))}
-          <input style={styles.editInput} placeholder={varios ? "Nombre del nuevo piso" : "Nombre del segundo piso (ej. Piso 2, Terraza alta)"} value={nuevoPiso} onChange={(e) => setNuevoPiso(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agregarPiso()} />
-          <button style={styles.addItemBtn} onClick={agregarPiso}><Plus size={15} /> Agregar piso</button>
+          {!abrirPiso ? (
+            <button style={styles.addItemBtn} aria-expanded="false" onClick={() => setAbrirPiso(true)}><Plus size={15} style={{ flexShrink: 0 }} /> Agregar piso</button>
+          ) : (
+            <>
+              <input autoFocus style={styles.editInput} aria-label="Nombre del piso nuevo" placeholder={varios ? "Nombre del nuevo piso" : "Ej. Piso 2, Terraza alta"} value={nuevoPiso} onChange={(e) => setNuevoPiso(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agregarPiso()} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={{ ...styles.addItemBtn, flex: 1 }} onClick={() => { setAbrirPiso(false); setNuevoPiso(""); }}>Cancelar</button>
+                <button style={{ ...styles.addItemBtn, flex: 1 }} onClick={agregarPiso}><Plus size={15} style={{ flexShrink: 0 }} /> Agregar</button>
+              </div>
+            </>
+          )}
         </div>
 
         {varios && (
@@ -189,10 +208,21 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
         )}
 
         <div style={{ ...styles.addItemCard, marginTop: varios ? 12 : 14 }}>
-          <div style={styles.catLabel}>AGREGAR MESA O ESPACIO{varios ? ` · ${(pisos.find((p) => p.id === pisoActual) || {}).nombre}` : ""}</div>
-          <div style={styles.closeConfirmText}>Puedes ponerle cualquier nombre: "Mesa 5", "Barra", "Mesa gris", "Terraza"…</div>
-          <input style={styles.editInput} placeholder="Nombre del espacio" value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agregarMesa()} />
-          <button style={styles.addItemBtn} onClick={agregarMesa}><Plus size={15} /> Agregar</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={styles.catLabel}>MESAS Y ESPACIOS{varios ? ` · ${(pisos.find((p) => p.id === pisoActual) || {}).nombre}` : ""}</div>
+            <InfoTip titulo="Mesas y espacios">Puedes ponerle cualquier nombre: «Mesa 5», «Barra», «Mesa gris», «Terraza»…</InfoTip>
+          </div>
+          {!abrirMesa ? (
+            <button style={styles.addItemBtn} aria-expanded="false" onClick={() => setAbrirMesa(true)}><Plus size={15} style={{ flexShrink: 0 }} /> Agregar mesa o espacio</button>
+          ) : (
+            <>
+              <input autoFocus style={styles.editInput} aria-label="Nombre del espacio" placeholder="Nombre del espacio" value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agregarMesa()} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={{ ...styles.addItemBtn, flex: 1 }} onClick={() => { setAbrirMesa(false); setNombre(""); }}>Cancelar</button>
+                <button style={{ ...styles.addItemBtn, flex: 1 }} onClick={agregarMesa}><Plus size={15} style={{ flexShrink: 0 }} /> Agregar</button>
+              </div>
+            </>
+          )}
         </div>
 
         {error && <div style={styles.pinError}>{error}</div>}
@@ -276,27 +306,30 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
               <button className="toque44" style={styles.mesaReorderBtn} onClick={() => mover(m, 1)} disabled={idx === mesasPiso.length - 1} aria-label="Bajar"><ChevronDown size={15} /></button>
             </div>
             {editId === m.id ? (
-              <>
-                <input autoFocus style={{ ...styles.editInput, flex: 1 }} value={editNombre} onChange={(e) => setEditNombre(e.target.value)} onKeyDown={(e) => e.key === "Enter" && guardarEdicion(m)} />
-                <button style={styles.confirmYes} onClick={() => guardarEdicion(m)}>Guardar</button>
-                <button style={styles.confirmNo} onClick={() => setEditId(null)}>Cancelar</button>
-              </>
-            ) : (
-              <>
-                <span style={{ ...styles.menuItemName, flex: 1 }}>{m.nombre}</span>
-                {tieneCuentaAbierta(m.id) && <span style={styles.enCursoTag}>cuenta abierta</span>}
-                {varios && (
-                  <Selector compacto titulo={`Piso de ${m.nombre}`} ariaLabel={`Piso de ${m.nombre}`} value={pisoIdDeMesa(m, config)} onChange={(v) => moverMesaDePiso(m, v)} opciones={pisos.map((p) => ({ valor: p.id, etiqueta: p.nombre }))} style={{ width: "auto", maxWidth: 140 }} />
-                )}
-                <button aria-label={`Editar ${m.nombre || "mesa"}`} className="toque44" style={styles.deleteBtn} onClick={() => empezarEdicion(m)}><Pencil size={14} /></button>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input autoFocus style={{ ...styles.editInput, flex: 1, minWidth: 0 }} aria-label={`Nombre de ${m.nombre}`} value={editNombre} onChange={(e) => setEditNombre(e.target.value)} onKeyDown={(e) => e.key === "Enter" && guardarEdicion(m)} />
+                  <button style={styles.confirmYes} onClick={() => guardarEdicion(m)}>Guardar</button>
+                  <button style={styles.confirmNo} onClick={() => { setEditId(null); setConfirmDeleteId(null); }}>Cancelar</button>
+                </div>
                 {confirmDeleteId === m.id ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13.5, color: "var(--c-5c5648-t)", flex: 1 }}>¿Eliminar «{m.nombre}»?</span>
                     <button style={styles.confirmYes} onClick={() => eliminarMesa(m)}>Sí</button>
                     <button style={styles.confirmNo} onClick={() => setConfirmDeleteId(null)}>No</button>
                   </div>
                 ) : (
-                  <button aria-label={`Eliminar ${m.nombre || "mesa"}`} className="toque44" style={styles.deleteBtn} onClick={() => { setConfirmDeleteId(m.id); setError(""); }}><Trash2 size={14} /></button>
+                  <button style={pl.eliminar} onClick={() => { setConfirmDeleteId(m.id); setError(""); }}><Trash2 size={15} style={{ flexShrink: 0 }} /> Eliminar</button>
                 )}
+              </div>
+            ) : (
+              <>
+                <span style={{ ...styles.menuItemName, flex: 1, minWidth: 0 }}>{m.nombre}</span>
+                {tieneCuentaAbierta(m.id) && <span style={styles.enCursoTag}>cuenta abierta</span>}
+                {varios && (
+                  <Selector compacto titulo={`Piso de ${m.nombre}`} ariaLabel={`Piso de ${m.nombre}`} value={pisoIdDeMesa(m, config)} onChange={(v) => moverMesaDePiso(m, v)} opciones={pisos.map((p) => ({ valor: p.id, etiqueta: p.nombre }))} style={{ width: "auto", maxWidth: 140 }} />
+                )}
+                <button aria-label={`Editar ${m.nombre || "mesa"}`} className="toque44" style={styles.deleteBtn} onClick={() => { empezarEdicion(m); setConfirmDeleteId(null); }}><Pencil size={14} /></button>
               </>
             )}
           </div>

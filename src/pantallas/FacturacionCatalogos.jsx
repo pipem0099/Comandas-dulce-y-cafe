@@ -63,10 +63,12 @@ export function PasoCatalogos({ ajustes, prov, modo, catalogo, mapeo, setMapeo, 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <button style={{ ...btn, opacity: puedeSincronizar ? 1 : 0.5 }} disabled={!puedeSincronizar} onClick={sincronizar}>
-        {ajustes.proveedor === "simulado" || !catalogo ? <Plug size={15} /> : <RefreshCw size={15} />} {ocupado === "sync" ? "Conectando…" : "Probar conexión y sincronizar catálogos"}
-      </button>
-      {!credOk && <div style={{ fontSize: 12.5, color: K.mute }}>Primero guarda las credenciales del ambiente elegido.</div>}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <button style={{ ...btn, flex: 1, whiteSpace: "nowrap", opacity: puedeSincronizar ? 1 : 0.5 }} disabled={!puedeSincronizar} onClick={sincronizar}>
+          {ajustes.proveedor === "simulado" || !catalogo ? <Plug size={15} style={{ flexShrink: 0 }} /> : <RefreshCw size={15} style={{ flexShrink: 0 }} />} <span>{ocupado === "sync" ? "Conectando…" : "Probar conexión"}</span>
+        </button>
+        <InfoTip titulo="Probar conexión">Se conecta con tu proveedor, trae sus numeraciones, impuestos, medios de pago y productos, y te deja elegir cuál usar.{!credOk ? " Primero guarda las credenciales del ambiente elegido." : ""}</InfoTip>
+      </div>
       <div role="status" aria-live="polite">
         {sync && (
           <div data-testid="resultado-sync" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -99,11 +101,12 @@ export function PasoCatalogos({ ajustes, prov, modo, catalogo, mapeo, setMapeo, 
         </div>
       )}
 
-      <button style={{ ...btn, opacity: ocupado || sucio || modo !== ajustes.modo ? 0.5 : 1 }} disabled={!!ocupado || sucio || ajustes.modo === "produccion"} onClick={probarEmision}>
-        <FlaskConical size={15} /> {ocupado === "emision" ? "Emitiendo prueba…" : `Ejecutar prueba de emisión (${ajustes.proveedor === "simulado" ? "Simulada" : "Sandbox"})`}
-      </button>
-      {sucio && <div style={{ fontSize: 12.5, color: K.mute }}>Guarda la configuración antes de probar la emisión.</div>}
-      {ajustes.modo === "produccion" && <div style={{ fontSize: 12.5, color: K.mute }}>La prueba de emisión solo se hace en el ambiente de Pruebas.</div>}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <button style={{ ...btn, flex: 1, whiteSpace: "nowrap", opacity: ocupado || sucio || modo !== ajustes.modo ? 0.5 : 1 }} disabled={!!ocupado || sucio || ajustes.modo === "produccion"} onClick={probarEmision}>
+          <FlaskConical size={15} style={{ flexShrink: 0 }} /> <span>{ocupado === "emision" ? "Emitiendo prueba…" : "Simular factura"}</span>
+        </button>
+        <InfoTip titulo="Simular factura">Emite un documento de prueba completo ({ajustes.proveedor === "simulado" ? "simulado" : "sandbox"}) sin tocar cuentas reales. Solo funciona en el ambiente de Pruebas y con la configuración ya guardada{sucio ? " (tienes cambios sin guardar)" : ""}.</InfoTip>
+      </div>
       <div role="status" aria-live="polite">
         {prueba && (
           <div data-testid="resultado-emision" style={{ display: "flex", flexDirection: "column", gap: 6 }}>

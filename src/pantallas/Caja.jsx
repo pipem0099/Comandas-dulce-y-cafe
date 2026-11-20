@@ -22,7 +22,7 @@ import { CargandoContenido } from "../componentes/Esqueletos.jsx";
 import { FacturaCuenta } from "../componentes/FacturaCuenta.jsx";
 import { useAjustesFiscales, useFacturasEnCola, useDocumentosFiscales } from "../useFacturacion.js";
 import { AlertasFiscales } from "../componentes/AlertasFiscales.jsx";
-import { alertasResolucion, ultimoConsecutivo } from "../../tools/facturacion/alertas.mjs";
+import { alertasResolucion, ultimoConsecutivo, ultimoEfectivo } from "../../tools/facturacion/alertas.mjs";
 import { estadoResolucion, conDefectos } from "../../tools/facturacion/config.mjs";
 
 // Las pestañas de administración (inventario, historial, reportes con gráficas) se bajan solo al abrirlas.
@@ -62,7 +62,7 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
     if (!ajustesFiscales || !ajustesFiscales.activa || ajustesFiscales.proveedor === "simulado") return [];
     const aj = conDefectos(ajustesFiscales);
     const hoy = new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);
-    return alertasResolucion({ resolucion: aj.resolucion, hoy, ultimo: ultimoConsecutivo(Object.values(documentosFiscales || {}), aj.resolucion.prefijo), estadoRes: estadoResolucion(aj.resolucion, hoy) });
+    return alertasResolucion({ resolucion: aj.resolucion, hoy, ultimo: ultimoEfectivo(aj.resolucion, ultimoConsecutivo(Object.values(documentosFiscales || {}), aj.resolucion.prefijo)), estadoRes: estadoResolucion(aj.resolucion, hoy) });
   })();
   // El cajero que no es propietario solo ve lo suyo: sin caja abierta no ve nada más que la apertura.
   const bloqueado = !turnoAbierto && !esAdmin;

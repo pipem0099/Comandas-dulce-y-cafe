@@ -16,7 +16,7 @@ import { InfoTip } from "../componentes/InfoTip.jsx";
 import { MontoSigno } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { descargarRespaldo } from "../exportar.js";
-import { hayVariasCajas } from "../pisos.js";
+import { hayVariasCajas, getCajas, nombreCaja, CAJA_BASE } from "../pisos.js";
 import { reversosEnRango } from "../facturacion/reversos.js";
 import { useDocumentosFiscales } from "../useFacturacion.js";
 import { agruparPorMes, arqueosDe, dateTimeLabel, dayKey, duracionLabel, mesaNombre, movimientosDe, propinasEnRango, tieneRol, timeLabel, totalesMovimientos, ventasDelTurno } from "../utilidades.js";
@@ -38,6 +38,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
   const [movForm, setMovForm] = useState(null); // 'entrada' | 'salida' | null
   const [errorMov, setErrorMov] = useState("");
   const [detalleAbierto, setDetalleAbierto] = useState(null);
+  const [filtroCaja, setFiltroCaja] = useState("todas");   // con varias cajas: ver los cierres de todas o de una sola
   const [flujoEntrega, setFlujoEntrega] = useState(null); // 'entregar' | 'asumir' | null
 
   const mesasAbiertas = cuentas.filter((c) => c.estado === "abierta");
@@ -130,7 +131,10 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
     avisar(todoCuadra ? { texto: "Caja cerrada", detalle: "todo cuadró ✓" } : { texto: "Caja cerrada con diferencia", detalle: "quedó registrada en el resumen", tipo: "info", duracion: 6000 });
   };
 
-  const cerrados = turnos.filter((t) => t.estado === "cerrado").sort((a, b) => b.cierreTs - a.cierreTs);
+  const todosCerrados = turnos.filter((t) => t.estado === "cerrado").sort((a, b) => b.cierreTs - a.cierreTs);
+  const idCajaDe = (tr) => tr.cajaId || CAJA_BASE;
+  const nombreCajaDe = (tr) => tr.cajaNombre || nombreCaja(config, idCajaDe(tr));
+  const cerrados = variasCajas && filtroCaja !== "todas" ? todosCerrados.filter((tr) => idCajaDe(tr) === filtroCaja) : todosCerrados;
 
   return (
     <div className="ancho" style={styles.menuScroll}>
@@ -308,9 +312,24 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
       {flujoEntrega && turnoAbierto && <FlujoEntrega modo={flujoEntrega} turno={turnoAbierto} cuentas={cuentas} usuarioActual={usuarioActual} equipo={equipo || []} onCerrar={() => setFlujoEntrega(null)} />}
       {movForm && <FormularioMovimiento tipoInicial={movForm} onCancelar={() => setMovForm(null)} onGuardar={registrarMovimiento} />}
 
-      {esAdmin && cerrados.length > 0 && (
+      {esAdmin && todosCerrados.length > 0 && (
         <>
           <div style={{ ...styles.catLabel, marginTop: 20 }}>TURNOS ANTERIORES</div>
+          {variasCajas && (
+            <div role="tablist" aria-label="Cierres por caja" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "4px 0 2px", WebkitOverflowScrolling: "touch" }}>
+              {[{ id: "todas", nombre: "Todas" }, ...getCajas(config)].map((c) => {
+                const n = c.id === "todas" ? todosCerrados.length : todosCerrados.filter((tr) => idCajaDe(tr) === c.id).length;
+                const on = filtroCaja === c.id;
+                return (
+                  <button key={c.id} role="tab" aria-selected={on} onClick={() => { setFiltroCaja(c.id); setDetalleAbierto(null); }}
+                    style={{ flexShrink: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: on ? "1px solid transparent" : "1px solid var(--btn2-line)", background: on ? "var(--chip-on-bg)" : "var(--btn2-bg)", color: on ? "var(--chip-on-fg)" : "var(--btn2-fg)", fontSize: 13.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                    {c.nombre} · {n}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {cerrados.length === 0 && <div style={styles.cajaEmptyText}>Esta caja todavía no tiene turnos cerrados.</div>}
           {agruparPorMes(cerrados, (tr) => tr.cierreTs).map((mes, i) => {
             const conDif = mes.items.filter((tr) => tr.diferencia !== 0).length;
             return (
@@ -328,7 +347,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                       <button style={t.cierreCabecera} onClick={() => setDetalleAbierto(abierto ? null : tr.id)} aria-expanded={abierto}>
                         <span style={{ display: "flex", flexDirection: "column", gap: 2, textAlign: "left" }}>
                           <span style={styles.cierreDate}>{dateTimeLabel(tr.aperturaTs)} → {timeLabel(tr.cierreTs)}</span>
-                          <span style={t.meta}>Abrió {tr.abiertoPor || "—"} · cerró {tr.cerradoPor || "—"}{Object.keys(tr.relevos || {}).length > 0 ? ` · ${Object.keys(tr.relevos).length} entrega(s) de caja` : ""}</span>
+                          <span style={t.meta}>{variasCajas ? <b style={{ color: "var(--c-242019-t)" }}>{nombreCajaDe(tr)} · </b> : null}Abrió {tr.abiertoPor || "—"} · cerró {tr.cerradoPor || "—"}{Object.keys(tr.relevos || {}).length > 0 ? ` · ${Object.keys(tr.relevos).length} entrega(s) de caja` : ""}</span>
                         </span>
                         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ ...styles.turnoDiff, color: tr.diferencia === 0 ? "var(--c-5b7553-t)" : "var(--c-c1442d-t)" }}>
