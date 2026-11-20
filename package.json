@@ -1,7 +1,7 @@
 {
   "name": "comandas",
   "private": true,
-  "version": "23.0.0",
+  "version": "23.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -29,7 +29,7 @@
     "pisos:probar": "node tools/probar-pisos.mjs",
     "version:probar": "node tools/probar-version.mjs",
     "comanda:probar": "node tools/probar-comanda.mjs",
-    "fiscal:probar": "node tools/probar-motor-fiscal.mjs && node tools/probar-config-fiscal.mjs && node tools/probar-cifrado-fiscal.mjs && node tools/probar-adaptadores-facturacion.mjs && node tools/probar-servicio-facturacion.mjs && node tools/probar-cliente-facturacion.mjs && node tools/probar-v23-logica.mjs && node tools/probar-reversos.mjs && node tools/probar-servicio-v23.mjs",
+    "fiscal:probar": "node tools/probar-motor-fiscal.mjs && node tools/probar-config-fiscal.mjs && node tools/probar-rediseno-fiscal.mjs && node tools/probar-cifrado-fiscal.mjs && node tools/probar-adaptadores-facturacion.mjs && node tools/probar-servicio-facturacion.mjs && node tools/probar-cliente-facturacion.mjs && node tools/probar-v23-logica.mjs && node tools/probar-reversos.mjs && node tools/probar-servicio-v23.mjs",
     "facturacion:llave": "node tools/generar-llave-facturacion.mjs"
   },
   "dependencies": {

@@ -212,6 +212,12 @@
         "emisionAutomatica": {
           ".validate": "newData.isBoolean()"
         },
+        "consumidorFinal": {
+          ".validate": "newData.isBoolean()"
+        },
+        "convertirPos": {
+          ".validate": "newData.isBoolean()"
+        },
         "modo": {
           ".validate": "newData.isString() && (newData.val() === 'pruebas' || newData.val() === 'produccion')"
         },
@@ -251,6 +257,12 @@
           },
           "codigoDane": {
             ".validate": "newData.isString() && newData.val().length <= 5"
+          },
+          "direccion": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          },
+          "telefono": {
+            ".validate": "newData.isString() && newData.val().length <= 20"
           },
           "correo": {
             ".validate": "newData.isString() && newData.val().length <= 200"
