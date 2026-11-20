@@ -171,7 +171,23 @@ async function drenarBandeja() {
   if (r && r.detenido && !reintentoProgramado) { reintentoProgramado = setTimeout(() => { reintentoProgramado = null; drenarBandeja(); }, 5000); }
   return r;
 }
-onValue(ref(db, ".info/connected"), (snap) => { conectado = snap.val() === true; avisarConexion(); if (conectado) drenarBandeja(); });
+/* Al abrir la app, Firebase dice «desconectado» unos instantes mientras abre su conexión, aunque haya internet. Eso NO es estar sin internet:
+ * durante los primeros segundos (y solo si el equipo sí tiene red) no se toma como desconexión, para no mostrar el aviso ni guardar en la bandeja
+ * cosas que Firebase puede enviar enseguida. Si pasado ese tiempo sigue sin conectar, entonces sí se considera sin internet. */
+const GRACIA_ARRANQUE_MS = 4000;
+const horaArranque = Date.now();
+let hubo = false, ultimoReal = conectado, revisionArranque = null;
+onValue(ref(db, ".info/connected"), (snap) => {
+  const real = snap.val() === true;
+  ultimoReal = real;
+  if (real) hubo = true;
+  const redEquipo = typeof navigator === "undefined" ? true : navigator.onLine !== false;
+  if (!real && !hubo && redEquipo && Date.now() - horaArranque < GRACIA_ARRANQUE_MS) {
+    if (!revisionArranque) revisionArranque = setTimeout(() => { revisionArranque = null; if (!hubo) { conectado = ultimoReal; avisarConexion(); } }, GRACIA_ARRANQUE_MS - (Date.now() - horaArranque) + 50);
+    return;
+  }
+  conectado = real; avisarConexion(); if (conectado) drenarBandeja();
+});
 
 /** Lista en vivo con copia local y con los cambios pendientes encima. Entrega siempre un array al callback. */
 function suscribirLista({ coleccion, clave, consulta, alError, alLlegar, callback }) {

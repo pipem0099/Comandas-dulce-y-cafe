@@ -165,7 +165,7 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 .hoja-v2-panel {
   position: relative; width: calc(100% - 20px); margin: 0 10px calc(10px + env(safe-area-inset-bottom));
   max-height: calc(100dvh - 28px - env(safe-area-inset-top)); display: flex; flex-direction: column; overflow: hidden;
-  background: var(--sheet); color: var(--c-242019-t); border-radius: 30px; box-shadow: var(--shadow-float);
+  background: var(--sheet); color: var(--c-242019-t); font-family: var(--font-body); border-radius: 30px; box-shadow: var(--shadow-float);
   transform: translate3d(0, calc(100% + 48px), 0); will-change: transform;
   transition: transform .5s cubic-bezier(.32, .72, 0, 1);
 }
