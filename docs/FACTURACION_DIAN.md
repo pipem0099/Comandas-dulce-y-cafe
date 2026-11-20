@@ -41,23 +41,26 @@ Notas por proveedor (importantes):
 
 Además: pídele la **razón social, NIT, municipio y código DANE** (están en el RUT) y la **resolución** (prefijo, número, rango desde/hasta, vigente desde/hasta). En Pruebas son opcionales; en Producción son obligatorias y la app avisa cuando faltan pocos días para el vencimiento.
 
-### 1.4 Configurar en la app (administrador): 6 pasos guiados
-«Mi cuenta» → **Facturación electrónica**. La pantalla es una guía de arriba hacia abajo:
-1. **Datos del restaurante (emisor):** razón social, NIT (el **dígito de verificación se calcula solo**), régimen, municipio, código DANE y correo oficial.
-2. **Estado y ambiente:** activa la facturación y elige **Pruebas / Sandbox** (o Producción). **Cada ambiente tiene sus propias credenciales, catálogos y relaciones**: cambiar de ambiente no mezcla ni borra lo del otro.
-3. **Proveedor y credenciales:** elige el proveedor (el icono (i) te dice dónde sacar las llaves), escríbelas y toca **Guardar credenciales**. Se cifran en el servidor y la app solo muestra «Configurado (••••1234)». Para **rotarlas** escríbelas todas de nuevo: el historial de facturas y tus relaciones de catálogos **se conservan** (solo si cambias de *proveedor* se reinician las relaciones, porque los códigos son de otra cuenta).
-4. **Conectar y relacionar catálogos:** toca **Probar conexión y sincronizar catálogos**. Si falla, abre «Detalle técnico del proveedor». Luego elige con selectores tu resolución, impuesto, medios de pago (efectivo, datáfono, transferencia) y producto contable, y toca **Guardar relaciones**. Para terminar, **Ejecutar prueba de emisión (Sandbox / Simulada)**: emite un documento de prueba sin tocar cuentas reales.
-5. **Reglas tributarias:** tipo de documento, impuesto, precios (incluyen/suman). La propina queda en «Excluir»; en **Opciones tributarias avanzadas** puedes incluirla como ingreso para terceros (no gravado) y fijar el valor de la UVT.
-6. **Resolución y numeración:** prefijo, número, rango y vigencia. La app muestra los **folios usados y disponibles** y, aquí y en Caja, **alertas amarillas** cuando la resolución está por vencer (30 días), vencida o quedan pocos folios (10 % o 50). Las alertas avisan; nunca bloquean la venta.
+### 1.4 Configurar en la app (administrador): asistente de 5 pasos y tarjetas resumen
+«Mi cuenta» → **Facturación electrónica**. Arriba siempre ves la **cabecera de estado**: interruptor *Facturación electrónica activa*, **Ambiente** (Pruebas / Producción) y **Folios disponibles**. Un aviso amarillo aparece solo cuando quedan **25 folios o menos** (o 0) o faltan **15 días o menos** para que venza la resolución.
 
-Toca **Guardar configuración**. Opcional: **Emitir automáticamente al cobrar**.
+**La primera vez** hay un asistente de 5 pasos («Paso X de 5», **‹ Atrás** / **Siguiente**; no avanza si falta algo):
+1. **Datos del emisor:** razón social, NIT (solo números; el **DV aparece solo**), responsabilidad fiscal del RUT (casilla 53), **municipio de Caldas** (el **Cód. DANE se llena solo** y no se escribe), dirección, teléfono y correo oficial.
+2. **Operación y ambiente:** activa, **Pruebas / Producción** y emisión automática al cobrar. Cada ambiente tiene sus propias credenciales, catálogos y relaciones.
+3. **Proveedor y pruebas:** elige el proveedor (con Simulado no hay credenciales). Con uno real escribe las llaves (con ojo para mostrar/ocultar) y toca **Guardar credenciales**: se cifran en el servidor y la app solo muestra «Configurado (••••1234)». Abre **Conexión, catálogos y pruebas** para **Probar conexión**, elegir tus catálogos y **Simular factura**.
+4. **Reglas tributarias:** tipo de documento (si es POS, el interruptor **Convertir sobre 5 UVT** viene activo: las cuentas que pasan de 5 UVT salen como Factura Electrónica), impuesto, precios, propina y **Venta sin cédula** (Consumidor Final 222222222222, activo por defecto; si lo apagas, Caja exige los datos del cliente).
+5. **Resolución y numeración:** prefijo, resolución, rango desde/hasta, **Consecutivo actual** (vacío = «Rango desde»; cámbialo si migras de otro sistema), vigencia y folios restantes. **Sincronizar consecutivo** toma el último número emitido desde la app; **no lee el portal del proveedor**: si facturaste allí a mano, escribe tú el número. La app **nunca asigna números**: lo hace el proveedor; el consecutivo solo sirve para contar folios.
+
+**Después de guardar** se ven 5 tarjetas resumen (solo lectura). Toca **Editar** en una para abrir su hoja con **Cancelar / Guardar**. Pasar a **Producción** o modificar la **resolución** pide una confirmación. No se guarda si «hasta» < «desde», si el consecutivo está fuera del rango o si la vigencia final es anterior a la inicial.
+
+> Datos nuevos (todos opcionales y compatibles): `emisor.direccion`, `emisor.telefono`, `resolucion.siguiente`, `consumidorFinal`, `convertirPos`. **Hay que publicar de nuevo las reglas de Firebase** (`database.rules.json`) para que acepten esos campos.
 
 ### 1.5 Primera prueba (obligatoria antes de producción)
-0. Ejecuta **Ejecutar prueba de emisión** (paso 4). Debe decir «Prueba correcta».
+0. Toca **Simular factura** (paso 3). Debe decir «Prueba correcta».
 1. Con ambiente **Pruebas**, cobra una cuenta pequeña (sin datos del cliente = **Consumidor final**, 222222222222) y toca **Emitir factura**. Debe quedar «Emitida» con número y CUFE.
 2. Abre el **PDF** y revisa: total, impuesto, propina y datos del cliente contra lo que cobraste. Imprime la **tirilla** (80 o 58 mm): lleva tus datos, la resolución DIAN, base e impuesto, el CUFE completo y el código QR.
 3. Pídele al contador que revise ese documento **en el panel del proveedor**.
-4. Prueba **Reenviar por correo** a tu propio correo.
+4. Prueba **Reenviar por correo** a tu propio correo. (Con el proveedor **Simulado** no sale ningún correo real: la app lo avisa. Con un proveedor real sí.)
 5. Prueba **Anular factura (Nota Crédito)**: pide un motivo y deja registro. El efectivo devuelto aparece como «Devoluciones por Nota Crédito» en el cuadre de caja y en el resumen del día.
 6. Prueba **sin internet**: apaga el wifi, toca «Emitir factura» (queda «Pendiente de envío») y enciéndelo: debe emitirse sola y **una sola vez**.
 7. Solo entonces cambia a **Producción** (cada factura pasa a tener validez fiscal real) y verifica la resolución.
