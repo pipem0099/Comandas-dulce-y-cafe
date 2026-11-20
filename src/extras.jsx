@@ -1,6 +1,7 @@
+import { Plegable, GrupoSecciones, Seccion } from "./componentes/Comunes.jsx";
 import React, { useState, useEffect, useRef } from "react";
 import { CabeceraAdmin } from "./componentes/CabeceraAdmin.jsx";
-import { Plus, Minus, Trash2, Check, X, Upload, Boxes, AlertTriangle, Pencil, ShoppingBag, Bike, Image as ImageIcon } from "lucide-react";
+import { Plus, Minus, Trash2, Check, X, Upload, Boxes, AlertTriangle, Pencil, ShoppingBag, Bike, Image as ImageIcon, ChevronDown } from "lucide-react";
 import { ACENTOS, FUENTES, MARCA_POR_DEFECTO, reducirLogo, vibrar } from "./theme.js";
 import { Hoja } from "./componentes/Hoja.jsx";
 import { Selector } from "./componentes/Campos.jsx";
@@ -376,6 +377,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
   const estaciones = getEstaciones(config);
   const categorias = [...new Set(menu.map((m) => m.cat))];
   const [nuevaEst, setNuevaEst] = useState("");
+  const [estAbierta, setEstAbierta] = useState(false);
   const [nombreNegocio, setNombreNegocio] = useState(config.businessName || "");
   const [nombreGuardado, setNombreGuardado] = useState(false);
   const [datosNeg, setDatosNeg] = useState({ nit: "", direccion: "", telefono: "", mensaje: "", ...(config.datosNegocio || {}) });
@@ -462,37 +464,34 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
 
       <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Nombre del negocio */}
-        <div style={x.card}>
-          <div style={x.eyebrow}>Nombre del negocio</div>
+        <GrupoSecciones>
+        <Seccion titulo="Nombre del negocio" resumen={config.businessName || "Sin nombre"}>
           <input style={x.input} placeholder="Ej: Dulce & Café" value={nombreNegocio} onChange={(e) => setNombreNegocio(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") guardarNombre(); }} />
           <div style={x.hint}>Aparece en la barra superior, en el ingreso, en los respaldos y en las listas que compartes.</div>
           <button style={{ ...x.btnDark, opacity: nombreNegocio.trim() && nombreNegocio.trim() !== (config.businessName || "") ? 1 : 0.5 }} disabled={!nombreNegocio.trim() || nombreNegocio.trim() === (config.businessName || "")} onClick={guardarNombre}>
             {nombreGuardado ? <><Check size={15} /> Guardado</> : "Guardar nombre"}
           </button>
-        </div>
+        </Seccion>
 
         {onAbrirAsistente && (
-          <div style={x.card}>
-            <div style={x.eyebrow}>Asistente de configuración</div>
+          <Seccion titulo="Asistente de configuración">
             <div style={x.hint}>Carga un menú de ejemplo según tu tipo de negocio y crea las mesas en pocos pasos. Sirve para empezar rápido o para mostrar la app. Si el menú ya tiene productos, solo agrega los que falten.</div>
             <button style={x.btnGhost} onClick={onAbrirAsistente}>Abrir el asistente</button>
-          </div>
+          </Seccion>
         )}
 
         {/* Datos del comprobante */}
-        <div style={x.card}>
-          <div style={x.eyebrow}>Datos que salen en el comprobante</div>
+        <Seccion titulo="Datos que salen en el comprobante">
           <input style={x.input} placeholder="NIT o cédula (opcional)" value={datosNeg.nit} onChange={(e) => setDatosNeg({ ...datosNeg, nit: e.target.value })} />
           <input style={x.input} placeholder="Dirección (opcional)" value={datosNeg.direccion} onChange={(e) => setDatosNeg({ ...datosNeg, direccion: e.target.value })} />
           <input style={x.input} inputMode="tel" placeholder="Teléfono o WhatsApp (opcional)" value={datosNeg.telefono} onChange={(e) => setDatosNeg({ ...datosNeg, telefono: e.target.value })} />
           <input style={x.input} placeholder="Mensaje final (ej: ¡Gracias por tu visita!)" value={datosNeg.mensaje} onChange={(e) => setDatosNeg({ ...datosNeg, mensaje: e.target.value })} />
           <div style={x.hint}>Salen en la cuenta y en el comprobante de venta, que se imprimen en papel de 80 mm o se envían por WhatsApp. El comprobante dice que no es factura electrónica.</div>
           <button style={x.btnDark} onClick={guardarDatosNeg}>{datosGuardados ? <><Check size={15} /> Guardado</> : "Guardar datos"}</button>
-        </div>
+        </Seccion>
 
         {/* Marca */}
-        <div style={x.card}>
-          <div style={x.eyebrow}>Marca</div>
+        <Seccion titulo="Marca">
           <div style={x.row}>
             <div style={{ minWidth: 64, maxWidth: 150, height: 64, padding: marca.logo ? "0 10px" : 0, borderRadius: 14, background: "#0E1013", border: `1px solid ${K.border}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
               {marca.logo ? <img src={marca.logo} alt="Logo" style={{ height: 40, width: "auto", maxWidth: 130, objectFit: "contain" }} /> : <ImageIcon size={24} color="#9BA4B0" strokeWidth={1.5} />}
@@ -526,40 +525,44 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
               </button>
             ))}
           </div>
-        </div>
+        </Seccion>
 
         {/* Estaciones */}
-        <div style={x.card}>
-          <div style={x.eyebrow}>Estaciones de preparación</div>
+        <Seccion titulo="Estaciones de preparación" resumen={`${estaciones.length} ${estaciones.length === 1 ? "estación" : "estaciones"}`}>
           <div style={x.hint}>Crea una estación por cada lugar donde se prepara algo (cocina, barra, postres…). Al enviar un pedido, el mesero elige a qué estación y a qué piso va; cada pantalla de preparación ve solo lo suyo. Con una sola estación y un solo piso todo funciona como siempre.</div>
+          <Plegable estilo={{ ...x.card, background: "transparent", padding: "4px 12px" }} estiloTitulo={x.label} titulo="Mis estaciones" resumen={estaciones.map((e) => e.nombre).join(" · ")}>
+          <div style={{ maxHeight: 232, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
           {estaciones.map((e) => (
             <div key={e.id} style={x.row}>
               <input style={{ ...x.input, flex: 1 }} defaultValue={e.nombre} onBlur={(ev) => renombrar(e.id, ev.target.value)} />
               {estaciones.length > 1 && <button className="toque44" style={x.btnDanger} onClick={() => borrarEstacion(e.id)} aria-label="Quitar estación"><Trash2 size={14} /></button>}
             </div>
           ))}
+          </div>
           <div style={x.row}>
             <input style={{ ...x.input, flex: 1 }} placeholder="Nueva estación (ej: Barra)" value={nuevaEst} onChange={(e) => setNuevaEst(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agregarEstacion()} />
             <button style={x.btnSmall} onClick={agregarEstacion}><Plus size={13} /> Agregar</button>
           </div>
+          </Plegable>
           {estaciones.length > 1 && categorias.length > 0 && (
-            <>
-              <div style={{ ...x.label, marginTop: 4 }}>Sugerencia por categoría (el mesero siempre puede cambiarla al enviar)</div>
+            <Plegable estilo={{ ...x.card, background: "transparent", padding: "4px 12px" }} estiloTitulo={x.label} titulo="Estación sugerida por categoría" resumen={`${categorias.length} categorías`}>
+              <div style={x.hint}>El mesero siempre puede cambiarla al enviar el pedido.</div>
+              <div style={{ maxHeight: 264, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
               {categorias.map((c) => (
                 <div key={c} style={{ ...x.row, justifyContent: "space-between" }}>
                   <span style={{ fontSize: 13.5, flex: 1 }}>{c}</span>
-                  <Selector style={{ width: "auto", minWidth: 170 }} value={(config.estacionPorCategoria || {})[c] || estaciones[0].id} onChange={(id) => asignarCategoria(c, id)} titulo={`Estación de ${c}`}
+                  <Selector style={{ width: "auto", minWidth: 170 }} value={(config.estacionPorCategoria || {})[c] || estaciones[0].id} onChange={(id) => asignarCategoria(c, id)}
                     opciones={estaciones.map((e) => ({ valor: e.id, etiqueta: e.nombre }))} />
                 </div>
               ))}
+              </div>
               <div style={x.hint}>Un producto puntual puede ir a otra estación desde Menú → Configurar.</div>
-            </>
+            </Plegable>
           )}
-        </div>
+        </Seccion>
 
         {/* Cajas */}
-        <div style={x.card}>
-          <div style={x.eyebrow}>Cajas</div>
+        <Seccion titulo="Cajas" resumen={cajas.length > 1 ? `${cajas.length} cajas` : "1 caja"}>
           <div style={x.hint}>Si tienes más de una caja (por ejemplo una por piso), créalas aquí. Cada caja abre y cierra su propio turno y cuadra su efectivo; los clientes pueden pagar en cualquiera de ellas. Puedes agregar una caja con el negocio abierto: el turno que está abierto sigue como «Caja 1» y la nueva se abre aparte.</div>
           {cajas.length > 1 && cajas.map((c) => (
             <div key={c.id} style={x.row}>
@@ -572,16 +575,16 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
             <input style={{ ...x.input, flex: 1 }} placeholder={cajas.length > 1 ? "Nueva caja (ej: Caja piso 3)" : "Agregar otra caja (ej: Caja piso 2)"} value={nuevaCaja} onChange={(e) => setNuevaCaja(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agregarCaja()} />
             <button style={x.btnSmall} onClick={agregarCaja}><Plus size={13} /> Agregar</button>
           </div>
-        </div>
+        </Seccion>
 
         {/* Inventario */}
-        <div style={x.card}>
-          <div style={x.eyebrow}>Inventario</div>
+        <Seccion titulo="Inventario" resumen={config.inventarioBloquear ? "Bloquea ventas sin insumo" : "No bloquea ventas"}>
           <Interruptor checked={!!config.inventarioBloquear} onChange={(v) => persistConfig({ ...config, inventarioBloquear: v })}>
             No dejar vender productos cuando falta un insumo
           </Interruptor>
           <div style={x.hint}>Apagado (recomendado al empezar): el producto sale con una etiqueta “SIN STOCK” pero se puede vender igual, por si el conteo todavía no está al día.</div>
-        </div>
+        </Seccion>
+        </GrupoSecciones>
       </div>
     </div>
   );

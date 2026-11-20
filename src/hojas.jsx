@@ -60,6 +60,7 @@ export function HojaDia({ d, orders, mesas, canceladas = [], config, usuario }) 
       <Kpis items={[
         { t: "Total cobrado", v: money(d.total) },
         { t: "Cuentas cobradas", v: String(d.cuentasCount), s: d.cuentasCount ? `Promedio por cuenta ${money(d.total / d.cuentasCount)}` : undefined },
+        { t: "Mesas atendidas", v: String(new Set(cuentas.map((c) => c.mesa)).size) },
         { t: "Productos vendidos", v: String(unidades), s: "unidades" },
         { t: "Propinas", v: money(propinas) },
         { t: "Descuentos y cortesías", v: money(descuentos) },

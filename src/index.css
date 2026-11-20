@@ -96,6 +96,9 @@ input, select, textarea { transition: border-color .18s ease, box-shadow .18s ea
 .campo-prefijo:focus-within { border-color: var(--accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .campo-prefijo input, .campo-prefijo input:focus { border: none !important; box-shadow: none !important; background: transparent !important; outline: none; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+/* Campos "sin borde" dentro de filas iOS / buscadores: no dibujan anillo propio (antes salía un recuadro verde descuadrado) */
+input[style*="border: none"]:focus, textarea[style*="border: none"]:focus, input[style*="border:none"]:focus { box-shadow: none !important; border-color: transparent !important; }
+.fila-ios:focus-within { background: color-mix(in srgb, var(--accent) 6%, transparent); transition: background .2s ease; }
 /* Foco: el anillo solo aparece cuando se navega con el teclado (Tab). Con mouse, dedo o lápiz nunca queda un
    borde pegado en el último botón tocado (antes quedaba un contorno blanco en cada opción elegida). */
 :focus { outline: none; }
@@ -330,3 +333,20 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 .esq-tarjeta { border-radius: 16px; border: 1px solid var(--c-e4dfce-o, rgba(127,127,127,.2)); background: var(--c-fffdf8-b, transparent); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .esq-aparece { animation: fadeIn .25s ease both; }
 @media (prefers-reduced-motion: reduce) { .esq { animation: none; } }
+
+/* Aviso de versión nueva: tarjeta flotante de vidrio */
+.aviso-version { position: fixed; left: 0; right: 0; top: calc(10px + env(safe-area-inset-top)); z-index: 95; display: flex; justify-content: center; padding: 0 14px; pointer-events: none; }
+.aviso-version-card { pointer-events: auto; display: flex; align-items: center; gap: 12px; width: 100%; max-width: 420px; padding: 10px 10px 10px 12px; border-radius: 22px; background: color-mix(in srgb, var(--btn2-bg) 82%, transparent); -webkit-backdrop-filter: saturate(180%) blur(22px); backdrop-filter: saturate(180%) blur(22px); border: 1px solid var(--btn2-line); box-shadow: 0 10px 30px rgba(0,0,0,.14), 0 1px 3px rgba(0,0,0,.08); color: var(--btn2-fg); animation: avisoVersionEntra .5s cubic-bezier(.32,.72,0,1) both; }
+.aviso-version-ico { flex: none; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--accent); color: #fff; }
+.aviso-version-btn { flex: none; min-height: 44px; padding: 0 18px; border-radius: 22px; border: none; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; transition: transform .15s ease, opacity .2s ease; }
+.aviso-version-btn:active:not(:disabled) { transform: scale(.96); }
+.aviso-version-btn:disabled { opacity: .7; }
+@keyframes avisoVersionEntra { from { opacity: 0; transform: translateY(-16px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .aviso-version-card { animation: none; } }
+
+/* Cambio de pestaña dentro de una pantalla: el contenido se funde (solo opacidad: no toca el layout) */
+@keyframes tabIn { from { opacity: 0; } to { opacity: 1; } }
+.tab-anim { animation: tabIn .26s cubic-bezier(.32, .72, 0, 1) both; }
+/* Píldoras, pestañas y barra inferior: el color de selección entra con suavidad, sin saltar */
+[role="tab"], [aria-current], [aria-pressed], [aria-selected] { transition: background-color .28s cubic-bezier(.32,.72,0,1), color .28s ease, box-shadow .28s ease, transform .22s cubic-bezier(.32,.72,0,1), opacity .2s ease; }
+@media (prefers-reduced-motion: reduce) { .tab-anim { animation: none; } }
