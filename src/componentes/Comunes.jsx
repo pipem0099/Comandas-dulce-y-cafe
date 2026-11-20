@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, Children, cloneElement, isValidElement } from "react";
 import { ChevronDown, MoreHorizontal } from "lucide-react";
 import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
@@ -191,6 +191,67 @@ export function MenuContextual({ acciones, label = "Más acciones" }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Tarjeta plegable (estilo iOS): cabecera táctil de 44 px con título, resumen opcional y flecha; el cuerpo se despliega con animación suave. */
+export function Plegable({ titulo, resumen, inicialAbierto = false, estilo, estiloTitulo, children }) {
+  const [abierto, setAbierto] = useState(inicialAbierto);
+  return (
+    <div style={estilo}>
+      <button type="button" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, width: "100%", minHeight: 44, padding: 0, border: "none", background: "transparent", cursor: "pointer", textAlign: "left", color: "inherit", font: "inherit" }}>
+        <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+          <span style={{ ...estiloTitulo, margin: 0 }}>{titulo}</span>
+          {resumen && <span style={{ fontSize: 12.5, opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{resumen}</span>}
+        </span>
+        <ChevronDown size={18} aria-hidden="true" style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: abierto ? "rotate(180deg)" : "none" }} />
+      </button>
+      <div style={{ display: "grid", gridTemplateRows: abierto ? "1fr" : "0fr", transition: "grid-template-rows .35s cubic-bezier(.32,.72,0,1)" }}>
+        <div style={{ overflow: "hidden", minHeight: 0, visibility: abierto ? "visible" : "hidden", transition: "visibility .35s" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Lista agrupada estilo iOS, sin íconos: una sola tarjeta con filas (título, resumen y flecha). Al tocar una fila se
+ * despliega SOLO esa sección (las demás se pliegan), así ves únicamente lo que quieres editar.
+ *   <GrupoSecciones><Seccion titulo="Marca" resumen="Logo y color">…</Seccion> …</GrupoSecciones>
+ */
+export function GrupoSecciones({ children, inicial = null }) {
+  const [abierta, setAbierta] = useState(inicial);
+  const hijos = Children.toArray(children).filter(isValidElement);
+  return (
+    <div style={{ borderRadius: 16, border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", overflow: "hidden" }}>
+      {hijos.map((h, i) => cloneElement(h, {
+        key: h.key || i, ultima: i === hijos.length - 1,
+        abierta: abierta === (h.props.id || h.props.titulo),
+        alternar: () => setAbierta((a) => (a === (h.props.id || h.props.titulo) ? null : (h.props.id || h.props.titulo))),
+      }))}
+    </div>
+  );
+}
+
+export function Seccion({ titulo, resumen, abierta, alternar, ultima, children }) {
+  return (
+    <div style={{ borderBottom: ultima ? "none" : "1px solid var(--btn2-line)" }}>
+      <button type="button" aria-expanded={!!abierta} onClick={alternar}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, width: "100%", minHeight: 56, padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", color: "var(--btn2-fg)", font: "inherit" }}>
+        <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+          <span style={{ fontSize: 16, fontWeight: 600 }}>{titulo}</span>
+          {resumen && <span style={{ fontSize: 13, opacity: 0.65, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{resumen}</span>}
+        </span>
+        <ChevronDown size={18} aria-hidden="true" style={{ flexShrink: 0, opacity: 0.6, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: abierta ? "rotate(180deg)" : "none" }} />
+      </button>
+      <div style={{ display: "grid", gridTemplateRows: abierta ? "1fr" : "0fr", transition: "grid-template-rows .35s cubic-bezier(.32,.72,0,1)" }}>
+        <div style={{ overflow: "hidden", minHeight: 0, visibility: abierta ? "visible" : "hidden", transition: "visibility .35s" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "2px 16px 16px" }}>{children}</div>
+        </div>
+      </div>
     </div>
   );
 }
