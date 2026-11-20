@@ -1,3 +1,7 @@
+import { imprimir } from "../impresion.jsx";
+import { DatosFactura } from "./DatosFactura.jsx";
+import { parcharCuenta } from "../cuentasOps.js";
+import { etiquetaDocumento } from "../facturacion/datosFiscales.js";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FileText, Mail, Ban, Send, ChevronDown, Printer } from "lucide-react";
@@ -12,7 +16,7 @@ import { ticketFactura } from "../termica/tickets.js";
 import { textoQr } from "../facturacion/qr.js";
 import { AlertasFiscales } from "./AlertasFiscales.jsx";
 import { alertaTopeUvt } from "../../tools/facturacion/alertas.mjs";
-import { generarPdfSimulado, lineasDelPdf } from "../facturacion/pdfSimulado.js";
+import { generarPdfSimulado, lineasDelPdf, numeroCompleto } from "../facturacion/pdfSimulado.js";
 import { useDocumentoFactura } from "../useFacturacion.js";
 
 /*
@@ -37,6 +41,8 @@ export function FacturaCuenta({ cuenta, ajustes, esAdmin, enCola, totalDocumento
   const [aviso, setAviso] = useState(null); // { tipo: "ok"|"error", texto, detalle? }
   const [dialogo, setDialogo] = useState(null); // "correo" | "anular"
   const [verDetalle, setVerDetalle] = useState(false);
+  const [datos, setDatos] = useState(false);   // hoja «Datos para factura»
+  const [abierto, setAbierto] = useState(false);   // opciones de una factura ya emitida: plegadas por defecto, se despliegan y se esconden
   const intentoAuto = useRef(false);
 
   const procesar = async (promesa, textoOk) => {
@@ -79,31 +85,54 @@ export function FacturaCuenta({ cuenta, ajustes, esAdmin, enCola, totalDocumento
       setAviso(r.ok ? { tipo: "ok", texto: "Tirilla enviada a la impresora." } : { tipo: "error", texto: r.motivo || "No se pudo imprimir." });
       return;
     }
-    // Sin impresora térmica en este equipo: hoja imprimible del navegador (con el texto del QR para consulta en la DIAN).
-    const w = window.open("", "_blank", "noopener");
-    if (!w) { setAviso({ tipo: "error", texto: "El navegador bloqueó la ventana de impresión." }); return; }
-    const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-    w.document.write(`<pre style="font:12px monospace;white-space:pre-wrap;max-width:300px">${esc(lineasDelPdf(doc).join("\n"))}\n\nCUFE/CUDE:\n${esc(doc.cufe || "")}\n\nConsulta (QR): ${esc(textoQr(doc))}</pre>`);
-    w.document.close(); w.focus(); w.print();
+    // Sin impresora térmica en este equipo: se imprime con el mismo sistema de impresión de la app (el de los cierres de caja),
+    // que dibuja la tirilla fuera de la pantalla y abre el diálogo del celular. No usa ventanas emergentes (el celular las bloquea).
+    imprimir(
+      <pre style={{ font: "12px/1.35 monospace", whiteSpace: "pre-wrap", wordBreak: "break-all", margin: 0, color: "#000" }}>
+        {lineasDelPdf(doc).join("\n")}{"\n\nConsulta del documento (QR):\n"}{textoQr(doc)}
+      </pre>, { papel: "recibo" });
   };
   const verPdf = () => { const u = urlPdf(doc, generarPdfSimulado); if (u) window.open(u, "_blank", "noopener"); };
 
   return (
     <div data-factura-estado={est.clave} style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", paddingTop: 8, borderTop: "1px solid var(--btn2-line)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <FileText size={15} color="var(--btn2-mute)" aria-hidden="true" />
-        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--btn2-mute)" }}>Factura electrónica</span>
-        <span data-testid="factura-etiqueta" style={{ fontSize: 13, fontWeight: 800, color: TONOS[est.tono] }}>{est.etiqueta}</span>
-        {doc && doc.proveedor === "simulado" && <span style={{ fontSize: 12, color: "var(--btn2-mute)" }}>· simulada</span>}
-      </div>
+      {(() => {
+        const plegable = !!doc && (est.clave === "emitida" || est.clave === "anulada");
+        const cab = (
+          <>
+            <FileText size={15} color="var(--btn2-mute)" aria-hidden="true" />
+            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--btn2-mute)" }}>Factura electrónica</span>
+            <span data-testid="factura-etiqueta" style={{ fontSize: 13, fontWeight: 800, color: TONOS[est.tono] }}>{est.etiqueta}</span>
+            {doc && doc.proveedor === "simulado" && <span style={{ fontSize: 12, color: "var(--btn2-mute)" }}>· simulada</span>}
+            {plegable && <ChevronDown size={16} aria-hidden="true" style={{ marginLeft: "auto", color: "var(--btn2-mute)", transform: abierto ? "rotate(180deg)" : "none", transition: "transform .2s" }} />}
+          </>
+        );
+        const fila = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
+        return plegable
+          ? <button type="button" data-testid="factura-alternar" aria-expanded={abierto} aria-label={abierto ? "Ocultar opciones de la factura" : "Ver opciones de la factura"} onClick={() => setAbierto((v) => !v)} style={{ ...fila, minHeight: 44, width: "100%", padding: 0, border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}>{cab}</button>
+          : <div style={fila}>{cab}</div>;
+      })()}
+      {(!doc || (est.clave !== "emitida" && est.clave !== "anulada") || abierto) && (<>
       {(est.clave === "emitida" || est.clave === "anulada") && doc && (
         <div style={{ fontSize: 13, color: "var(--btn2-fg)", lineHeight: 1.5, wordBreak: "break-all" }}>
-          <div>Número: <b data-testid="factura-numero">{doc.prefijo && String(doc.numero).startsWith(doc.prefijo) ? doc.numero : `${doc.prefijo || ""}${doc.numero || ""}`}</b></div>
+          <div>Número: <b data-testid="factura-numero">{numeroCompleto(doc)}</b></div>
           {doc.cufe && <div title={doc.cufe}>CUFE: <span data-testid="factura-cufe">{corto(doc.cufe)}</span></div>}
           {est.detalle && <div>{est.detalle}</div>}
           {doc.anulacion && doc.anulacion.motivo && <div>Motivo: {doc.anulacion.motivo}</div>}
         </div>
       )}
+      {(() => {
+        const emitidaOAnulada = est.clave === "emitida" || est.clave === "anulada";
+        const c = emitidaOAnulada ? (doc && doc.payload && doc.payload.cliente) : cuenta.datosFiscales;
+        const hay = c && c.numero && !c.consumidorFinal && c.tipoDoc !== "CF";
+        const texto = hay ? `${c.nombre || ""} · ${etiquetaDocumento(c) || c.numero}` : "Consumidor final";
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span data-testid="factura-cliente" style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--btn2-fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Cliente: <b>{texto}</b></span>
+            {!emitidaOAnulada && <button type="button" style={{ ...btn, minHeight: 44 }} disabled={trabajando} onClick={() => setDatos(true)}>{hay ? "Cambiar" : "Poner datos"}</button>}
+          </div>
+        );
+      })()}
       {est.clave !== "emitida" && est.clave !== "anulada" && est.detalle && <div style={{ fontSize: 13, color: est.tono === "error" ? "var(--c-c1442d-t)" : "var(--btn2-mute)" }}>{est.detalle}</div>}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {habilitada && est.puedeEmitir && <button style={btn} disabled={trabajando} onClick={() => emitir(est.clave === "error" && est.incierto ? { forzar: true } : {})}><Send size={15} /> {est.clave === "error" ? est.etiquetaReintento : "Emitir factura"}</button>}
@@ -113,6 +142,7 @@ export function FacturaCuenta({ cuenta, ajustes, esAdmin, enCola, totalDocumento
         {est.puedeReenviar && <button style={btn} disabled={trabajando} onClick={() => setDialogo("correo")}><Mail size={15} /> Reenviar por correo</button>}
         {est.puedeAnular && <button style={btnPeligro} disabled={trabajando} onClick={() => setDialogo("anular")}><Ban size={15} /> Anular factura (Nota Crédito)</button>}
       </div>
+      </>)}
       {habilitada && !doc && <AlertasFiscales testid="alerta-tope-uvt" alertas={[alertaTopeUvt({ tipoDocumento: ajustes.tipoDocumento, totalDocumento, valorUvt: ajustes.valorUvt })].filter(Boolean)} />}
       {est.clave === "error" && est.reintentoAutomatico && <div data-testid="factura-reintento-auto" style={{ fontSize: 12.5, color: "var(--btn2-mute)" }}>Falló la conexión: la app lo reintenta sola en segundo plano. También puedes pulsar «{est.etiquetaReintento}».</div>}
       {est.clave === "error" && est.reintentosAgotados && <div style={{ fontSize: 12.5, color: "var(--btn2-mute)" }}>Se agotaron los reintentos automáticos. Pulsa «{est.etiquetaReintento}» cuando haya conexión.</div>}
@@ -130,15 +160,16 @@ export function FacturaCuenta({ cuenta, ajustes, esAdmin, enCola, totalDocumento
           </div>
         )}
       </div>
-      {dialogo === "correo" && <DialogoCorreo inicial={(doc && doc.ultimoCorreo && doc.ultimoCorreo.a) || (doc && doc.payload && doc.payload.cliente && doc.payload.cliente.correo) || (cuenta.datosFiscales && cuenta.datosFiscales.correo) || ""} onCerrar={() => setDialogo(null)}
-        onEnviar={(correo) => procesar(solicitarFacturacion({ accion: "reenviar_correo", cuentaId: cuenta.id, correo }), () => `Factura reenviada a ${correo}.`)} />}
+      {datos && <DatosFactura valor={cuenta.datosFiscales} onGuardar={(d) => parcharCuenta(cuenta.id, { datosFiscales: d })} onQuitar={() => parcharCuenta(cuenta.id, { datosFiscales: null })} onCerrar={() => setDatos(false)} />}
+      {dialogo === "correo" && <DialogoCorreo simulada={!!(doc && doc.proveedor === "simulado")} inicial={(doc && doc.ultimoCorreo && doc.ultimoCorreo.a) || (doc && doc.payload && doc.payload.cliente && doc.payload.cliente.correo) || (cuenta.datosFiscales && cuenta.datosFiscales.correo) || ""} onCerrar={() => setDialogo(null)}
+        onEnviar={(correo) => procesar(solicitarFacturacion({ accion: "reenviar_correo", cuentaId: cuenta.id, correo }), () => ((doc && doc.proveedor === "simulado") ? `Envío simulado a ${correo}: en modo de prueba no sale ningún correo real.` : `Factura reenviada a ${correo}.`))} />}
       {dialogo === "anular" && esAdmin && <DialogoAnular numero={doc && `${doc.prefijo || ""}${doc.numero || ""}`} onCerrar={() => setDialogo(null)}
         onAnular={(motivo) => procesar(solicitarFacturacion({ accion: "anular", cuentaId: cuenta.id, motivo }), (c) => `Factura anulada. Nota crédito ${(c.documento && c.documento.anulacion && c.documento.anulacion.numeroNota) || ""}.`)} />}
     </div>
   );
 }
 
-function DialogoCorreo({ inicial, onEnviar, onCerrar }) {
+function DialogoCorreo({ inicial, simulada, onEnviar, onCerrar }) {
   const [correo, setCorreo] = useState(inicial);
   const valido = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo.trim());
   return createPortal(
@@ -146,8 +177,9 @@ function DialogoCorreo({ inicial, onEnviar, onCerrar }) {
       {({ cerrar }) => (
         <>
           <div style={titulo}>Reenviar por correo</div>
-          <input style={styles.editInput} type="email" inputMode="email" maxLength={120} placeholder="Correo del cliente" aria-label="Correo del cliente" value={correo} onChange={(e) => setCorreo(e.target.value)} />
-          <button style={{ ...styles.sendBtn, opacity: valido ? 1 : 0.4 }} disabled={!valido} onClick={() => { onEnviar(correo.trim()); cerrar(); }}>Enviar factura</button>
+          {simulada && <div role="note" style={{ fontSize: 13, lineHeight: 1.45, color: "var(--btn2-fg)", background: "var(--btn2-bg)", border: "1px solid var(--btn2-line)", borderRadius: 12, padding: "10px 12px" }}>Esta factura es de <b>prueba (Simulado)</b>: aquí no se envía ningún correo real. Cuando uses un proveedor real (Factus, Alegra, Siigo o Dataico), el correo sale al cliente.</div>}
+          <input style={styles.editInput} type="email" inputMode="email" autoCapitalize="off" autoCorrect="off" maxLength={120} placeholder="Correo del cliente" aria-label="Correo del cliente" value={correo} onChange={(e) => setCorreo(e.target.value)} />
+          <button style={{ ...styles.sendBtn, opacity: valido ? 1 : 0.4 }} disabled={!valido} onClick={() => { onEnviar(correo.trim()); cerrar(); }}>{simulada ? "Simular envío" : "Enviar factura"}</button>
           <button style={styles.cancelEditBtn} onClick={cerrar}>Cancelar</button>
         </>
       )}

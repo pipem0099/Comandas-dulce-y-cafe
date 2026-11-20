@@ -25,12 +25,15 @@ const filaOn = { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", fo
 const botonSec = { minHeight: 44, flex: 1, borderRadius: 12, border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", color: "var(--btn2-fg)", fontSize: 14.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)" };
 
 /* ───────────────────────── Selector (lista) ───────────────────────── */
-export function Selector({ value, onChange, opciones, titulo: tit, style, ariaLabel, compacto = false, placeholder = "Elegir" }) {
+export function Selector({ value, onChange, opciones, titulo: tit, style, ariaLabel, compacto = false, placeholder = "Elegir", buscable = false, bloqueado = false }) {
   const [abierto, setAbierto] = useState(false);
+  const [q, setQ] = useState("");
+  const sin = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const visibles = buscable && q.trim() ? opciones.filter((o) => sin(o.etiqueta).includes(sin(q.trim()))) : opciones;
   const actual = opciones.find((o) => String(o.valor) === String(value));
   return (
     <>
-      <button type="button" aria-haspopup="listbox" aria-label={ariaLabel || tit} onClick={() => setAbierto(true)}
+      <button type="button" aria-haspopup="listbox" aria-label={ariaLabel || tit} disabled={bloqueado} onClick={() => { setQ(""); setAbierto(true); }}
         style={{ ...campo, ...(compacto ? { minHeight: 40, padding: "0 12px", fontSize: 13 } : {}), ...style }}>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: actual ? undefined : "var(--btn2-mute)" }}>{actual ? actual.etiqueta : placeholder}</span>
         <Chevron abierto={abierto} size={16} />
@@ -40,8 +43,10 @@ export function Selector({ value, onChange, opciones, titulo: tit, style, ariaLa
           {({ cerrar }) => (
             <>
               {tit && <div style={titulo}>{tit}</div>}
+              {buscable && <input type="search" autoComplete="off" autoCorrect="off" aria-label={`Buscar: ${tit || ""}`} placeholder="Buscar" value={q} onChange={(e) => setQ(e.target.value)} style={{ height: 44, borderRadius: 12, border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", color: "var(--c-242019-t)", padding: "0 14px", fontSize: 15, fontFamily: "inherit" }} />}
               <div role="listbox" aria-label={tit} style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: "55vh", overflowY: "auto" }}>
-                {opciones.map((o) => {
+                {buscable && visibles.length === 0 && <div style={{ padding: "12px 14px", color: "var(--btn2-mute)", fontSize: 14 }}>Sin resultados.</div>}
+                {visibles.map((o) => {
                   const on = String(o.valor) === String(value);
                   return (
                     <button key={String(o.valor)} type="button" role="option" aria-selected={on} style={{ ...filaBase, ...(on ? filaOn : {}) }} onClick={() => { onChange(o.valor); cerrar(); }}>

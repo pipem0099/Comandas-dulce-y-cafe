@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
 import { styles } from "../estilos.js";
@@ -16,7 +16,18 @@ export function BannerConexion({ conexion, esAdmin }) {
   const [abierto, setAbierto] = useState(false);
   const [, refrescar] = useState(0);
   const { conectado, pendientes, conflictos, sincronizando } = conexion;
+  // El aviso de «sin internet» / «enviando» solo aparece si dura más de unos segundos: un parpadeo al abrir la app no es un problema para nadie.
+  // (Si el equipo mismo dice que no tiene red, se muestra de inmediato.)
+  const hayAlgo = !conectado || pendientes > 0;
+  const [dura, setDura] = useState(false);
+  useEffect(() => {
+    if (!hayAlgo) { setDura(false); return undefined; }
+    if (!conectado && typeof navigator !== "undefined" && navigator.onLine === false) { setDura(true); return undefined; }
+    const t = setTimeout(() => setDura(true), 3500);
+    return () => clearTimeout(t);
+  }, [hayAlgo, conectado]);
   if (conectado && pendientes === 0 && conflictos === 0) return null;
+  if (conflictos === 0 && !dura) return null;
   const lista = abierto ? conflictosSinConexion() : [];
   return (
     <>

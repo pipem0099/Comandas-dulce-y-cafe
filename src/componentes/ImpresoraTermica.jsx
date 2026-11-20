@@ -3,12 +3,12 @@ import { createPortal } from "react-dom";
 import { Printer, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Hoja } from "./Hoja.jsx";
 import { InfoTip } from "./InfoTip.jsx";
+import { Grupo, FilaIos, Interruptor } from "./FilasIos.jsx";
 import { styles } from "../estilos.js";
 import { impresora, TIPOS } from "../termica/impresora.js";
 import { ticketPrueba } from "../termica/tickets.js";
 
 /* Configuración de la impresora de tickets de ESTE equipo: conectar, papel, prueba e impresión automática de cocina. */
-const etiqueta = { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 1.1, fontWeight: 700, color: "var(--btn2-mute)", marginTop: 4 };
 
 export function ImpresoraTermica({ onCerrar }) {
   const [est, setEst] = useState(impresora.estado());
@@ -55,41 +55,31 @@ export function ImpresoraTermica({ onCerrar }) {
             </div>
           </div>
 
-          <div style={etiqueta}>CONEXIÓN</div>
-          {tipos.length === 0 ? <div style={{ fontSize: 13.5, color: "var(--c-5c5648-t)" }}>Este navegador no permite conectar impresoras. Usa Chrome en Android o computador, o la impresión normal.</div> : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {tipos.map((t) => <button key={t} style={pill(est.tipo === t)} disabled={ocupado} aria-pressed={est.tipo === t} onClick={() => conectar(t)}>{TIPOS[t]}</button>)}
-            </div>
-          )}
+          <Grupo titulo="Conexión">
+            {tipos.length === 0
+              ? <FilaIos etiqueta="Sin soporte" ultima info={<InfoTip titulo="Este navegador">Este navegador no permite conectar impresoras. Usa Chrome en Android o computador, o la impresión normal.</InfoTip>}><span /></FilaIos>
+              : <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "10px 14px" }}>{tipos.map((t) => <button key={t} style={pill(est.tipo === t)} disabled={ocupado} aria-pressed={est.tipo === t} onClick={() => conectar(t)}>{TIPOS[t]}</button>)}</div>}
+          </Grupo>
 
-          <div style={etiqueta}>PAPEL</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[[32, "58 mm"], [48, "80 mm"]].map(([c, n]) => <button key={c} style={pill(cfg.columnas === c)} aria-pressed={cfg.columnas === c} onClick={() => impresora.guardarConfig({ columnas: c })}>{n}</button>)}
-          </div>
-
-          <div style={etiqueta}>LETRAS</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[[19, "Con tildes"], [0, "Sin tildes"]].map(([t, n]) => <button key={t} style={pill(cfg.tabla === t)} aria-pressed={cfg.tabla === t} onClick={() => impresora.guardarConfig({ tabla: t })}>{n}</button>)}
-          </div>
-          <div style={{ fontSize: 12, color: "var(--btn2-mute)", marginTop: -4 }}>Si en la prueba salen símbolos raros en lugar de tildes, elige «Sin tildes».</div>
+          <Grupo titulo="Impresión">
+            <FilaIos etiqueta="Papel">
+              {[[32, "58 mm"], [48, "80 mm"]].map(([c, n]) => <button key={c} style={pill(cfg.columnas === c)} aria-pressed={cfg.columnas === c} onClick={() => impresora.guardarConfig({ columnas: c })}>{n}</button>)}
+            </FilaIos>
+            <FilaIos etiqueta="Letras" ultima info={<InfoTip titulo="Letras">Si en la prueba salen símbolos raros en lugar de tildes, elige «Sin tildes».</InfoTip>}>
+              {[[19, "Con tildes"], [0, "Sin tildes"]].map(([t, n]) => <button key={t} style={pill(cfg.tabla === t)} aria-pressed={cfg.tabla === t} onClick={() => impresora.guardarConfig({ tabla: t })}>{n}</button>)}
+            </FilaIos>
+          </Grupo>
 
           <button style={{ ...styles.btnRestringido, justifyContent: "center", opacity: est.configurada && !ocupado ? 1 : 0.5 }} disabled={!est.configurada || ocupado} onClick={probar}><Printer size={16} /> Probar impresión</button>
 
-          <div style={etiqueta}>EN LA COCINA</div>
-          <button style={{ ...styles.btnRestringido, justifyContent: "space-between", opacity: est.configurada ? 1 : 0.5 }} disabled={!est.configurada} aria-pressed={cfg.autoCocina}
-            onClick={() => impresora.guardarConfig({ autoCocina: !cfg.autoCocina, activadoTs: Date.now() })}>
-            <span style={{ textAlign: "left" }}>Imprimir los pedidos nuevos automáticamente en este equipo</span>
-            <span style={{ fontWeight: 700, color: cfg.autoCocina ? "var(--chip-on-fg)" : "var(--btn2-mute)", background: cfg.autoCocina ? "var(--chip-on-bg)" : "transparent", padding: "2px 10px", borderRadius: 999, flexShrink: 0 }}>{cfg.autoCocina ? "Activado" : "Apagado"}</span>
-          </button>
-          <div style={{ fontSize: 12, color: "var(--btn2-mute)", marginTop: -4 }}>Úsalo en el equipo de la cocina. Solo salen los pedidos que lleguen después de activarlo, y cada uno una sola vez.</div>
-
-          <div style={etiqueta}>EN EL EQUIPO DEL MESERO</div>
-          <button style={{ ...styles.btnRestringido, justifyContent: "space-between", opacity: est.configurada ? 1 : 0.5 }} disabled={!est.configurada} aria-pressed={!!cfg.imprimirAlEnviar}
-            onClick={() => impresora.guardarConfig({ imprimirAlEnviar: !cfg.imprimirAlEnviar })}>
-            <span style={{ textAlign: "left" }}>Imprimir la comanda al enviar el pedido</span>
-            <span style={{ fontWeight: 700, color: cfg.imprimirAlEnviar ? "var(--chip-on-fg)" : "var(--btn2-mute)", background: cfg.imprimirAlEnviar ? "var(--chip-on-bg)" : "transparent", padding: "2px 10px", borderRadius: 999, flexShrink: 0 }}>{cfg.imprimirAlEnviar ? "Activado" : "Apagado"}</span>
-          </button>
-          <div style={{ fontSize: 12, color: "var(--btn2-mute)", marginTop: -4 }}>Al enviar un pedido (o cambiarlo) sale la comanda de inmediato, también sin internet. Si la impresora falla, el pedido se envía igual y aparece «Reintentar». La pantalla de Cocina no repite lo que ya salió aquí.</div>
+          <Grupo titulo="Automático">
+            <FilaIos etiqueta="Cocina: pedidos nuevos" info={<InfoTip titulo="Cocina: pedidos nuevos">Úsalo en el equipo de la cocina. Imprime automáticamente los pedidos nuevos en este equipo. Solo salen los que lleguen después de activarlo, y cada uno una sola vez.</InfoTip>}>
+              <Interruptor etiqueta="Imprimir pedidos nuevos automáticamente" valor={!!cfg.autoCocina} disabled={!est.configurada} onChange={(v) => impresora.guardarConfig({ autoCocina: v, activadoTs: Date.now() })} />
+            </FilaIos>
+            <FilaIos etiqueta="Mesero: al enviar" ultima info={<InfoTip titulo="Mesero: al enviar">Al enviar un pedido (o cambiarlo) sale la comanda de inmediato, también sin internet. Si la impresora falla, el pedido se envía igual y aparece «Reintentar».</InfoTip>}>
+              <Interruptor etiqueta="Imprimir la comanda al enviar el pedido" valor={!!cfg.imprimirAlEnviar} disabled={!est.configurada} onChange={(v) => impresora.guardarConfig({ imprimirAlEnviar: v })} />
+            </FilaIos>
+          </Grupo>
 
           {mensaje && (
             <div role="status" style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "10px 12px", borderRadius: 12, fontSize: 13, lineHeight: 1.45, background: mensaje.ok ? "var(--chip-on-bg)" : "var(--btn2-bg)", color: mensaje.ok ? "var(--chip-on-fg)" : "var(--c-c1442d-t)" }}>

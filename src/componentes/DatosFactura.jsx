@@ -29,9 +29,9 @@ export function DatosFactura({ valor, onGuardar, onQuitar, onCerrar }) {
           <Selector value={f.tipoDoc} onChange={(v) => setF((x) => ({ ...x, tipoDoc: v }))} titulo="Tipo de documento" opciones={TIPOS_DOC.map((t) => ({ valor: t.valor, etiqueta: t.etiqueta }))} />
           {!cf && (
             <>
-              <input style={styles.editInput} placeholder={f.tipoDoc === "NIT" ? "NIT (con o sin dígito de verificación)" : "Número de documento"} inputMode={f.tipoDoc === "PAS" ? "text" : "numeric"} value={f.numero} onChange={set("numero")} aria-label="Número de documento" />
+              <input autoComplete="off" style={styles.editInput} placeholder={f.tipoDoc === "NIT" ? "NIT (con o sin dígito de verificación)" : "Número de documento"} inputMode={f.tipoDoc === "PAS" ? "text" : "numeric"} value={f.numero} onChange={set("numero")} aria-label="Número de documento" />
               {error("numero")}
-              <input style={styles.editInput} placeholder="Nombre o razón social" maxLength={120} value={f.nombre} onChange={set("nombre")} aria-label="Nombre o razón social" />
+              <input autoComplete="off" style={styles.editInput} placeholder="Nombre o razón social" maxLength={120} value={f.nombre} onChange={set("nombre")} aria-label="Nombre o razón social" />
               {error("nombre")}
               {f.tipoDoc === "NIT" && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -41,9 +41,9 @@ export function DatosFactura({ valor, onGuardar, onQuitar, onCerrar }) {
               )}
             </>
           )}
-          <input style={styles.editInput} placeholder="Correo (opcional)" type="email" inputMode="email" maxLength={120} value={f.correo} onChange={set("correo")} aria-label="Correo" />
+          <input autoComplete="off" style={styles.editInput} placeholder="Correo (opcional)" type="email" inputMode="email" maxLength={120} value={f.correo} onChange={set("correo")} aria-label="Correo" />
           {error("correo")}
-          {!cf && <input style={styles.editInput} placeholder="Dirección (opcional)" maxLength={160} value={f.direccion} onChange={set("direccion")} aria-label="Dirección" />}
+          {!cf && <input autoComplete="off" style={styles.editInput} placeholder="Dirección (opcional)" maxLength={160} value={f.direccion} onChange={set("direccion")} aria-label="Dirección" />}
           {valor && <div style={{ fontSize: 12.5, color: "var(--btn2-mute)" }}>Guardado: {etiquetaDocumento(valor)}</div>}
           <button style={styles.sendBtn} onClick={() => guardar(cerrar)}>Guardar datos</button>
           {valor && onQuitar && <button style={{ ...styles.cancelEditBtn, color: "var(--c-c1442d-t)" }} onClick={() => { onQuitar(); cerrar(); }}>Quitar los datos</button>}
