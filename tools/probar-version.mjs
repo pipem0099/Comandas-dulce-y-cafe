@@ -123,7 +123,7 @@ const aviso = readFileSync(new URL("../src/componentes/AvisoVersion.jsx", import
 const vers = readFileSync(new URL("../src/versionApp.js", import.meta.url), "utf8");
 ok(!/location\.reload|\.reload\(/.test(aviso) && !/location\.reload|\.reload\(/.test(vers), "ni el aviso ni el vigilante recargan la página por su cuenta");
 ok(!/--warn|--c-b98a2e|--c-fbefd9|#f[a-f0-9]{5}/i.test(aviso) && /Hay una versión nueva/.test(aviso) && /Actualizar/.test(aviso), "el aviso no usa amarillo y dice «Hay una versión nueva» con el botón «Actualizar»");
-ok(/minHeight: 44/.test(aviso), "el botón tiene área de toque de al menos 44 px");
+ok(/aviso-version-btn/.test(aviso) && /\.aviso-version-btn \{[^}]*min-height: 44px/.test(readFileSync(new URL("../src/index.css", import.meta.url), "utf8")), "el botón tiene área de toque de al menos 44 px");
 const vite = readFileSync(new URL("../vite.config.js", import.meta.url), "utf8");
 ok(/buildId: BUILD_ID/.test(vite) && /__COMANDAS_BUILD__/.test(vite), "la compilación mete el buildId en el paquete y en precache.json");
 
