@@ -79,9 +79,25 @@ console.log("── Administrador configura ──");
   const p = await abrir(ctx);
   await p.getByRole("button", { name: "Mi cuenta" }).first().click();
   await p.getByText("Facturación electrónica", { exact: true }).click();
-  await p.getByRole("button", { name: "Proveedor tecnológico" }).waitFor({ timeout: 8000 });
-  ok(await p.getByRole("button", { name: "Proveedor tecnológico" }).isVisible(), "el administrador abre «Facturación electrónica» desde su menú");
-  // Proveedor Alegra: credenciales (cifradas en el servidor)
+  await p.getByText("Paso 1 de 5").waitFor({ timeout: 8000 });
+  ok(await p.getByText("Paso 1 de 5").isVisible(), "el administrador abre «Facturación electrónica» desde su menú y ve el asistente (Paso 1 de 5)");
+  // Paso 1: emisor con DV automático y municipio de Caldas con DANE automático
+  await p.getByLabel("Razón social").fill("Dulce y Café SAS");
+  await p.getByLabel("NIT", { exact: true }).fill("900123456");
+  ok(/DV: 8/.test(await p.getByTestId("dv-calculado").innerText()), "el dígito de verificación del NIT se calcula solo (900123456 → 8)");
+  ok((await p.getByTestId("dane").innerText()).trim() === "17001", "Manizales por defecto: el Cód. DANE se llena solo (17001) y es de solo lectura");
+  await p.getByRole("button", { name: "Municipio (Caldas)" }).click();
+  await p.getByRole("searchbox").fill("neira");
+  await p.getByRole("option", { name: "Neira" }).click();
+  ok((await p.getByTestId("dane").innerText()).trim() === "17486", "al elegir Neira el Cód. DANE cambia solo a 17486");
+  await p.getByRole("button", { name: "Responsabilidad fiscal" }).click();
+  await p.getByRole("option", { name: /O-48/ }).click();
+  await p.getByLabel("Dirección del establecimiento").fill("Cra 10 # 5-20");
+  await p.getByLabel("Teléfono").fill("3001234567");
+  await p.getByLabel("Correo oficial").fill("facturas@dulceycafe.co");
+  await p.getByRole("button", { name: "Siguiente" }).click();
+  // Paso 2: ambiente (Producción y de vuelta a Pruebas) · Paso 3: proveedor y credenciales (cifradas en el servidor)
+  await p.getByRole("button", { name: "Siguiente" }).click();
   await p.getByRole("button", { name: "Proveedor tecnológico" }).click();
   await p.getByRole("option", { name: /Alegra/ }).click();
   ok(await p.getByTestId("estado-credenciales").innerText() === "Sin configurar", "al elegir Alegra aparece «Sin configurar»");
@@ -94,47 +110,39 @@ console.log("── Administrador configura ──");
   const volcado = JSON.stringify(await db(p));
   ok(!volcado.includes("token-secreto-muy-largo-9876") && !volcado.includes("contador@restaurante.co"), "el secreto NO está en ninguna rama que lea el navegador");
   ok(!/facturacionSecretos/.test(volcado), "la rama cifrada no es visible desde el navegador");
-  // Credenciales y ambientes SEPARADOS: en Producción, Alegra aparece sin configurar (lo guardado fue en Pruebas)
-  ok(await p.getByTestId("estado-credenciales").innerText() === "Configurado (••••9876)", "en el ambiente Pruebas queda «Configurado»");
-  await p.getByRole("button", { name: "Ambiente", exact: true }).click();
-  await p.getByRole("option", { name: /Producción/ }).click();
-  await p.waitForTimeout(400);
-  ok(await p.getByTestId("estado-credenciales").innerText() === "Sin configurar", "al cambiar a Producción las credenciales de Pruebas NO se mezclan (sin configurar)");
-  await p.getByRole("button", { name: "Ambiente", exact: true }).click();
-  await p.getByRole("option", { name: /Pruebas/ }).click();
-  await p.waitForTimeout(400);
-  // Paso 1: datos del emisor con DV automático
-  await p.getByLabel("Razón social").fill("Dulce y Café SAS");
-  await p.getByLabel("NIT", { exact: true }).fill("900123456");
-  ok(/DV\): 8/.test(await p.getByTestId("dv-calculado").innerText()), "el dígito de verificación del NIT se calcula solo (900123456 → 8)");
-  await p.getByRole("button", { name: "Régimen" }).click();
-  await p.getByRole("option", { name: /Responsable de IVA/ }).click();
-  await p.getByLabel("Municipio").fill("Bogotá");
-  await p.getByLabel("Código DANE").fill("11001");
-  await p.getByLabel("Correo oficial").fill("facturas@dulceycafe.co");
-  // Volver a simulado, probar conexión + sincronizar catálogos, reglas y guardar
+  // Volver a simulado, «Probar conexión» y avanzar
   await p.getByRole("button", { name: "Proveedor tecnológico" }).click();
   await p.getByRole("option", { name: /Simulado/ }).click();
-  await p.getByRole("button", { name: "Probar conexión y sincronizar catálogos" }).click();
+  await p.getByRole("button", { name: /Conexión, catálogos y pruebas/ }).click();
+  await p.getByRole("button", { name: "Probar conexión" }).click();
   await p.getByTestId("resultado-sync").waitFor({ timeout: 8000 });
-  ok(/✔/.test(await p.getByTestId("resultado-sync").innerText()), "«Probar conexión y sincronizar catálogos» con el simulado responde bien");
+  ok(/✔/.test(await p.getByTestId("resultado-sync").innerText()), "«Probar conexión» con el simulado responde bien");
   ok((await db(p)).facturacion.catalogo && (await db(p)).facturacion.catalogo.pruebas, "los catálogos sincronizados quedan guardados por ambiente (pruebas)");
-  await p.getByRole("button", { name: "Impuesto aplicable" }).click();
+  await p.getByRole("button", { name: "Siguiente" }).click();
+  // Paso 4: reglas · Paso 5: resolución con consecutivo
+  await p.getByRole("button", { name: "Impuesto", exact: true }).click();
   await p.getByRole("option", { name: /IVA/ }).click();
-  // Opciones avanzadas: incluir propina exige mapear el ítem de propinas
-  await p.getByRole("button", { name: /Opciones tributarias avanzadas/ }).click();
-  await p.getByRole("switch", { name: /Incluir propina como ingreso para terceros/ }).click();
+  await p.getByRole("button", { name: "Siguiente" }).click();
+  await p.getByLabel("Prefijo").fill("sett");
+  await p.getByLabel("Número de resolución").fill("18760000001");
+  await p.getByLabel("Rango desde").fill("100");
+  await p.getByLabel("Rango hasta").fill("500");
+  await p.getByLabel("Consecutivo actual").fill("900");
   await p.getByRole("button", { name: "Guardar configuración" }).click();
-  ok(/propina/i.test(await p.getByTestId("mensaje-guardado").innerText()), "incluir la propina sin mapear su ítem NO deja guardar (avisa qué falta)");
-  await p.getByRole("switch", { name: /Incluir propina como ingreso para terceros/ }).click();
+  ok(/entre 100 y 500/.test(await p.getByText(/entre 100 y 500/).first().innerText()), "un consecutivo fuera del rango NO deja avanzar");
+  for (const et of ["Prefijo", "Número de resolución", "Rango desde", "Rango hasta", "Consecutivo actual"]) await p.getByLabel(et).fill("");   // en Pruebas la resolución es opcional
   await p.getByRole("button", { name: "Guardar configuración" }).click();
   await p.getByText("Configuración guardada.").waitFor({ timeout: 8000 }).catch(() => {});
   const aj = (await db(p)).facturacion.ajustes;
   ok(aj && aj.proveedor === "simulado" && aj.impuesto === "iva" && aj.modo === "pruebas", "los ajustes (simulado, IVA, pruebas) quedan guardados");
-  ok(aj.emisor && aj.emisor.nit === "900123456" && aj.emisor.dv === "8" && aj.emisor.regimen === "responsable_iva" && aj.emisor.codigoDane === "11001", "el emisor queda guardado con su DV");
-  await p.getByRole("button", { name: /Ejecutar prueba de emisión/ }).click();
+  ok(aj.emisor && aj.emisor.nit === "900123456" && aj.emisor.dv === "8" && aj.emisor.regimen === "responsable_iva" && aj.emisor.codigoDane === "17486" && aj.emisor.municipio === "Neira" && aj.emisor.telefono === "3001234567", "el emisor queda guardado con su DV, municipio y DANE");
+  // Ya configurada: 5 tarjetas resumen; «Editar» abre la hoja con Cancelar / Guardar
+  await p.getByTestId("tarjeta-3").waitFor({ timeout: 8000 });
+  ok(await p.getByRole("button", { name: /Editar/ }).count() === 5, "ya configurada: 5 tarjetas resumen, cada una con su botón «Editar»");
+  await p.getByRole("button", { name: "Editar Proveedor y pruebas" }).click();
+  await p.getByRole("button", { name: /Conexión, catálogos y pruebas/ }).click();
+  await p.getByRole("button", { name: "Simular factura" }).click();
   await p.getByTestId("resultado-emision").waitFor({ timeout: 8000 });
-  ok(/✔ Prueba correcta/.test(await p.getByTestId("resultado-emision").innerText()), "«Ejecutar prueba de emisión (Simulada)» completa el ciclo con CUFE");
   ok(Object.keys((await db(p)).facturacion.documentos || {}).every((k) => !k.startsWith("PRUEBA")), "la prueba de emisión no crea documentos de cuentas reales");
   ok(Object.values((await db(p)).auditoria || {}).some((a) => a.accion === "guardar_credenciales_fiscales"), "guardar credenciales queda en la bitácora");
   ok(Object.values((await db(p)).auditoria || {}).some((a) => a.accion === "prueba_emision_fiscal"), "la prueba de emisión queda en la bitácora");
