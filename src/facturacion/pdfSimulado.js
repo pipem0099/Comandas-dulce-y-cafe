@@ -6,15 +6,23 @@ const esc = (s) => String(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replac
 const latin1 = (s) => String(s).replace(/[^\x20-\xFF]/g, "?");
 const cop = (n) => `$ ${Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
+/** Número completo sin repetir el prefijo (algunos proveedores ya lo traen dentro del número). */
+export const numeroCompleto = (doc) => (doc && doc.prefijo && String(doc.numero || "").startsWith(doc.prefijo) ? String(doc.numero) : `${(doc && doc.prefijo) || ""}${(doc && doc.numero) || ""}`);
+const partir = (t, n) => { const o = []; for (let i = 0; i < t.length; i += n) o.push(t.slice(i, i + n)); return o; };
+
 export function lineasDelPdf(doc) {
   const d = (doc && doc.payload) || {};
   const t = d.totales || {};
   const L = [];
   L.push("DOCUMENTO SIMULADO - SIN VALIDEZ ANTE LA DIAN");
-  L.push(`${d.tipoDocumento === "factura" ? "Factura Electronica de Venta" : "Documento Equivalente Electronico POS"}  ${doc.prefijo || ""}${doc.numero || ""}`);
-  L.push(`Fecha: ${d.fecha || ""}   Ambiente: ${d.modo === "produccion" ? "Produccion" : "Pruebas"}`);
+  const e = d.emisor || {}, r = d.resolucion || {};
+  if (e.razonSocial) L.push(`${e.razonSocial}${e.nit ? `  NIT ${e.nit}${e.dv ? `-${e.dv}` : ""}` : ""}`);
+  if (e.municipio || e.correo) L.push([e.municipio, e.correo].filter(Boolean).join("  -  "));
+  L.push(`${d.tipoDocumento === "factura" ? "Factura Electronica de Venta" : "Documento Equivalente Electronico POS"}  ${numeroCompleto(doc)}`);
+  L.push(`Fecha: ${d.fecha || ""} ${d.hora || ""}   Ambiente: ${d.modo === "produccion" ? "Produccion" : "Pruebas"}`);
+  if (r.numero) L.push(`Resolucion DIAN ${r.numero}  Prefijo ${r.prefijo || "-"}  Rango ${r.desde || "?"}-${r.hasta || "?"}  Vigencia ${r.vigenciaDesde || "?"} a ${r.vigenciaHasta || "?"}`.slice(0, 95));
   L.push(`Cliente: ${(d.cliente && d.cliente.nombre) || "Consumidor final"}  ${(d.cliente && d.cliente.numero) || ""}`);
-  L.push(`CUFE: ${doc.cufe || ""}`.slice(0, 90));
+  L.push("CUFE:"); partir(String(doc.cufe || ""), 80).forEach((x) => L.push(x));
   L.push("");
   L.push("Cant  Descripcion                              Total");
   (d.lineas || []).slice(0, 30).forEach((l) => L.push(`${String(l.cantidad).padEnd(5)} ${String(l.descripcion).slice(0, 36).padEnd(37)} ${cop(l.total)}`));
