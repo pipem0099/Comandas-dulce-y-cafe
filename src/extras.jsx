@@ -462,7 +462,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", color: K.ink }}>
       <CabeceraAdmin titulo="Ajustes del negocio" onClose={onClose} />
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="ancho ancho-admin" style={{ flex: 1, overflowY: "auto", padding: "14px 16px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Nombre del negocio */}
         <GrupoSecciones>
         <Seccion titulo="Nombre del negocio" resumen={config.businessName || "Sin nombre"}>

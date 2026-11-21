@@ -16,12 +16,12 @@ html, body, #root {
   --pago-ok: #137A56;
   /* Acción principal (cobrar, enviar, confirmar): el color de marca de cada negocio, sin brillo ni neón. */
   --neon: var(--accent); --neon-text: #FFFFFF;
-  --neon-glow: 0 6px 16px -8px color-mix(in srgb, var(--accent) 70%, transparent);
+  --neon-glow: none;
   --neon-naranja: var(--c-b98a2e-t);
 }
 :root[data-theme="dark"] {
   --pago-ok: #4FBF95;
-  --neon-glow: 0 6px 18px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+  --neon-glow: none;
 }
 html, body { overflow: hidden; overscroll-behavior: none; }
 body {
@@ -347,6 +347,41 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 /* Cambio de pestaña dentro de una pantalla: el contenido se funde (solo opacidad: no toca el layout) */
 @keyframes tabIn { from { opacity: 0; } to { opacity: 1; } }
 .tab-anim { animation: tabIn .26s cubic-bezier(.32, .72, 0, 1) both; }
-/* Píldoras, pestañas y barra inferior: el color de selección entra con suavidad, sin saltar */
-[role="tab"], [aria-current], [aria-pressed], [aria-selected] { transition: background-color .28s cubic-bezier(.32,.72,0,1), color .28s ease, box-shadow .28s ease, transform .22s cubic-bezier(.32,.72,0,1), opacity .2s ease; }
+/* Píldoras y pestañas: el cambio de color es corto y SIN animar la sombra (antes dejaba un rastro claro al cambiar de pastilla) */
+[role="tab"], [aria-pressed], [aria-selected], [aria-current] { transition: background-color .14s ease, border-color .14s ease, color .14s ease, transform .22s cubic-bezier(.32,.72,0,1); }
+/* Las secciones desplegables nunca se encogen ni recortan su contenido dentro de una columna con scroll */
+.seccion-cuerpo > * { flex-shrink: 0; }
+.grupo-secciones { flex-shrink: 0; }
 @media (prefers-reduced-motion: reduce) { .tab-anim { animation: none; } }
+
+/* Despliegue animado de altura + opacidad (acordeones, propina y descuento, detalles de factura, historiales) */
+.despliegue { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .4s cubic-bezier(.32, .72, 0, 1), opacity .3s ease, visibility 0s linear .4s; }
+.despliegue[data-abierto="1"] { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-delay: 0s; }
+.despliegue-in { overflow: hidden; min-height: 0; }
+@media (prefers-reduced-motion: reduce) { .despliegue { transition: none; } }
+
+/* Hojas y ventanas: el contenido nunca se encoge dentro del scroll y siempre queda aire abajo para tocar la última opción */
+.hoja-v2-scroll > * { flex-shrink: 0; }
+.hoja-v2-scroll { padding-bottom: max(28px, env(safe-area-inset-bottom)); }
+
+/* Pantallas de administración y configuración en tablet/computador: columna compacta y centrada (etiquetas cerca de sus controles) */
+@media (min-width: 900px) {
+  .ancho.ancho-admin { padding-left: max(16px, calc((100% - 760px) / 2)) !important; padding-right: max(16px, calc((100% - 760px) / 2)) !important; }
+}
+@media (min-width: 1280px) {
+  .ancho.ancho-admin { padding-left: max(24px, calc((100% - 820px) / 2)) !important; padding-right: max(24px, calc((100% - 820px) / 2)) !important; }
+}
+
+/* Barras de desplazamiento finas y discretas (solo con mouse) */
+@media (hover: hover) and (pointer: fine) {
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--c-c7bfa0-o) 70%, transparent); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+  *::-webkit-scrollbar-thumb:hover { background: var(--c-c7bfa0-o); background-clip: content-box; }
+}
+
+/* Diálogos y ventanas emergentes: compactos en pantallas grandes, con entrada suave de escala y opacidad */
+@media (min-width: 700px) {
+  .hoja-v2-panel { max-width: 480px; }
+  .hoja-v2--centro .hoja-v2-panel { max-width: 480px; }
+}
