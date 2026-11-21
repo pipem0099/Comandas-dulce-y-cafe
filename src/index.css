@@ -420,3 +420,18 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 .seccion-cuerpo > *:nth-child(5) { animation-delay: .17s; }
 .seccion-cuerpo > *:nth-child(n+6) { animation-delay: .21s; }
 @media (prefers-reduced-motion: reduce) { .despliegue[data-abierto="1"] .despliegue-in > * > *, .seccion-cuerpo > * { animation: none; } }
+
+/* ── Menú de perfil: ventana flotante de vidrio sobre un fondo atenuado y borroso ── */
+.hoja-v2--vidrio .hoja-v2-scrim { background: rgba(0, 0, 0, .5); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.hoja-v2--vidrio .hoja-v2-panel { background: color-mix(in srgb, var(--sheet) 85%, transparent); -webkit-backdrop-filter: blur(12px) saturate(150%); backdrop-filter: blur(12px) saturate(150%); border: 1px solid var(--btn2-line); box-shadow: 0 24px 60px -12px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .25); }
+@supports not (background: color-mix(in srgb, red 50%, transparent)) { .hoja-v2--vidrio .hoja-v2-panel { background: var(--sheet); } }
+
+/* ── Toque sin residuos: ningún contorno ni resaltado queda pegado después de tocar ── */
+html, body, button, a, input, select, textarea, [role="tab"], [role="button"], summary, label { -webkit-tap-highlight-color: transparent; }
+button:focus:not(:focus-visible), [role="tab"]:focus:not(:focus-visible), [role="button"]:focus:not(:focus-visible), a:focus:not(:focus-visible), summary:focus:not(:focus-visible) { outline: none !important; }
+html:not([data-teclado]) button:focus-visible, html:not([data-teclado]) [role="tab"]:focus-visible, html:not([data-teclado]) [role="button"]:focus-visible { outline: none !important; }
+@media (hover: none), (pointer: coarse) {
+  button:focus, [role="tab"]:focus, [role="button"]:focus { outline: none !important; }
+  /* una pastilla sin seleccionar no conserva borde de foco tras soltar el dedo */
+  [aria-pressed="false"]:focus, [aria-selected="false"]:focus { box-shadow: none !important; }
+}
