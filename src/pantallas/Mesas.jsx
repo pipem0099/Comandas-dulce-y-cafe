@@ -7,7 +7,7 @@ import {
 import { uid } from "../logica.js";
 import { Selector } from "../componentes/Campos.jsx";
 import { InfoTip } from "../componentes/InfoTip.jsx";
-import { GrupoSecciones, Seccion } from "../componentes/Comunes.jsx";
+import { GrupoSecciones, Seccion, Segmentado } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { cuentaCubre } from "../utilidades.js";
 import { getPisos, planoDe, conPlano, pisoIdDeMesa, PISO_BASE } from "../pisos.js";
@@ -156,12 +156,12 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
       <CabeceraAdmin titulo="Mesas y espacios" onClose={onClose} />
       <div className="ancho" style={styles.menuScroll}>
         {varios && (
-          <div role="tablist" aria-label="Piso que estás editando" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "14px 0 12px", WebkitOverflowScrolling: "touch" }}>
+          <Segmentado ariaLabel="Piso que estás editando" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "14px 0 12px", WebkitOverflowScrolling: "touch" }}>
             {pisos.map((p) => (
               <button key={p.id} role="tab" aria-selected={pisoActual === p.id} disabled={editandoPlano && pisoActual !== p.id} onClick={() => { setPisoEd(p.id); setSel(null); }}
                 style={{ ...pl.pastilla, flexShrink: 0, minHeight: 40, ...(pisoActual === p.id ? pl.on : {}), opacity: editandoPlano && pisoActual !== p.id ? 0.4 : 1 }}>{p.nombre}</button>
             ))}
-          </div>
+          </Segmentado>
         )}
         <GrupoSecciones>
         <Seccion titulo="Pisos" resumen={varios ? pisos.map((p) => p.nombre).join(" · ") : "Un solo piso"}>
@@ -337,7 +337,7 @@ const pl = {
   etiqueta: { fontSize: 11.5, color: "var(--c-8a8272-t)", fontWeight: 600 },
   pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
   pastilla: { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
-  on: { background: "var(--neon)", borderColor: "transparent", color: "var(--neon-text)", fontWeight: 800, boxShadow: "var(--neon-glow)" },
+  on: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "transparent", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontWeight: 700 },
   panel: { display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 16, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)" },
   panelTitulo: { fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)" },
   eliminar: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 10, background: "transparent", border: "none", color: "var(--c-c1442d-t)", fontSize: 14, fontWeight: 600, cursor: "pointer" },

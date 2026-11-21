@@ -13,7 +13,7 @@ import { HojaTurno, HojaMes } from "../hojas.jsx";
 import { responsableDe, statsTramo, tramoVigente, tramosDe } from "../relevoCaja.js";
 import { CampoMonto, Acordeon, Chevron } from "../componentes/Comunes.jsx";
 import { InfoTip } from "../componentes/InfoTip.jsx";
-import { MontoSigno, GrupoSecciones, Seccion } from "../componentes/Comunes.jsx";
+import { MontoSigno, GrupoSecciones, Seccion, Segmentado } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { descargarRespaldo } from "../exportar.js";
 import { hayVariasCajas, getCajas, nombreCaja, CAJA_BASE } from "../pisos.js";
@@ -316,7 +316,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
         <>
           <div style={{ ...styles.catLabel, marginTop: 24 }}>TURNOS ANTERIORES</div>
           {variasCajas && (
-            <div role="tablist" aria-label="Cierres por caja" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "4px 2px", margin: "6px -2px 14px", WebkitOverflowScrolling: "touch" }}>
+            <Segmentado ariaLabel="Cierres por caja" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "4px 2px", margin: "6px -2px 14px", WebkitOverflowScrolling: "touch" }}>
               {[{ id: "todas", nombre: "Todas" }, ...getCajas(config)].map((c) => {
                 const n = c.id === "todas" ? todosCerrados.length : todosCerrados.filter((tr) => idCajaDe(tr) === c.id).length;
                 const on = filtroCaja === c.id;
@@ -327,7 +327,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                   </button>
                 );
               })}
-            </div>
+            </Segmentado>
           )}
           {cerrados.length === 0 && <div style={styles.cajaEmptyText}>Esta caja todavía no tiene turnos cerrados.</div>}
           {agruparPorMes(cerrados, (tr) => tr.cierreTs).map((mes, i) => {

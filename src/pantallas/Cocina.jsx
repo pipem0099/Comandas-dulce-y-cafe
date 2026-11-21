@@ -7,7 +7,7 @@ import { getEstaciones, estacionDeLinea, itemNombre } from "../logica.js";
 import { mostrarNotificacionSistema, playBeep, playTono, TONOS, leerSonido, guardarSonido } from "../avisos.js";
 import { Hoja } from "../componentes/Hoja.jsx";
 import { Interruptor } from "../componentes/FilasIos.jsx";
-import { AvisoActivarNotificaciones } from "../componentes/Comunes.jsx";
+import { AvisoActivarNotificaciones, Segmentado } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { avisar } from "../avisos.jsx";
 import { impresora } from "../termica/impresora.js";
@@ -267,26 +267,26 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
       </div>
 
       {variosPisos && (
-        <div style={ck.estaciones} role="tablist" aria-label="Piso donde se prepara">
+        <Segmentado style={ck.estaciones} ariaLabel="Piso donde se prepara">
           {["todos", ...pisos.map((p) => p.id)].map((id) => (
             <button key={id} role="tab" aria-selected={pisoFiltro === id} style={{ ...ck.chip, ...(pisoFiltro === id ? ck.chipOn : {}) }} onClick={() => elegirPisoPrep(id)}>
               {id === "todos" ? "Todos los pisos" : pisos.find((p) => p.id === id).nombre}
             </button>
           ))}
-        </div>
+        </Segmentado>
       )}
       {multi && (
-        <div style={ck.estaciones}>
+        <Segmentado style={ck.estaciones} ariaLabel="Estación">
           {["todas", ...estaciones.map((e) => e.id)].map((id, i) => {
             const on = est === id;
             return (
-              <button key={id} style={{ ...ck.chip, ...(on ? ck.chipOn : {}) }} onClick={() => elegirEstacion(id)}>
+              <button key={id} role="tab" aria-selected={on} style={{ ...ck.chip, ...(on ? ck.chipOn : {}) }} onClick={() => elegirEstacion(id)}>
                 {id !== "todas" && <span style={{ width: 8, height: 8, borderRadius: 4, background: COLORES_ESTACION[(i - 1) % COLORES_ESTACION.length] }} />}
                 {id === "todas" ? "Todas" : estaciones.find((e) => e.id === id).nombre}
               </button>
             );
           })}
-        </div>
+        </Segmentado>
       )}
 
       <div style={ck.pestanas}>
@@ -467,9 +467,9 @@ const ck = {
   btnIcono: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 1, minWidth: 40, height: 40, borderRadius: 12, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-f1ecdd-b)", color: "var(--c-3b372e-t)", cursor: "pointer" },
   estaciones: { display: "flex", gap: 8, overflowX: "auto", padding: "6px 16px", scrollbarWidth: "none" },
   chip: { display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "transparent", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 },
-  chipOn: { background: "var(--neon)", color: "var(--neon-text)", borderColor: "transparent", boxShadow: "var(--neon-glow)" },
+  chipOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "transparent", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontWeight: 700 },
   pestanas: { display: "flex", gap: 4, margin: "8px 16px 12px", padding: 4, borderRadius: 14, background: "var(--c-f1ecdd-b)" },
   pestana: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px 6px", borderRadius: 11, border: "none", background: "transparent", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
-  pestanaOn: { background: "var(--neon)", color: "var(--neon-text)", boxShadow: "var(--neon-glow)" },
+  pestanaOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "transparent", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontWeight: 700 },
   contador: { minWidth: 22, height: 22, borderRadius: 11, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#FFFFFF", padding: "0 6px" },
 };

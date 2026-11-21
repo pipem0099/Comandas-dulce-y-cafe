@@ -6,7 +6,7 @@ import { money, uid } from "../logica.js";
 import { METODO_META } from "../constantes.js";
 import { EmptyState } from "../extras.jsx";
 import { Hoja } from "../componentes/Hoja.jsx";
-import { CampoMonto, MetodoPills } from "../componentes/Comunes.jsx";
+import { CampoMonto, MetodoPills, Segmentado } from "../componentes/Comunes.jsx";
 import { CampoFecha } from "../componentes/Campos.jsx";
 import { getCollectionRange } from "../firebase.js";
 import { cobrarPendiente, condonarPendiente } from "../deudasOps.js";
@@ -80,12 +80,12 @@ export function PendientesView({ deudas, usuarioActual, turnoAbierto, config }) 
       {(desde || hasta) && <button className="toque44" style={{ ...cj.limpiar, marginTop: 6 }} onClick={() => { setDesde(""); setHasta(""); }}>Quitar fechas</button>}
 
       {esAdmin && (
-        <div style={cj.chips} role="tablist" aria-label="Estado de las cuentas">
+        <Segmentado style={cj.chips} ariaLabel="Estado de las cuentas">
           {[["pendiente", "Pendientes"], ["pagada", "Pagadas"], ["condonada", "Condonadas"]].map(([k, et]) => (
             <button key={k} role="tab" aria-selected={estado === k} style={{ ...styles.propinaPill, ...(estado === k ? styles.pillOn : {}), minHeight: 40 }} onClick={() => setEstado(k)}>{et}</button>
           ))}
           <button className="toque44" style={{ ...cj.limpiar, marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }} disabled={filtradas.length === 0} onClick={() => exportarDeudas(filtradas, config)}><Download size={14} /> Excel</button>
-        </div>
+        </Segmentado>
       )}
 
       {esAdmin && estado !== "pendiente" && filtradas.length > 0 && (

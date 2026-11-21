@@ -9,7 +9,7 @@ import { vibrar } from "../theme.js";
 import { estacionDeLinea, claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
 import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
 import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
-import { AvisoActivarNotificaciones, Chevron } from "../componentes/Comunes.jsx";
+import { AvisoActivarNotificaciones, Chevron, Segmentado } from "../componentes/Comunes.jsx";
 import { STATE_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { PlanoSalon } from "../pantallas/Mesas.jsx";
@@ -765,7 +765,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           <div style={styles.sentBanner}><Check size={14} /> Pedido enviado a cocina</div>
         )}
 
-        <div style={{ ...styles.catPillsWrap, position: "sticky", top: 0, zIndex: 5, background: "var(--c-f7f4ec-b)" }}>
+        <div className="vidrio" style={{ ...styles.catPillsWrap, position: "sticky", top: 0, zIndex: 5, background: "var(--c-f7f4ec-b)" }}>
           <div style={{ position: "relative" }}>
             <Search size={17} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--c-8a8272-t)", pointerEvents: "none" }} />
             <input style={{ ...styles.searchInput, width: "100%", boxSizing: "border-box", paddingLeft: 40, paddingRight: search ? 38 : 12 }} ref={buscadorProdRef} data-enter="blur" placeholder="Buscar producto…  ( / )" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -861,7 +861,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
         </div>
         </div>
 
-        <div className="ancho" style={styles.orderBar}>
+        <div className="ancho vidrio" style={styles.orderBar}>
           {(notaAbierta || note) && (
             <input autoFocus={!note} placeholder="Nota general para cocina (opcional)" value={note} onChange={(e) => setNote(e.target.value)} style={styles.noteInput} />
           )}
@@ -948,7 +948,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
         <button style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "plano" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("plano")}>Plano</button>
       </div>
       {variosPisos && (
-        <div className="ancho" role="tablist" aria-label="Piso" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", WebkitOverflowScrolling: "touch" }}>
+        <Segmentado className="ancho" ariaLabel="Piso" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", WebkitOverflowScrolling: "touch" }}>
           {pisos.map((p) => {
             const activa = pisoVista === p.id;
             const ocupadas = cuentas.filter((c) => c.estado === "abierta" && pisoDeMesaId(mesas, c.mesa, config) === p.id).length;
@@ -959,7 +959,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
               </button>
             );
           })}
-        </div>
+        </Segmentado>
       )}
       <div style={styles.mesasScroll}>
         {paraServirPorMesa.length > 0 && (

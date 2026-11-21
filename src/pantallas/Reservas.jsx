@@ -4,7 +4,7 @@ import { styles } from "../estilos.js";
 import { uid } from "../logica.js";
 import { mesaNombre, mesasDeReserva } from "../utilidades.js";
 import { hayVariosPisos, nombrePiso, pisoIdDeMesa } from "../pisos.js";
-import { Acordeon } from "../componentes/Comunes.jsx";
+import { Acordeon, Segmentado } from "../componentes/Comunes.jsx";
 import { CampoFecha, CampoHora } from "../componentes/Campos.jsx";
 
 import { Hoja } from "../componentes/Hoja.jsx";
@@ -91,14 +91,14 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
         <button style={{ ...styles.sendBtn, width: "auto", padding: "10px 16px" }} onClick={nueva}><Plus size={16} /> Nueva reserva</button>
       </div>
 
-      <div className="ancho" style={rv.dias}>
+      <Segmentado className="ancho" style={rv.dias} ariaLabel="Día">
         {dias.map((d) => (
-          <button key={d.key} style={{ ...rv.dia, ...(dia === d.key ? rv.diaOn : {}) }} onClick={() => setDia(d.key)}>
+          <button key={d.key} role="tab" aria-selected={dia === d.key} style={{ ...rv.dia, ...(dia === d.key ? rv.diaOn : {}) }} onClick={() => setDia(d.key)}>
             {d.label}{cuenta(d.key) > 0 && <span style={rv.contador}>{cuenta(d.key)}</span>}
           </button>
         ))}
         <CampoFecha value={dia} onChange={(k) => k && setDia(k)} ariaLabel="Otra fecha" titulo="Otra fecha" style={{ width: "auto", minHeight: 40, borderRadius: 999, fontSize: 13 }} />
-      </div>
+      </Segmentado>
 
       <div className="ancho" style={styles.menuScroll}>
         <div key={dia} className="tab-anim">
@@ -199,7 +199,7 @@ function FormReserva({ config = {}, inicial, mesas, reservas, usuarioActual, onG
 const rv = {
   dias: { display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", scrollbarWidth: "none", alignItems: "center" },
   dia: { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 },
-  diaOn: { background: "var(--neon)", color: "var(--neon-text)", borderColor: "transparent", fontWeight: 800, boxShadow: "var(--neon-glow)" },
+  diaOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "transparent", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontWeight: 700 },
   contador: { minWidth: 20, height: 20, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, fontWeight: 800, background: "var(--c-242019-b)", color: "#fff", padding: "0 5px" },
   fecha: { flexShrink: 0, height: 38, padding: "0 10px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13 },
   resumen: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 16, overflow: "hidden", marginBottom: 12 },
@@ -226,7 +226,7 @@ const rv = {
   stepBtn: { width: 44, height: 44, borderRadius: 8, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-242019-t)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
   pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
   pastilla: { padding: "8px 13px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
-  pastillaOn: { background: "var(--neon)", borderColor: "transparent", color: "var(--neon-text)", fontWeight: 800, boxShadow: "var(--neon-glow)" },
+  pastillaOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "transparent", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontWeight: 700 },
   aviso: { fontSize: 12.5, padding: "8px 12px", borderRadius: 10, background: "var(--c-fbefd9-b)", border: "1px solid var(--warn-border)", color: "var(--c-8a611a-t)" },
   eliminar: { padding: 10, background: "transparent", border: "none", color: "var(--c-c1442d-t)", fontSize: 14, fontWeight: 600, cursor: "pointer" },
 };

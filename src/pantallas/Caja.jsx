@@ -8,7 +8,7 @@ import { EmptyState } from "../extras.jsx";
 import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { MesaCuentaCard } from "../pantallas/CuentaMesa.jsx";
-import { FilaTabs } from "../componentes/Comunes.jsx";
+import { FilaTabs, Segmentado } from "../componentes/Comunes.jsx";
 import { TurnoView } from "../pantallas/Turno.jsx";
 import { PendientesView } from "../pantallas/Pendientes.jsx";
 import { diasDesde } from "../deudas.js";
@@ -111,7 +111,7 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
         </span>
       </div>
       {variasCajas && (
-        <div className="no-imprimir ancho" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", WebkitOverflowScrolling: "touch" }} role="tablist" aria-label="Caja de este dispositivo">
+        <Segmentado className="no-imprimir ancho" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", WebkitOverflowScrolling: "touch" }} ariaLabel="Caja de este dispositivo">
           {cajas.map((c) => {
             const abierta = turnosAbiertos.some((t) => (t.cajaId || CAJA_BASE) === c.id);
             const activa = cajaActual && cajaActual.id === c.id;
@@ -122,7 +122,7 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
               </button>
             );
           })}
-        </div>
+        </Segmentado>
       )}
 
       {!bloqueado && (

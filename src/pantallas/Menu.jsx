@@ -3,7 +3,7 @@ import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import { Plus, Check, Trash2, Settings2, Search, X, ChevronDown, Camera, Info } from "lucide-react";
 import { tieneOpciones, getEstaciones, costoReceta, uid, money } from "../logica.js";
 import { ProductoConfig } from "../extras.jsx";
-import { CampoMonto, Acordeon, Despliegue } from "../componentes/Comunes.jsx";
+import { CampoMonto, Acordeon, Despliegue, Segmentado } from "../componentes/Comunes.jsx";
 import { MenuDesdeFoto } from "../componentes/MenuDesdeFoto.jsx";
 import { styles } from "../estilos.js";
 
@@ -101,20 +101,20 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
         )}
 
         {/* Barra fija de navegación: buscador + categorías en pastillas */}
-        <div style={m.sticky}>
+        <div className="vidrio" style={m.sticky}>
           <div className="campo-prefijo" style={m.buscador}>
             <Search size={16} color="var(--c-8a8272-t)" />
             <input data-enter="blur" style={m.buscadorInput} placeholder="Buscar producto…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
             {busqueda && <button className="toque44" style={m.limpiar} onClick={() => setBusqueda("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
           </div>
-          <div style={m.fila1}>
-            <button style={{ ...m.pastilla, ...(filtro === "__todas__" ? m.pastillaOn : {}) }} onClick={() => setFiltro("__todas__")}>Todas <span style={m.cuenta}>{menu.length}</span></button>
+          <Segmentado style={m.fila1} ariaLabel="Categoría">
+            <button role="tab" aria-selected={filtro === "__todas__"} style={{ ...m.pastilla, ...(filtro === "__todas__" ? m.pastillaOn : {}) }} onClick={() => setFiltro("__todas__")}>Todas <span style={m.cuenta}>{menu.length}</span></button>
             {categorias.map((c) => (
-              <button key={c} style={{ ...m.pastilla, ...(filtro === c ? m.pastillaOn : {}) }} onClick={() => setFiltro(c)}>
+              <button key={c} role="tab" aria-selected={filtro === c} style={{ ...m.pastilla, ...(filtro === c ? m.pastillaOn : {}) }} onClick={() => setFiltro(c)}>
                 {c} <span style={m.cuenta}>{menu.filter((x) => x.cat === c).length}</span>
               </button>
             ))}
-          </div>
+          </Segmentado>
         </div>
 
         {/* Agregar producto: cerrado por defecto para no estorbar */}
