@@ -133,23 +133,17 @@ export function FilaTabs({ children, className, style }) {
     const der = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
     setBorde((b) => (b.izq === izq && b.der === der ? b : { izq, der }));
   }, []);
-  const activo = React.Children.toArray(children).findIndex((c) => c && c.props && c.props["aria-current"] === "true");
-  // Centra la pastilla activa solo cuando cambia (no en cada actualización de datos).
-  useEffect(() => {
-    const el = ref.current; if (!el) return;
-    const on = el.querySelector('[aria-current="true"]');
-    if (on) el.scrollTo({ left: Math.max(0, on.offsetLeft - (el.clientWidth - on.offsetWidth) / 2), behavior: "smooth" });
-  }, [activo]);
   useEffect(() => {
     medir();
     window.addEventListener("resize", medir);
     return () => window.removeEventListener("resize", medir);
   }, [medir, children]);
   const mask = `linear-gradient(90deg, ${borde.izq ? "transparent, #000 28px" : "#000, #000 0"}, ${borde.der ? "#000 calc(100% - 28px), transparent" : "#000 100%, #000"})`;
+  // El indicador deslizante y el centrado de la pestaña activa los hace Segmentado.
   return (
-    <div ref={ref} className={className} onScroll={medir} style={{ ...style, overflowX: "auto", WebkitMaskImage: mask, maskImage: mask }}>
+    <Segmentado innerRef={ref} role="group" className={className} onScroll={medir} style={{ ...style, overflowX: "auto", WebkitMaskImage: mask, maskImage: mask }}>
       {children}
-    </div>
+    </Segmentado>
   );
 }
 
@@ -267,6 +261,44 @@ export function Seccion({ titulo, resumen, abierta, alternar, ultima, children }
           <div className="seccion-cuerpo" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "2px 14px 16px" }}>{children}</div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Control segmentado estilo iOS: un indicador único se desliza hasta la opción elegida.
+Los hijos son botones con role="tab" y aria-selected; el color del indicador viene de --chip-on-*.
+Se mide con ResizeObserver, así que sigue funcionando si cambian los textos o el ancho. */
+export function Segmentado({ children, style, className = "", ariaLabel, innerRef, radio = 999, ...resto }) {
+  const ref = useRef(null);
+  const asignar = useCallback((el) => { ref.current = el; if (typeof innerRef === "function") innerRef(el); else if (innerRef) innerRef.current = el; }, [innerRef]);
+  const [ind, setInd] = useState({ x: 0, y: 0, w: 0, h: 0, ok: false });
+  const [anima, setAnima] = useState(false);
+  const medir = useCallback(() => {
+    const c = ref.current;
+    if (!c) return;
+    const on = c.querySelector('[aria-selected="true"], [aria-current="true"], [aria-current="page"]');
+    if (!on) { setInd((p) => (p.ok ? { ...p, ok: false } : p)); return; }
+    const x = on.offsetLeft, y = on.offsetTop, w = on.offsetWidth, h = on.offsetHeight;
+    setInd((p) => (p.ok && p.x === x && p.y === y && p.w === w && p.h === h ? p : { x, y, w, h, ok: true }));
+    // lleva la opción elegida al centro si la fila se desplaza
+    if (c.scrollWidth > c.clientWidth + 2) {
+      const destino = x - (c.clientWidth - w) / 2;
+      if (Math.abs(c.scrollLeft - destino) > 24 && typeof c.scrollTo === "function") c.scrollTo({ left: Math.max(0, destino), behavior: "smooth" });
+    }
+  }, []);
+  useEffect(() => {
+    medir();
+    const t = requestAnimationFrame(() => setAnima(true)); // el primer cuadro no se anima
+    const c = ref.current;
+    let ro = null, mo = null;
+    if (c && typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(medir); ro.observe(c); Array.from(c.children).forEach((h) => ro.observe(h)); }
+    if (c && typeof MutationObserver !== "undefined") { mo = new MutationObserver(medir); mo.observe(c, { attributes: true, attributeFilter: ["aria-selected", "aria-current"], subtree: true, childList: true }); }
+    return () => { cancelAnimationFrame(t); if (ro) ro.disconnect(); if (mo) mo.disconnect(); };
+  }, [medir]);
+  return (
+    <div ref={asignar} role="tablist" aria-label={ariaLabel} className={`seg ${className}`.trim()} style={{ position: "relative", ...style }} {...resto}>
+      <span aria-hidden="true" className={`seg-ind${anima ? " seg-ind--anima" : ""}`} style={{ borderRadius: radio, opacity: ind.ok ? 1 : 0, width: ind.w, height: ind.h, top: ind.y, transform: `translateX(${ind.x}px)` }} />
+      {children}
     </div>
   );
 }

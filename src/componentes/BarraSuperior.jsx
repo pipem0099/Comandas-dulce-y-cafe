@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ChefHat, ClipboardList, Receipt, CalendarClock } from "lucide-react";
 import { MenuUsuario } from "./MenuUsuario.jsx";
 import { CampanaAlertas } from "./CampanaAlertas.jsx";
-import { LogoMarca } from "../componentes/Comunes.jsx";
+import { LogoMarca, Segmentado } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { tieneRol } from "../utilidades.js";
 
@@ -32,7 +32,7 @@ const Avatar = ({ usuarioActual, size = 30 }) => (
 export function TopBar({ config, usuarioActual, onIr, onSalir, online, alertas, onIrAlerta }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   return (
-    <div className="no-imprimir" style={{ ...styles.topBar, flexWrap: "nowrap", padding: "calc(10px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 10px calc(16px + env(safe-area-inset-left))" }}>
+    <div className="no-imprimir vidrio" style={{ ...styles.topBar, flexWrap: "nowrap", padding: "calc(10px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 10px calc(16px + env(safe-area-inset-left))" }}>
       <div style={styles.brand}>
         <LogoMarca marca={config.marca} />
         <span style={styles.brandText}>{(config.businessName || "LA COMANDA").toUpperCase()}</span>
@@ -55,8 +55,8 @@ export function TopBar({ config, usuarioActual, onIr, onSalir, online, alertas, 
 export function BarraInferior({ items, role, setRole }) {
   if (items.length < 2) return null;
   return (
-    <div className="no-imprimir" style={{ flexShrink: 0, padding: "6px calc(14px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))", background: "var(--chrome-solid)" }}>
-      <nav style={{ display: "flex", gap: 4, padding: 6, borderRadius: 26, background: "var(--nav-float)", WebkitBackdropFilter: "blur(18px) saturate(140%)", backdropFilter: "blur(18px) saturate(140%)", boxShadow: "var(--shadow-nav)", maxWidth: 520, margin: "0 auto" }}>
+    <div className="no-imprimir vidrio" style={{ flexShrink: 0, padding: "6px calc(14px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))", background: "var(--chrome-solid)" }}>
+      <Segmentado radio={20} role="navigation" ariaLabel="Secciones" style={{ display: "flex", gap: 4, padding: 6, borderRadius: 26, background: "var(--nav-float)", WebkitBackdropFilter: "blur(20px) saturate(140%)", backdropFilter: "blur(20px) saturate(140%)", boxShadow: "var(--shadow-nav)", maxWidth: 520, margin: "0 auto" }}>
         {items.map((it) => {
           const Icon = it.icon; const on = role === it.id;
           return (
@@ -66,7 +66,7 @@ export function BarraInferior({ items, role, setRole }) {
             </button>
           );
         })}
-      </nav>
+      </Segmentado>
     </div>
   );
 }

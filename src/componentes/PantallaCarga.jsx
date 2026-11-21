@@ -22,7 +22,7 @@ export function PantallaCarga() {
 }
 
 const p = {
-  pagina: { height: "100dvh", minHeight: "100vh", background: "var(--c-f7f4ec-b)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" },
+  pagina: { position: "fixed", inset: 0, background: "var(--c-f7f4ec-b)", display: "flex", alignItems: "center", justifyContent: "center" },
   centro: { display: "flex", flexDirection: "column", alignItems: "center", gap: 16, animation: "respirar 2.4s ease-in-out infinite" },
   logo: { height: 56, width: "auto", maxWidth: 220, objectFit: "contain" },
   monograma: { width: 64, height: 64, borderRadius: 16, border: "1.5px solid var(--accent)", color: "var(--accent-t)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 },

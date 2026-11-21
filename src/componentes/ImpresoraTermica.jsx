@@ -19,6 +19,7 @@ export function ImpresoraTermica({ onCerrar }) {
   const disp = impresora.disponibles();
   const tipos = Object.keys(TIPOS).filter((t) => disp[t]);
 
+  const [previo, setPrevio] = useState(false);       // paso previo dentro de la app, antes de abrir la ventana del navegador
   const [tipoSel, setTipoSel] = useState(null);   // el tipo solo se ELIGE; la ventana del navegador se abre al tocar «Buscar impresora»
   const tipoActual = tipoSel || (est.tipo && tipos.includes(est.tipo) ? est.tipo : tipos[0]);
   const AYUDA_TIPO = {
@@ -74,7 +75,20 @@ export function ImpresoraTermica({ onCerrar }) {
               : <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 14px 14px" }}>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{tipos.map((t) => <button key={t} style={pill(tipoActual === t)} disabled={ocupado} aria-pressed={tipoActual === t} onClick={() => setTipoSel(t)}>{TIPOS[t]}</button>)}</div>
                 <div style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--btn2-mute)" }}>{AYUDA_TIPO[tipoActual]}</div>
-                <button type="button" disabled={ocupado} onClick={() => conectar(tipoActual)} style={{ ...styles.modoChoiceBtn, minHeight: 44, justifyContent: "center" }}>{ocupado ? "Buscando…" : est.configurada && est.tipo === tipoActual ? "Volver a conectar" : "Buscar impresora"}</button>
+                {previo && tipoActual !== "rawbt" ? (
+                  <div role="note" className="despliega" style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 14px", borderRadius: 12, background: "var(--btn2-bg)", border: "1px solid var(--btn2-line)" }}>
+                    <div style={{ fontSize: 13.5, lineHeight: 1.45, color: "var(--btn2-fg)" }}>
+                      {tipoActual === "bluetooth" ? "Antes de seguir: enciende el Bluetooth del teléfono (desde los ajustes rápidos) y la impresora. " : "Antes de seguir: conecta y enciende la impresora. "}
+                      Al continuar, Chrome muestra su propia ventana con la lista de dispositivos cercanos: ahí eliges la tuya.
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" style={{ ...styles.cancelEditBtn, flex: 1, minHeight: 44 }} onClick={() => setPrevio(false)}>Cancelar</button>
+                      <button type="button" disabled={ocupado} style={{ ...styles.modoChoiceBtn, flex: 1, minHeight: 44, justifyContent: "center" }} onClick={() => { setPrevio(false); conectar(tipoActual); }}>Continuar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" disabled={ocupado} onClick={() => (tipoActual === "rawbt" ? conectar(tipoActual) : setPrevio(true))} style={{ ...styles.modoChoiceBtn, minHeight: 44, justifyContent: "center" }}>{ocupado ? "Buscando…" : est.configurada && est.tipo === tipoActual ? "Volver a conectar" : "Buscar impresora"}</button>
+                )}
               </div>}
           </Grupo>
 

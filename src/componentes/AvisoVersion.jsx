@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { RefreshCw } from "lucide-react";
 import { BUILD_ID } from "../buildId.js";
 import { crearVigilanteVersion, avisoVisible, buildIdDePrecache } from "../versionApp.js";
@@ -30,7 +31,7 @@ export function AvisoVersion() {
 
   if (!avisoVisible(estado, enLinea)) return null;
   const actualizar = async () => { setActualizando(true); await crearActualizador().actualizar(); };
-  return (
+  return createPortal(
     <div className="aviso-version" role="status" data-aviso-version>
       <div className="aviso-version-card">
         <span className="aviso-version-ico" aria-hidden="true"><RefreshCw size={18} /></span>
@@ -42,6 +43,5 @@ export function AvisoVersion() {
           {actualizando ? "Actualizando…" : "Actualizar"}
         </button>
       </div>
-    </div>
-  );
+    </div>, document.body);
 }
