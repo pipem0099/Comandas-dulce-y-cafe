@@ -531,7 +531,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
         <Seccion titulo="Estaciones de preparación" resumen={`${estaciones.length} ${estaciones.length === 1 ? "estación" : "estaciones"}`}>
           <div style={x.hint}>Crea una estación por cada lugar donde se prepara algo (cocina, barra, postres…). Al enviar un pedido, el mesero elige a qué estación y a qué piso va; cada pantalla de preparación ve solo lo suyo. Con una sola estación y un solo piso todo funciona como siempre.</div>
           <Plegable estilo={{ ...x.card, background: "transparent", padding: "4px 12px" }} estiloTitulo={x.label} titulo="Mis estaciones" resumen={estaciones.map((e) => e.nombre).join(" · ")}>
-          <div style={{ maxHeight: 232, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "4px 0", maxHeight: 232, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
           {estaciones.map((e) => (
             <div key={e.id} style={x.row}>
               <input style={{ ...x.input, flex: 1 }} defaultValue={e.nombre} onBlur={(ev) => renombrar(e.id, ev.target.value)} />
@@ -547,7 +547,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
           {estaciones.length > 1 && categorias.length > 0 && (
             <Plegable estilo={{ ...x.card, background: "transparent", padding: "4px 12px" }} estiloTitulo={x.label} titulo="Estación sugerida por categoría" resumen={`${categorias.length} categorías`}>
               <div style={x.hint}>El mesero siempre puede cambiarla al enviar el pedido.</div>
-              <div style={{ maxHeight: 264, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "4px 0", maxHeight: 264, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
               {categorias.map((c) => (
                 <div key={c} style={{ ...x.row, justifyContent: "space-between" }}>
                   <span style={{ fontSize: 13.5, flex: 1 }}>{c}</span>

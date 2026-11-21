@@ -79,7 +79,7 @@ export const styles = {
   backBtn: { alignSelf: "flex-start", background: "transparent", border: "none", color: "var(--c-8a8272-t)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "6px 0" },
   pinError: { fontSize: 12.5, color: "var(--c-c1442d-t)", fontWeight: 600 },
 
-  subHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid var(--c-e4dfce-o)", flexShrink: 0, gap: 8 },
+  subHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", flexShrink: 0, gap: 8 },
   mesaTitleWrap: { display: "flex", flexDirection: "column", alignItems: "center", flex: 1 },
   mesaEyebrow: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1.5, color: "#9BA4B0", fontWeight: 600 },
   mesaTitle: { fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: "var(--c-242019-t)" },
@@ -144,7 +144,7 @@ export const styles = {
   comprobanteLink: { display: "inline-block", padding: "2px 0 8px 2px", background: "transparent", border: "none", color: "var(--c-2f6690-t)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 },
   cuerpoScroll: { flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" },
   menuScroll: { flex: 1, overflowY: "auto", padding: "8px 16px 16px" },
-  menuRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 0", borderBottom: "1px solid var(--c-ede7d8-o)" },
+  menuRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "14px 0", borderBottom: "1px solid var(--c-ede7d8-o)" },
   menuItemName: { fontSize: 14, fontWeight: 600, color: "var(--c-242019-t)" },
   agotadoTag: { fontSize: 9.5, fontWeight: 700, color: "var(--c-c1442d-t)", background: "var(--c-fbe2dc-b)", padding: "1px 6px", borderRadius: 8, marginLeft: 4 },
   menuItemCat: { fontSize: 11, color: "#9BA4B0", marginTop: 1 },
@@ -157,7 +157,7 @@ export const styles = {
   stepVal: { fontSize: 15, fontWeight: 600, color: "var(--c-242019-t)", minWidth: 32, textAlign: "center", fontVariantNumeric: "tabular-nums" },
   noResults: { textAlign: "center", color: "#9BA4B0", fontSize: 13, padding: "20px 0" },
 
-  orderBar: { display: "flex", flexDirection: "column", gap: 8, padding: "10px 16px 14px", borderTop: "1px solid var(--c-e4dfce-o)", flexShrink: 0, background: "var(--c-f7f4ec-b)" },
+  orderBar: { display: "flex", flexDirection: "column", gap: 8, padding: "12px 18px 16px", flexShrink: 0, background: "var(--c-f7f4ec-b)" },
   noteInput: { padding: "10px 12px", borderRadius: 9, border: "1px solid var(--c-e4dfce-o)", fontSize: 13, background: "var(--c-fffdf8-b)" },
   sendBtn: { ...botonBase, background: "var(--neon)", color: "var(--neon-text)", border: "none", fontWeight: 800, boxShadow: "var(--neon-glow)" },
 
