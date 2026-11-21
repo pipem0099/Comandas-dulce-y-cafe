@@ -539,7 +539,7 @@ export function Analisis({ onClose, menu, persistMenu, insumos, config, persistC
   return (
     <>
       <CabeceraAdmin titulo="Análisis y control" onClose={onClose} />
-      <div className="ancho" style={{ ...styles.menuScroll, paddingBottom: 40 }}>
+      <div className="ancho ancho-admin" style={{ ...styles.menuScroll, paddingBottom: 40 }}>
         <Tabs valor={tab} onChange={setTab} opciones={[["resumen", "Resumen"], ["productos", "Productos"], ["perdidas", "Pérdidas"], ["semana", "Semana"], ["costos", "Costos"]]} />
         {cargandoHistorial && !historialListo && <div style={{ ...nota, color: C.suave, marginBottom: 10 }}>Cargando los últimos 120 días…</div>}
         {errorHistorial && <div style={{ ...nota, color: C.rojo, marginBottom: 10 }}>No se pudo cargar el historial: se muestran solo los últimos días. Revisa tu conexión y vuelve a entrar.</div>}

@@ -156,7 +156,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
       <CabeceraAdmin titulo="Mesas y espacios" onClose={onClose} />
       <div className="ancho" style={styles.menuScroll}>
         {varios && (
-          <div role="tablist" aria-label="Piso que estás editando" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "14px 0 2px", WebkitOverflowScrolling: "touch" }}>
+          <div role="tablist" aria-label="Piso que estás editando" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "14px 0 12px", WebkitOverflowScrolling: "touch" }}>
             {pisos.map((p) => (
               <button key={p.id} role="tab" aria-selected={pisoActual === p.id} disabled={editandoPlano && pisoActual !== p.id} onClick={() => { setPisoEd(p.id); setSel(null); }}
                 style={{ ...pl.pastilla, flexShrink: 0, minHeight: 40, ...(pisoActual === p.id ? pl.on : {}), opacity: editandoPlano && pisoActual !== p.id ? 0.4 : 1 }}>{p.nombre}</button>

@@ -8,7 +8,7 @@ export function Equipo({ config, persistConfig, usuarioActual, onClose }) {
   return (
     <>
       <CabeceraAdmin titulo="Equipo y usuarios" onClose={onClose} />
-      <div className="ancho" style={{ ...styles.menuScroll, paddingBottom: 40 }}>
+      <div className="ancho ancho-admin" style={{ ...styles.menuScroll, paddingBottom: 40 }}>
         <GestionUsuarios config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} />
       </div>
     </>

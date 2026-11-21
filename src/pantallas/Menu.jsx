@@ -3,7 +3,7 @@ import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import { Plus, Check, Trash2, Settings2, Search, X, ChevronDown, Camera, Info } from "lucide-react";
 import { tieneOpciones, getEstaciones, costoReceta, uid, money } from "../logica.js";
 import { ProductoConfig } from "../extras.jsx";
-import { CampoMonto, Acordeon } from "../componentes/Comunes.jsx";
+import { CampoMonto, Acordeon, Despliegue } from "../componentes/Comunes.jsx";
 import { MenuDesdeFoto } from "../componentes/MenuDesdeFoto.jsx";
 import { styles } from "../estilos.js";
 
@@ -21,6 +21,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
   const [filtro, setFiltro] = useState("__todas__"); // categoría activa en la lista
   const [busqueda, setBusqueda] = useState("");
   const [soloSinCosto, setSoloSinCosto] = useState(false);
+  const [catsAbiertas, setCatsAbiertas] = useState(() => new Set());   // categorías desplegadas en la vista «Todas»
   const [abierto, setAbierto] = useState(null);     // producto desplegado
   const [nuevoAbierto, setNuevoAbierto] = useState(false);
   const [catNueva, setCatNueva] = useState(false);  // escribir una categoría que aún no existe
@@ -85,7 +86,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
   return (
     <div style={styles.screen}>
       <CabeceraAdmin titulo="Menú y precios" onClose={onClose} />
-      <div className="ancho" style={{ ...styles.menuScroll, paddingTop: 0 }}>
+      <div className="ancho ancho-admin" style={{ ...styles.menuScroll, paddingTop: 0 }}>
         {verFoto && <MenuDesdeFoto menu={menu} persistMenu={persistMenu} onCerrar={() => setVerFoto(false)} />}
         <button style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", minHeight: 46, margin: "10px 0 0", borderRadius: 12, border: "1px dashed var(--c-c7bfa0-o)", background: "transparent", color: "var(--c-242019-t)", fontSize: 14, fontWeight: 600, cursor: "pointer" }} onClick={() => setVerFoto(true)}>
           <Camera size={17} /> Crear el menú desde una foto
@@ -142,11 +143,26 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
         )}
 
         {/* Lista */}
+        <div key={filtro} className="tab-anim">
         {visibles.length === 0 && <div style={m.vacio}>{q ? `No hay productos que coincidan con "${busqueda}".` : "No hay productos en esta categoría."}</div>}
-        {catsVisibles.map((c) => (
-          <div key={c} style={{ marginBottom: 18 }}>
-            {filtro === "__todas__" && <div style={styles.catLabel}>{c}</div>}
-            <div style={m.grupo}>
+        {catsVisibles.map((c) => {
+          const agrupada = filtro === "__todas__" && !q && !soloSinCosto;      // con buscador, filtro o «sin costo» siempre se ven abiertas
+          const catAbierta = !agrupada || catsAbiertas.has(c);
+          const alternarCat = () => setCatsAbiertas((prev) => { const n = new Set(prev); if (n.has(c)) n.delete(c); else n.add(c); return n; });
+          return (
+          <div key={c} style={{ marginBottom: agrupada ? 10 : 18 }}>
+            {agrupada ? (
+              <button type="button" aria-expanded={catAbierta} onClick={alternarCat}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, width: "100%", minHeight: 52, padding: "13px 14px", borderRadius: catAbierta ? "14px 14px 0 0" : 14, border: "1px solid var(--c-e4dfce-o)", borderBottom: catAbierta ? "none" : "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-242019-t)", cursor: "pointer", font: "inherit", textAlign: "left", transition: "border-radius .3s ease" }}>
+                <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  <span style={{ fontSize: 14.5, fontWeight: 600 }}>{c}</span>
+                  <span style={{ fontSize: 11.5, color: "var(--c-8a8272-t)" }}>{visibles.filter((x) => x.cat === c).length} {visibles.filter((x) => x.cat === c).length === 1 ? "producto" : "productos"}</span>
+                </span>
+                <ChevronDown size={16} aria-hidden="true" style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: catAbierta ? "rotate(180deg)" : "none" }} />
+              </button>
+            ) : (filtro === "__todas__" && <div style={styles.catLabel}>{c}</div>)}
+            <Despliegue abierto={catAbierta}>
+            <div style={{ ...m.grupo, ...(agrupada ? { borderTopLeftRadius: 0, borderTopRightRadius: 0 } : {}) }}>
               {visibles.filter((x) => x.cat === c).map((item, idx, arr) => {
                 const margen = item.price - (item.cost || 0);
                 const margenPct = item.price > 0 ? Math.round((margen / item.price) * 100) : 0;
@@ -164,8 +180,8 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
                       <span style={m.precio}>{money(item.price)}</span>
                       <ChevronDown size={16} style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: abiertoAhora ? "rotate(180deg)" : "none" }} />
                     </button>
-                    {abiertoAhora && (
-                      <div className="despliega" style={m.detalle}>
+                    <Despliegue abierto={abiertoAhora}>
+                      <div style={m.detalle}>
                         <div style={{ display: "flex", gap: 8 }}>
                           <div style={{ flex: 1 }}><div style={m.etiqueta}>Precio</div><CampoMonto style={{ ...styles.editInput, width: "100%" }} placeholder="Precio" value={editPriceValue} onChange={setEditPriceValue} /></div>
                           <div style={{ flex: 1 }}><div style={m.etiqueta}>Costo</div><CampoMonto style={{ ...styles.editInput, width: "100%" }} placeholder="Costo" value={editCostValue} onChange={setEditCostValue} /></div>
@@ -188,13 +204,16 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
                           <button style={m.eliminar} onClick={() => setConfirmDeleteId(item.id)}><Trash2 size={15} /> Eliminar producto</button>
                         )}
                       </div>
-                    )}
+                    </Despliegue>
                   </div>
                 );
               })}
             </div>
+            </Despliegue>
           </div>
-        ))}
+          );
+        })}
+        </div>
       </div>
     </div>
   );

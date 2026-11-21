@@ -101,7 +101,7 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
   );
 
   return (
-    <div className="ancho" style={styles.menuScroll}>
+    <div className="ancho ancho-admin" style={styles.menuScroll}>
       <FilaTabs className="no-imprimir" style={{ ...styles.cajaTabSwitch, padding: "0 0 12px" }}>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "hoy" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "hoy" ? "true" : undefined} onClick={() => setRango("hoy")}>Hoy</button>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "semana" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "semana" ? "true" : undefined} onClick={() => setRango("semana")}>7 días</button>

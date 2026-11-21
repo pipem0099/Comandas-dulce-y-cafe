@@ -9,7 +9,7 @@ export function Respaldos({ onClose, errores, limpiarErrores, ...datos }) {
   return (
     <>
       <CabeceraAdmin titulo="Respaldos y datos" onClose={onClose} />
-      <div className="ancho" style={{ ...styles.menuScroll, paddingBottom: 40 }}>
+      <div className="ancho ancho-admin" style={{ ...styles.menuScroll, paddingBottom: 40 }}>
         <RespaldoBox {...datos} />
         <PanelErrores errores={errores || []} onLimpiar={limpiarErrores} />
       </div>

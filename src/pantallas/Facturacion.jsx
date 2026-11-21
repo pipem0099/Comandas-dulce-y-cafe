@@ -408,7 +408,7 @@ export function PanelFacturacion({ usuarioActual, onClose }) {
   return (
     <>
       <CabeceraAdmin titulo="Facturación electrónica" onClose={onClose} />
-      <div className="ancho" style={{ overflowY: "auto", flex: 1, padding: "8px 14px 40px", display: "flex", flexDirection: "column", gap: 16, fontFamily: "var(--font-body)" }}>
+      <div className="ancho ancho-admin" style={{ overflowY: "auto", flex: 1, padding: "8px 14px 40px", display: "flex", flexDirection: "column", gap: 16, fontFamily: "var(--font-body)" }}>
         {cabecera}
         <AlertasFiscales alertas={alertas} testid="alertas-config" />
         {configurado ? tarjetas : wizard()}

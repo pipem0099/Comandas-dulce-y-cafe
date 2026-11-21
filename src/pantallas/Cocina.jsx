@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Check, Flame, Clock, Volume2, Maximize2, Minimize2, Undo2, BellRing,
+  Check, Flame, Clock, Volume2, VolumeX, Maximize2, Minimize2, Undo2, BellRing,
 } from "lucide-react";
 import { vibrar } from "../theme.js";
 import { getEstaciones, estacionDeLinea, itemNombre } from "../logica.js";
-import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
+import { mostrarNotificacionSistema, playBeep, playTono, TONOS, leerSonido, guardarSonido } from "../avisos.js";
+import { Hoja } from "../componentes/Hoja.jsx";
+import { Interruptor } from "../componentes/FilasIos.jsx";
 import { AvisoActivarNotificaciones } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { avisar } from "../avisos.jsx";
@@ -82,6 +84,8 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
     })();
     return () => { if (temporizador) clearTimeout(temporizador); };
   }, [orders, est, pisoFiltro, reintento]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [sonido, setSonido] = useState(leerSonido);
+  const [verSonido, setVerSonido] = useState(false);
   const [escala, setEscala] = useState(() => { try { const v = Number(localStorage.getItem("comandas_kds_escala")); return ESCALAS_KDS.includes(v) ? v : 1; } catch (e) { return 1; } });
   const ciclarEscala = () => {
     const next = ESCALAS_KDS[(ESCALAS_KDS.indexOf(escala) + 1) % ESCALAS_KDS.length];
@@ -163,15 +167,19 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
   const prevCountRef = useRef(active.length);
   const [flash, setFlash] = useState(false);
 
+  const prevAmbitoRef = useRef(est + "|" + pisoFiltro);
   useEffect(() => {
-    if (active.length > prevCountRef.current) {
+    const ambitoAhora = est + "|" + pisoFiltro;
+    const cambioFiltro = prevAmbitoRef.current !== ambitoAhora; // al cambiar de estación/piso la lista cambia, pero NO llegó nada nuevo
+    prevAmbitoRef.current = ambitoAhora;
+    if (!cambioFiltro && active.length > prevCountRef.current) {
       playBeep();
       setFlash(true);
       mostrarNotificacionSistema("Comandas — Cocina", "Llegó un pedido nuevo");
       setTimeout(() => setFlash(false), 900);
     }
     prevCountRef.current = active.length;
-  }, [active.length]);
+  }, [active.length, est, pisoFiltro]);
 
   const advance = async (id) => {
     const o = orders.find((x) => x.id === id);
@@ -216,13 +224,41 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
   return (
     <div style={{ ...styles.screenDark, ...(flash ? styles.screenFlash : {}) }}>
       <AvisoActivarNotificaciones />
+      {verSonido && (
+        <Hoja onCerrar={() => setVerSonido(false)} ancho={420} gap={10} label="Sonido de pedidos nuevos" z={90} centro>
+          {({ cerrar }) => (
+            <>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700 }}>Sonido de pedidos</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 48 }}>
+                <span style={{ fontSize: 15 }}>Sonido activado</span>
+                <Interruptor valor={!sonido.silencio} onChange={(v) => setSonido(guardarSonido({ silencio: !v }))} etiqueta="Activar el sonido de pedidos nuevos" />
+              </div>
+              <div style={{ borderRadius: 14, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", overflow: "hidden", opacity: sonido.silencio ? 0.5 : 1, transition: "opacity .2s" }}>
+                {TONOS.map((t, i) => (
+                  <button key={t.id} type="button" disabled={sonido.silencio} aria-pressed={sonido.tono === t.id}
+                    onClick={() => { setSonido(guardarSonido({ tono: t.id })); playTono(t.id); }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, width: "100%", minHeight: 52, padding: "10px 14px", border: "none", borderBottom: i === TONOS.length - 1 ? "none" : "1px solid var(--c-e4dfce-o)", background: "transparent", color: "var(--c-242019-t)", textAlign: "left", cursor: "pointer", font: "inherit" }}>
+                    <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                      <span style={{ fontSize: 14.5, fontWeight: 600 }}>{t.nombre}</span>
+                      <span style={{ fontSize: 11.5, color: "var(--c-8a8272-t)" }}>{t.nota}</span>
+                    </span>
+                    {sonido.tono === t.id && <Check size={18} color="var(--accent)" aria-hidden="true" />}
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--c-8a8272-t)" }}>Se guarda en este dispositivo. Toca un tono para escucharlo.</div>
+              <button type="button" onClick={cerrar} style={{ minHeight: 44, borderRadius: 12, border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", color: "var(--btn2-fg)", fontSize: 14.5, fontWeight: 600, cursor: "pointer" }}>Listo</button>
+            </>
+          )}
+        </Hoja>
+      )}
       <div style={ck.cabecera}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <div style={ck.titulo}>Cocina</div>
           <span style={ck.envivo}><span style={ck.pulso} /> En vivo</span>
         </div>
         <div style={ck.herr}>
-          <span style={ck.btnIcono} title="Suena una campana con cada pedido nuevo"><Volume2 size={16} /></span>
+          <button style={ck.btnIcono} onClick={() => setVerSonido(true)} aria-label="Sonido de pedidos nuevos" title="Sonido de pedidos nuevos">{sonido.silencio ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
           <button style={ck.btnIcono} onClick={ciclarEscala} title="Tamaño de letra"><span style={{ fontSize: 10, fontWeight: 700 }}>A</span><span style={{ fontSize: 15, fontWeight: 700 }}>A</span></button>
           <button style={ck.btnIcono} onClick={kiosko ? salirKiosko : entrarKiosko} title={kiosko ? "Salir de pantalla completa" : "Pantalla completa"} aria-label="Pantalla completa">
             {kiosko ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -286,6 +322,7 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
         </div>
       )}
 
+      <div key={vista} className="tab-anim">
       {vista === "listas" ? (
         recienListos.length === 0 ? (
           <div style={styles.emptyKitchen} className="anim-in">
@@ -407,6 +444,7 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

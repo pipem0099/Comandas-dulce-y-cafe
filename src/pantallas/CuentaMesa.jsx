@@ -22,7 +22,7 @@ const confirmarConEnter = () => {
   const b = document.querySelector("[data-confirmar]:not([disabled])");
   if (b) b.click();
 };
-import { CampoMonto, MetodoPills, Chevron, FilaDato } from "../componentes/Comunes.jsx";
+import { CampoMonto, MetodoPills, Chevron, FilaDato, Despliegue } from "../componentes/Comunes.jsx";
 import { METODO_META, PROPINA_OPCIONES } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { conProgreso, cuentaGranTotal, cuentaItemCount, cuentaOrders, cuentaSubtotal, dateTimeLabel, itemsAgregados, mesaNombre, orderTotal, pagosDe, pagosTotal, qtyAsignadaPorProducto, tieneRol, timeLabel } from "../utilidades.js";
@@ -30,10 +30,10 @@ import { conProgreso, cuentaGranTotal, cuentaItemCount, cuentaOrders, cuentaSubt
 // Detalle de la cuenta junto a la lista (tablet/escritorio): angosto como un recibo. Arriba se desplaza lo que se consumió;
 // abajo queda fijo todo lo del cobro (subtotal, propina, total y botones), así nunca hay que bajar para cobrar.
 const panelCobro = {
-  card: { display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, marginBottom: 0, overflow: "hidden" },
-  cuerpo: { display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, padding: 0, gap: 0 },
-  scroll: { flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "14px 14px 10px", display: "flex", flexDirection: "column", gap: 8, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" },
-  pie: { flex: "0 0 auto", maxHeight: "calc(var(--alto-panel, 700px) * .64)", overflowY: "auto", padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", boxShadow: "0 -10px 18px -14px rgba(0,0,0,.45)", overscrollBehavior: "contain" },
+  card: { display: "flex", flexDirection: "column", flex: "0 0 auto", marginBottom: 0, overflow: "visible" },
+  cuerpo: { display: "flex", flexDirection: "column", flex: "0 0 auto", padding: 0, gap: 0 },
+  scroll: { flex: "0 0 auto", overflow: "visible", padding: "14px 14px 10px", display: "flex", flexDirection: "column", gap: 8 },
+  pie: { flex: "0 0 auto", overflow: "visible", padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", boxShadow: "0 -10px 18px -14px rgba(0,0,0,.45)", overscrollBehavior: "contain" },
 };
 
 export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turnoAbierto, cajaId = null, pisoNombre = null, usuarioActual, mesas, ajustarInventario, expanded, onToggle, modoPanel }) {
@@ -553,8 +553,8 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                   <Chevron abierto={verAjustes} size={17} />
                 </span>
               </button>
-              {verAjustes && (
-                <div className="despliega" style={styles.ajustesBox}>
+              <Despliegue abierto={!!verAjustes}>
+                <div style={styles.ajustesBox}>
                 {!cuenta.descuento && (
                   !esAdmin ? (
                     <button style={{ ...styles.btnRestringido, opacity: 0.55, cursor: "not-allowed" }} disabled title="Solo un administrador puede aplicar descuentos o cortesías"><Gift size={16} /> <span style={{ flex: 1, textAlign: "left" }}>Aplicar descuento o cortesía</span><Lock size={13} color="var(--btn2-mute)" aria-label="Solo administrador" /></button>
@@ -590,7 +590,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                   </div>
                 )}
                 </div>
-              )}
+              </Despliegue>
             </div>
           )}
 

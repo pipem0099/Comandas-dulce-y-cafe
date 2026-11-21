@@ -6,7 +6,7 @@ import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { exportarExcel } from "../exportar.js";
 import { imprimir } from "../impresion.jsx";
-import { Chevron } from "../componentes/Comunes.jsx";
+import { Chevron, Despliegue } from "../componentes/Comunes.jsx";
 import { mostrarComprobante } from "../comprobante.jsx";
 import { HojaDia } from "../hojas.jsx";
 import { FacturaCuenta } from "../componentes/FacturaCuenta.jsx";
@@ -214,7 +214,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
         <span>CUENTAS COBRADAS ESE DÍA · {d.cuentas.length}</span>
         <Chevron abierto={cuentasAbiertas} size={16} />
       </button>
-      {cuentasAbiertas && d.cuentas.slice().sort((a, b) => a.pagadaTs - b.pagadaTs).map((c) => {
+      <Despliegue abierto={cuentasAbiertas}>{d.cuentas.slice().sort((a, b) => a.pagadaTs - b.pagadaTs).map((c) => {
         const dividida = c.pagos && c.pagos.length > 1;
         const isExpanded = expandedCuentaId === c.id;
         const meta = !dividida && c.pagos && c.pagos[0] ? METODO_META[c.pagos[0].metodoPago] : null;
@@ -254,16 +254,16 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
             )}
           </div>
         );
-      })}
+      })}</Despliegue>
 
       <button type="button" aria-expanded={productosAbiertos} onClick={() => setProductosAbiertos((v) => !v)} className="no-imprimir"
         style={{ ...styles.catLabel, marginTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", minHeight: 44, padding: 0, border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}>
         <span>PRODUCTOS VENDIDOS · {productos.length}</span>
         <Chevron abierto={productosAbiertos} size={16} />
       </button>
-      {productosAbiertos && productos.map(([name, p]) => (
+      <Despliegue abierto={productosAbiertos}>{productos.map(([name, p]) => (
         <div key={name} style={styles.cajaProductRow}><span style={styles.cajaProductQty}>{p.qty}×</span><span style={styles.cajaProductName}>{name}</span><span style={styles.cajaProductSubtotal}>{money(p.subtotal)}</span></div>
-      ))}
+      ))}</Despliegue>
     </div>
   );
 }

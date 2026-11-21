@@ -101,6 +101,7 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
       </div>
 
       <div className="ancho" style={styles.menuScroll}>
+        <div key={dia} className="tab-anim">
         <div style={rv.resumen}>
           <div style={rv.resCelda}><span style={rv.resEt}>Reservas</span><span style={rv.resNum}>{vigentes.length}</span></div>
           <div style={rv.resCelda}><span style={rv.resEt}>Personas</span><span style={rv.resNum}>{personas}</span></div>
@@ -123,6 +124,7 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
             </Acordeon>
           </div>
         )}
+        </div>
       </div>
 
       {form && <FormReserva config={config} inicial={form} mesas={mesas} reservas={reservas} usuarioActual={usuarioActual}
