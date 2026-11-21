@@ -166,7 +166,7 @@ function FormReserva({ config = {}, inicial, mesas, reservas, usuarioActual, onG
 {({ cerrar: cerrarHoja }) => (
 <>
         <div style={rv.hojaHead}><span style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700 }}>{f.id ? "Editar reserva" : "Nueva reserva"}</span><button className="toque44" style={styles.cerrarPanelBtn} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button></div>
-        <input style={styles.editInput} placeholder="Nombre de quien reserva" value={f.nombre} onChange={(e) => set("nombre", e.target.value)} autoFocus={!f.id} />
+        <input style={styles.editInput} placeholder="Nombre de quien reserva" value={f.nombre} onChange={(e) => set("nombre", e.target.value)} />
         <input style={styles.editInput} placeholder="Teléfono (opcional)" inputMode="tel" value={f.telefono} onChange={(e) => set("telefono", e.target.value)} />
         <div style={{ display: "flex", gap: 8 }}>
           <div style={{ flex: 1 }}><div style={rv.et}>Fecha</div><CampoFecha value={f.fecha} onChange={(k) => set("fecha", k)} titulo="Fecha de la reserva" /></div>
