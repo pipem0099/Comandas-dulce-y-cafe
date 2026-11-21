@@ -19,8 +19,21 @@ export function ImpresoraTermica({ onCerrar }) {
   const disp = impresora.disponibles();
   const tipos = Object.keys(TIPOS).filter((t) => disp[t]);
 
+  const [tipoSel, setTipoSel] = useState(null);   // el tipo solo se ELIGE; la ventana del navegador se abre al tocar «Buscar impresora»
+  const tipoActual = tipoSel || (est.tipo && tipos.includes(est.tipo) ? est.tipo : tipos[0]);
+  const AYUDA_TIPO = {
+    bluetooth: "Enciende la impresora y activa el Bluetooth del teléfono. Luego toca «Buscar impresora» y elígela en la lista.",
+    usb: "Conecta la impresora con el cable USB y enciéndela. Luego toca «Buscar impresora» y elígela en la lista.",
+    serial: "Para impresoras con adaptador USB-serie, sobre todo en computador. Toca «Buscar impresora» y elige el puerto.",
+    rawbt: "Imprime a través de la app RawBT instalada en este teléfono.",
+  };
   const conectar = async (tipo) => {
     setOcupado(true); setMensaje(null);
+    if (tipo === "bluetooth" && navigator.bluetooth && navigator.bluetooth.getAvailability) {
+      let hay = true;
+      try { hay = await navigator.bluetooth.getAvailability(); } catch (e) { hay = true; }
+      if (!hay) { setMensaje({ ok: false, texto: "El Bluetooth de este equipo está apagado. Actívalo desde los ajustes rápidos del teléfono y vuelve a intentarlo." }); setOcupado(false); return; }
+    }
     try { const r = await impresora.conectar(tipo); setMensaje({ ok: true, texto: `Conectada: ${r.nombre}. Toca «Probar impresión» para comprobarla.` }); }
     catch (e) { setMensaje({ ok: false, texto: (e && e.message) || "No se pudo conectar." }); }
     setOcupado(false);
@@ -40,7 +53,7 @@ export function ImpresoraTermica({ onCerrar }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ fontFamily: "var(--font-display)", fontSize: 21, fontWeight: 700, color: "var(--c-242019-t)" }}>Impresora de tickets</div>
             <InfoTip titulo="¿Cómo conecto mi impresora?">
-              <b>USB o Bluetooth de bajo consumo:</b> toca el tipo de conexión y elige tu impresora en la lista que muestra el navegador (Chrome o Edge).
+              <b>USB o Bluetooth de bajo consumo:</b> elige el tipo de conexión, toca «Buscar impresora» y elige la tuya en la lista que muestra el navegador (Chrome o Edge).
               <br /><br /><b>Bluetooth clásico</b> (la mayoría de las impresoras baratas de 58 mm): instala la app gratuita <b>RawBT</b> en el celular, empareja allí la impresora y aquí elige «RawBT (Android)».
               <br /><br /><b>iPhone y iPad:</b> Safari no deja conectar impresoras directamente. Usa la impresión normal (AirPrint) desde el botón Imprimir.
               <br /><br />La impresora se guarda solo en este equipo. Cada tablet o computador tiene la suya.
@@ -51,14 +64,18 @@ export function ImpresoraTermica({ onCerrar }) {
             <Printer size={20} color="var(--btn2-mute)" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--c-242019-t)" }}>{est.configurada ? est.nombre || TIPOS[est.tipo] : "Sin impresora en este equipo"}</div>
-              <div style={{ fontSize: 12.5, color: "var(--btn2-mute)" }}>{est.configurada ? `${TIPOS[est.tipo]} · ${est.conectada ? "lista" : "desconectada: toca el tipo para volver a conectar"}` : "Mientras tanto se imprime con el navegador."}</div>
+              <div style={{ fontSize: 12.5, color: "var(--btn2-mute)" }}>{est.configurada ? `${TIPOS[est.tipo]} · ${est.conectada ? "lista" : "desconectada: toca «Volver a conectar»"}` : "Mientras tanto se imprime con el navegador."}</div>
             </div>
           </div>
 
           <Grupo titulo="Conexión">
             {tipos.length === 0
               ? <FilaIos etiqueta="Sin soporte" ultima info={<InfoTip titulo="Este navegador">Este navegador no permite conectar impresoras. Usa Chrome en Android o computador, o la impresión normal.</InfoTip>}><span /></FilaIos>
-              : <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "10px 14px" }}>{tipos.map((t) => <button key={t} style={pill(est.tipo === t)} disabled={ocupado} aria-pressed={est.tipo === t} onClick={() => conectar(t)}>{TIPOS[t]}</button>)}</div>}
+              : <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 14px 14px" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{tipos.map((t) => <button key={t} style={pill(tipoActual === t)} disabled={ocupado} aria-pressed={tipoActual === t} onClick={() => setTipoSel(t)}>{TIPOS[t]}</button>)}</div>
+                <div style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--btn2-mute)" }}>{AYUDA_TIPO[tipoActual]}</div>
+                <button type="button" disabled={ocupado} onClick={() => conectar(tipoActual)} style={{ ...styles.modoChoiceBtn, minHeight: 44, justifyContent: "center" }}>{ocupado ? "Buscando…" : est.configurada && est.tipo === tipoActual ? "Volver a conectar" : "Buscar impresora"}</button>
+              </div>}
           </Grupo>
 
           <Grupo titulo="Impresión">

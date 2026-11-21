@@ -4,8 +4,9 @@ import { parcharCuenta } from "../cuentasOps.js";
 import { etiquetaDocumento } from "../facturacion/datosFiscales.js";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FileText, Mail, Ban, Send, ChevronDown, Printer } from "lucide-react";
+import { FileText, Mail, Ban, Send, ChevronDown, ChevronRight, Printer } from "lucide-react";
 import { Hoja } from "./Hoja.jsx";
+import { Despliegue } from "./Comunes.jsx";
 import { InfoTip } from "./InfoTip.jsx";
 import { styles } from "../estilos.js";
 import { emitirFacturaCuenta, solicitarFacturacion } from "../firebase.js";
@@ -95,24 +96,25 @@ export function FacturaCuenta({ cuenta, ajustes, esAdmin, enCola, totalDocumento
   const verPdf = () => { const u = urlPdf(doc, generarPdfSimulado); if (u) window.open(u, "_blank", "noopener"); };
 
   return (
-    <div data-factura-estado={est.clave} style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", paddingTop: 8, borderTop: "1px solid var(--btn2-line)" }}>
+    <div data-factura-estado={est.clave} style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", paddingTop: 10, borderTop: "1px solid var(--c-e4dfce-o)" }}>
       {(() => {
         const plegable = !!doc && (est.clave === "emitida" || est.clave === "anulada");
         const cab = (
           <>
-            <FileText size={15} color="var(--btn2-mute)" aria-hidden="true" />
-            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--btn2-mute)" }}>Factura electrónica</span>
-            <span data-testid="factura-etiqueta" style={{ fontSize: 13, fontWeight: 800, color: TONOS[est.tono] }}>{est.etiqueta}</span>
-            {doc && doc.proveedor === "simulado" && <span style={{ fontSize: 12, color: "var(--btn2-mute)" }}>· simulada</span>}
-            {plegable && <ChevronDown size={16} aria-hidden="true" style={{ marginLeft: "auto", color: "var(--btn2-mute)", transform: abierto ? "rotate(180deg)" : "none", transition: "transform .2s" }} />}
+            <span style={{ fontSize: 14, color: "var(--btn2-fg)" }}>Factura electrónica</span>
+            <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span data-testid="factura-etiqueta" style={{ fontSize: 13.5, fontWeight: 600, color: TONOS[est.tono] }}>{est.etiqueta}</span>
+              {doc && doc.proveedor === "simulado" && <span style={{ fontSize: 12, color: "var(--btn2-mute)" }}>· simulada</span>}
+            </span>
+            {plegable && <ChevronDown size={16} aria-hidden="true" style={{ marginLeft: 4, color: "var(--btn2-mute)", transform: abierto ? "rotate(180deg)" : "none", transition: "transform .2s" }} />}
           </>
         );
-        const fila = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
+        const fila = { display: "flex", alignItems: "center", gap: 8, minHeight: 36 };
         return plegable
           ? <button type="button" data-testid="factura-alternar" aria-expanded={abierto} aria-label={abierto ? "Ocultar opciones de la factura" : "Ver opciones de la factura"} onClick={() => setAbierto((v) => !v)} style={{ ...fila, minHeight: 44, width: "100%", padding: 0, border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}>{cab}</button>
           : <div style={fila}>{cab}</div>;
       })()}
-      {(!doc || (est.clave !== "emitida" && est.clave !== "anulada") || abierto) && (<>
+      <Despliegue abierto={!doc || (est.clave !== "emitida" && est.clave !== "anulada") || abierto}><div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {(est.clave === "emitida" || est.clave === "anulada") && doc && (
         <div style={{ fontSize: 13, color: "var(--btn2-fg)", lineHeight: 1.5, wordBreak: "break-all" }}>
           <div>Número: <b data-testid="factura-numero">{numeroCompleto(doc)}</b></div>
@@ -127,22 +129,30 @@ export function FacturaCuenta({ cuenta, ajustes, esAdmin, enCola, totalDocumento
         const hay = c && c.numero && !c.consumidorFinal && c.tipoDoc !== "CF";
         const texto = hay ? `${c.nombre || ""} · ${etiquetaDocumento(c) || c.numero}` : "Consumidor final";
         return (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span data-testid="factura-cliente" style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--btn2-fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Cliente: <b>{texto}</b></span>
-            {!emitidaOAnulada && <button type="button" style={{ ...btn, minHeight: 44 }} disabled={trabajando} onClick={() => setDatos(true)}>{hay ? "Cambiar" : "Poner datos"}</button>}
-          </div>
+          emitidaOAnulada
+            ? <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 36 }}>
+                <span style={{ fontSize: 14, color: "var(--btn2-fg)" }}>Cliente</span>
+                <span data-testid="factura-cliente" style={{ marginLeft: "auto", minWidth: 0, fontSize: 13.5, fontWeight: 600, color: "var(--btn2-fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{texto}</span>
+              </div>
+            : <button type="button" disabled={trabajando} onClick={() => setDatos(true)} aria-label={hay ? "Cambiar datos del cliente" : "Poner datos del cliente"}
+                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", minHeight: 44, padding: 0, border: "none", background: "transparent", cursor: "pointer", textAlign: "left", color: "inherit", font: "inherit" }}>
+                <span style={{ fontSize: 14, color: "var(--btn2-fg)" }}>Cliente</span>
+                <span data-testid="factura-cliente" style={{ marginLeft: "auto", minWidth: 0, fontSize: 13.5, fontWeight: 600, color: hay ? "var(--btn2-fg)" : "var(--btn2-mute)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{texto}</span>
+                <span style={{ flexShrink: 0, fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>{hay ? "Cambiar" : "Poner datos"}</span>
+                <ChevronRight size={15} aria-hidden="true" color="var(--btn2-mute)" style={{ flexShrink: 0 }} />
+              </button>
         );
       })()}
       {est.clave !== "emitida" && est.clave !== "anulada" && est.detalle && <div style={{ fontSize: 13, color: est.tono === "error" ? "var(--c-c1442d-t)" : "var(--btn2-mute)" }}>{est.detalle}</div>}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {habilitada && est.puedeEmitir && <button style={btn} disabled={trabajando} onClick={() => emitir(est.clave === "error" && est.incierto ? { forzar: true } : {})}><Send size={15} /> {est.clave === "error" ? est.etiquetaReintento : "Emitir factura"}</button>}
+        {habilitada && est.puedeEmitir && <button style={{ ...btn, flex: "1 1 100%", justifyContent: "center", background: "var(--accent)", color: "#fff", border: "none" }} disabled={trabajando} onClick={() => emitir(est.clave === "error" && est.incierto ? { forzar: true } : {})}><Send size={15} /> {est.clave === "error" ? est.etiquetaReintento : "Emitir factura"}</button>}
         {est.puedeVerPdf && doc && <button style={btn} disabled={trabajando} onClick={() => imprimirTirilla(false)}><Printer size={15} /> Imprimir tirilla</button>}
         {est.clave === "anulada" && doc && doc.anulacion && doc.anulacion.numeroNota && <button style={btn} disabled={trabajando} onClick={() => imprimirTirilla(true)}><Printer size={15} /> Tirilla de la Nota Crédito</button>}
         {est.puedeVerPdf && <button style={btn} onClick={verPdf}><FileText size={15} /> Ver / descargar PDF</button>}
         {est.puedeReenviar && <button style={btn} disabled={trabajando} onClick={() => setDialogo("correo")}><Mail size={15} /> Reenviar por correo</button>}
         {est.puedeAnular && <button style={btnPeligro} disabled={trabajando} onClick={() => setDialogo("anular")}><Ban size={15} /> Anular factura (Nota Crédito)</button>}
       </div>
-      </>)}
+      </div></Despliegue>
       {habilitada && !doc && <AlertasFiscales testid="alerta-tope-uvt" alertas={[alertaTopeUvt({ tipoDocumento: ajustes.tipoDocumento, totalDocumento, valorUvt: ajustes.valorUvt })].filter(Boolean)} />}
       {est.clave === "error" && est.reintentoAutomatico && <div data-testid="factura-reintento-auto" style={{ fontSize: 12.5, color: "var(--btn2-mute)" }}>Falló la conexión: la app lo reintenta sola en segundo plano. También puedes pulsar «{est.etiquetaReintento}».</div>}
       {est.clave === "error" && est.reintentosAgotados && <div style={{ fontSize: 12.5, color: "var(--btn2-mute)" }}>Se agotaron los reintentos automáticos. Pulsa «{est.etiquetaReintento}» cuando haya conexión.</div>}
