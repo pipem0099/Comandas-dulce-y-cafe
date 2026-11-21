@@ -16,7 +16,7 @@ const pila = [];
 let idSecuencia = 0;
 let ignorarPop = 0;
 
-export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60, padding, centro = false }) {
+export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60, padding, centro = false, vidrio = false }) {
   const [fase, setFase] = useState("entrando");
   const panelRef = useRef(null);
   const scrimRef = useRef(null);
@@ -33,6 +33,18 @@ export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60,
   }, []);
 
   useEffect(() => () => clearTimeout(timer.current), []);
+
+  // Si algún campo con autoFocus se enfoca mientras la hoja aún entra, el navegador desplaza el panel (queda cortado
+  // por arriba). Durante la entrada se mantiene todo en scrollTop = 0.
+  useEffect(() => {
+    const p = panelRef.current, sc = scrollRef.current;
+    const arriba = () => { if (p && p.scrollTop) p.scrollTop = 0; if (p && p.scrollLeft) p.scrollLeft = 0; if (sc && sc.scrollTop) sc.scrollTop = 0; };
+    arriba();
+    if (p) p.addEventListener("scroll", arriba);
+    if (sc) sc.addEventListener("scroll", arriba);
+    const t = setTimeout(() => { arriba(); if (p) p.removeEventListener("scroll", arriba); if (sc) sc.removeEventListener("scroll", arriba); }, 650);
+    return () => { clearTimeout(t); if (p) p.removeEventListener("scroll", arriba); if (sc) sc.removeEventListener("scroll", arriba); };
+  }, []);
 
   // `mantenerEstilo === true` solo lo usa el arrastre (el panel ya viene animándose hacia abajo).
   const cerrar = useCallback((mantenerEstilo) => {
@@ -142,7 +154,7 @@ export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60,
   }, [cerrar, centro]);
 
   return (
-    <div className={"hoja-v2 hoja-overlay-v2" + (centro ? " hoja-v2--centro" : "")} data-fase={fase} style={{ zIndex: z }}>
+    <div className={"hoja-v2 hoja-overlay-v2" + (centro ? " hoja-v2--centro" : "") + (vidrio ? " hoja-v2--vidrio" : "")} data-fase={fase} style={{ zIndex: z }}>
       <div ref={scrimRef} className="hoja-v2-scrim" onClick={cerrarPublico} />
       <div ref={panelRef} className="hoja-v2-panel" style={{ maxWidth: Math.min(ancho, 520) }} role="dialog" aria-modal="true" aria-label={label}>
         <div className="hoja-v2-agarre" data-agarre aria-hidden="true"><span /></div>

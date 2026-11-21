@@ -69,7 +69,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   if (verAyuda) return <AyudaRoles usuario={usuarioActual} config={config} onCerrar={() => setVerAyuda(false)} />;
   if (verImpresora) return <ImpresoraTermica onCerrar={() => setVerImpresora(false)} />;
   return (
-    <Hoja onCerrar={onCerrar} ancho={440} gap={10} label="Mi cuenta" z={70} centro>
+    <Hoja onCerrar={onCerrar} ancho={440} gap={10} label="Mi cuenta" z={300} centro vidrio>
       {({ cerrar }) => {
         const ir = (fn) => () => { fn(); cerrar(); };
         return (
