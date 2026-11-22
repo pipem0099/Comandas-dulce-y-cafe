@@ -14,7 +14,6 @@ import { exportarDeudas } from "../exportar.js";
 import { buscarDeudas, totalPendiente, antiguedadLabel, diasDesde, clienteEtiqueta } from "../deudas.js";
 import { EsqueletoLista } from "../componentes/Esqueletos.jsx";
 import { tieneRol, dateTimeLabel } from "../utilidades.js";
-import { Transicion } from "../movimiento.jsx";
 
 /* ---------------- CUENTAS PENDIENTES ----------------
  * Cajero y administrador: buscan por nombre / teléfono / documento / fecha y cobran la deuda (completa o por abonos).
@@ -93,7 +92,7 @@ export function PendientesView({ deudas, usuarioActual, turnoAbierto, config }) 
         <div style={cj.sumaFila}>{filtradas.length} {filtradas.length === 1 ? "cuenta" : "cuentas"} · {estado === "condonada" ? "condonado" : "cobrado después"}: <b>{money(sumaFiltradas)}</b>{!desde && !hasta ? ` · últimos ${DIAS_RESUELTAS} días` : ""}</div>
       )}
 
-      <Transicion clave={estado + "|" + (estado !== "pendiente" && resueltas === null ? "c" : filtradas.length === 0 ? "v" : "l")} indice={["pendiente", "pagada", "condonada"].indexOf(estado)} estiloDentro={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
         {estado !== "pendiente" && resueltas === null ? (
           <EsqueletoLista filas={3} />
         ) : filtradas.length === 0 ? (
@@ -119,7 +118,7 @@ export function PendientesView({ deudas, usuarioActual, turnoAbierto, config }) 
             </button>
           );
         })}
-      </Transicion>
+      </div>
 
       {seleccionada && (
         <DetalleDeuda key={seleccionada.id} deuda={seleccionada} esAdmin={esAdmin} turnoAbierto={turnoAbierto} usuarioActual={usuarioActual}

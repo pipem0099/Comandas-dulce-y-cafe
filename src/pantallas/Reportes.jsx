@@ -6,7 +6,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { money } from "../logica.js";
 import { MontoSigno, FilaTabs, FilaDato } from "../componentes/Comunes.jsx";
 import { InfoTip } from "../componentes/InfoTip.jsx";
-import { NumeroAnimado } from "../movimiento.jsx";
 import { horaCorta, horasDesdeApertura } from "../horas.js";
 import { styles } from "../estilos.js";
 import { cuentaGranTotal, cuentaOrders, dateTimeLabel, tieneRol } from "../utilidades.js";
@@ -116,7 +115,7 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
 
       <div style={styles.cajaTotalCard}>
         <span style={styles.cajaTotalLabel}>Total vendido</span>
-        <span style={styles.cajaTotalValue}><NumeroAnimado valor={totalRango} formato={money} /></span>
+        <span style={styles.cajaTotalValue}>{money(totalRango)}</span>
         <span style={styles.turnoEsperadoLabel}>{pagadasRango.length} {pagadasRango.length === 1 ? "cuenta" : "cuentas"} · {money(propinasRango)} en propinas (venta sin propinas: {money(totalRango - propinasRango)})</span>
         {cmpInfo && cmpInfo.nivel !== "sin-base" && (
           <span style={{ fontSize: 12.5, fontWeight: 700, color: cmpInfo.nivel === "sube" ? "#7BD88F" : cmpInfo.nivel === "baja" ? "#FF8A75" : "#9BA4B0" }}>
@@ -143,7 +142,7 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
             <div style={styles.subtotalRow}><span>Consumo bruto (antes de descuentos)</span><span>{money(cuentaBrutaRango)}</span></div>
             <div style={styles.subtotalRow}><span>Descuentos y cortesías aplicados</span><MontoSigno valor={descuentosRango} signo="−" /></div>
             <div style={styles.subtotalRow}><span>Propinas</span><MontoSigno valor={propinasRango} signo="+" positivo /></div>
-            <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Total cobrado</span><span><NumeroAnimado valor={totalRango} formato={money} /></span></div>
+            <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Total cobrado</span><span>{money(totalRango)}</span></div>
             {huboCostosCargados && (
               <>
                 <div style={styles.subtotalRow}><span>Costo de productos vendidos</span><span>−{money(costoProductos)}</span></div>
@@ -194,7 +193,6 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
         </div>
       )}
 
-      <div key={rango} className="tab-anim">
       <div style={styles.catLabel}>VENTAS POR HORA</div>
       <div style={styles.chartBox}>
         {dataHora.length === 0 || totalRango === 0 ? (
@@ -239,7 +237,6 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
           <FilaDato key={nombre} nombre={nombre} detalle={`${d.cuentas} ${d.cuentas === 1 ? "cuenta" : "cuentas"}${d.propinas > 0 ? ` · ${money(d.propinas)} propina` : ""}`} valor={money(d.total)} ultima={i === meserosOrdenados.length - 1} />
         ))
       )}
-      </div>
     </div>
   );
 }

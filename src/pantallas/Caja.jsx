@@ -24,7 +24,6 @@ import { useAjustesFiscales, useFacturasEnCola, useDocumentosFiscales } from "..
 import { AlertasFiscales } from "../componentes/AlertasFiscales.jsx";
 import { alertasResolucion, ultimoConsecutivo, ultimoEfectivo } from "../../tools/facturacion/alertas.mjs";
 import { estadoResolucion, conDefectos } from "../../tools/facturacion/config.mjs";
-import { Transicion, NumeroAnimado } from "../movimiento.jsx";
 
 // Las pestañas de administración (inventario, historial, reportes con gráficas) se bajan solo al abrirlas.
 const InventarioView = perezoso(() => import("../inventario.jsx"), "InventarioView");
@@ -143,24 +142,23 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
         </FilaTabs>
       )}
 
-      <Transicion clave={tabActual} indice={["turno", "mesas", "pendientes", "historial", "reportes", "inventario"].indexOf(tabActual)} altura={false} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }} estiloDentro={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {tabActual === "turno" && (
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <div className="tab-anim" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
         <TurnoView cajaActual={cajaActual} equipo={equipo} turnos={turnos} turnoAbierto={turnoAbierto} saveTurno={saveTurno} orders={orders} cuentas={cuentas} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} menu={menu} mesas={mesas} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} />
         </div>
       )}
 
       {tabActual === "mesas" && (
-        <div className="ancho" style={styles.menuScroll}>
+        <div className="ancho tab-anim" style={styles.menuScroll}>
           {/* Resumen de lo que hay por cobrar */}
           <div style={cj.resumen}>
-            <div style={cj.resCelda}><span style={cj.resEt}>Por cobrar</span><span style={cj.resGrande}><NumeroAnimado valor={porCobrar} formato={money} /></span></div>
-            <div style={cj.resCelda}><span style={cj.resEt}>Mesas ocupadas</span><span style={cj.resNum}><NumeroAnimado valor={mesasOcupadas} /></span></div>
-            <div style={cj.resCelda}><span style={cj.resEt}>Cuentas abiertas</span><span style={cj.resNum}><NumeroAnimado valor={abiertas.length} /></span></div>
+            <div style={cj.resCelda}><span style={cj.resEt}>Por cobrar</span><span style={cj.resGrande}>{money(porCobrar)}</span></div>
+            <div style={cj.resCelda}><span style={cj.resEt}>Mesas ocupadas</span><span style={cj.resNum}>{mesasOcupadas}</span></div>
+            <div style={cj.resCelda}><span style={cj.resEt}>Cuentas abiertas</span><span style={cj.resNum}>{abiertas.length}</span></div>
           </div>
 
           {esAdmin && (
-            <Acordeon titulo={<>Vendido hoy · <NumeroAnimado valor={vendidoHoy} formato={money} /></>} resumen={`${pagadasHoy.length} ${pagadasHoy.length === 1 ? "cuenta" : "cuentas"} · efectivo, tarjeta y transferencia`}>
+            <Acordeon titulo={`Vendido hoy · ${money(vendidoHoy)}`} resumen={`${pagadasHoy.length} ${pagadasHoy.length === 1 ? "cuenta" : "cuentas"} · efectivo, tarjeta y transferencia`}>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0 6px" }}>
                 {Object.entries(METODO_META).map(([key, meta]) => {
                   const Icon = meta.icon;
@@ -261,11 +259,10 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
         </div>
       )}
 
-      {tabActual === "pendientes" && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><PendientesView deudas={deudas} usuarioActual={usuarioActual} turnoAbierto={turnoAbierto} config={config} /></div>}
-      {tabActual === "historial" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido />}><HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} /></React.Suspense></div>}
-      {tabActual === "inventario" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido />}><InventarioView insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} /></React.Suspense></div>}
-      {tabActual === "reportes" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido />}><ReportesView cuentas={cuentas} orders={orders} menu={menu} insumos={insumos} usuarioActual={usuarioActual} onIr={onIr} config={config} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} /></React.Suspense></div>}
-      </Transicion>
+      {tabActual === "pendientes" && <div className="tab-anim" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><PendientesView deudas={deudas} usuarioActual={usuarioActual} turnoAbierto={turnoAbierto} config={config} /></div>}
+      {tabActual === "historial" && esAdmin && <div className="tab-anim" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido />}><HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} /></React.Suspense></div>}
+      {tabActual === "inventario" && esAdmin && <div className="tab-anim" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido />}><InventarioView insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} /></React.Suspense></div>}
+      {tabActual === "reportes" && esAdmin && <div className="tab-anim" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido />}><ReportesView cuentas={cuentas} orders={orders} menu={menu} insumos={insumos} usuarioActual={usuarioActual} onIr={onIr} config={config} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} /></React.Suspense></div>}
     </div>
   );
 }
@@ -279,7 +276,7 @@ const cj = {
   resEt: { fontSize: 11.5, color: "var(--c-8a8272-t)" },
   resGrande: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--accent-t)" },
   resNum: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--c-242019-t)" },
-  fila: { display: "flex", flexDirection: "column", gap: 6, padding: "13px 14px", textAlign: "left", background: "var(--c-fffdf8-b)", borderWidth: 1.5, borderStyle: "solid", borderColor: "var(--c-e4dfce-o)", borderRadius: 16, cursor: "pointer", color: "var(--c-242019-t)" },
+  fila: { display: "flex", flexDirection: "column", gap: 6, padding: "13px 14px", textAlign: "left", background: "var(--c-fffdf8-b)", border: "1.5px solid var(--c-e4dfce-o)", borderRadius: 16, cursor: "pointer", color: "var(--c-242019-t)" },
   filaOn: { borderColor: "var(--accent)", background: "color-mix(in srgb, var(--accent) 16%, var(--c-fffdf8-b))", boxShadow: "0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent), 0 12px 26px -14px color-mix(in srgb, var(--accent) 80%, transparent)", transform: "translateY(-2px)" },
   filaTop: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
   filaNombre: { fontSize: 16, fontWeight: 700, color: "var(--c-242019-t)" },
