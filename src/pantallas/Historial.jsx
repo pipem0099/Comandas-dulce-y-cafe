@@ -7,6 +7,7 @@ import { styles } from "../estilos.js";
 import { exportarExcel } from "../exportar.js";
 import { imprimir } from "../impresion.jsx";
 import { Chevron, Despliegue } from "../componentes/Comunes.jsx";
+import { Transicion } from "../movimiento.jsx";
 import { mostrarComprobante } from "../comprobante.jsx";
 import { HojaDia } from "../hojas.jsx";
 import { FacturaCuenta } from "../componentes/FacturaCuenta.jsx";
@@ -105,9 +106,14 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
     );
   }
 
+  // Años → meses → días → día: cada nivel entra deslizándose desde el lado correcto (como el push/pop de iOS)
+  const envolver = (clave, indice, nodo) => (
+    <Transicion modo="deslizar" clave={clave} indice={indice} altura={false} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }} estiloDentro={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>{nodo}</Transicion>
+  );
+
   if (view === "years") {
     const list = Object.values(years).sort((a, b) => b.key - a.key);
-    return (
+    return envolver("years", 0, (
       <div className="ancho" style={styles.menuScroll}>
         {AvisoCargando}
         {PanelCanceladas}
@@ -136,11 +142,11 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
           </button>
         ))}
       </div>
-    );
+    ));
   }
   if (view === "months") {
     const list = Object.values(months).filter((m) => m.key.startsWith(year)).sort((a, b) => b.key.localeCompare(a.key));
-    return (
+    return envolver("months", 1, (
       <div className="ancho" style={styles.menuScroll}>
         <button style={styles.backBtn} onClick={() => setView("years")}>← Años</button>
         <div style={{ ...styles.catLabel, marginTop: 12 }}>{year}</div>
@@ -163,11 +169,11 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
           );
         })}
       </div>
-    );
+    ));
   }
   if (view === "days") {
     const list = Object.values(days).filter((d) => d.key.startsWith(month)).sort((a, b) => b.key.localeCompare(a.key));
-    return (
+    return envolver("days", 2, (
       <div className="ancho" style={styles.menuScroll}>
         <button style={styles.backBtn} onClick={() => setView("months")}>← Meses</button>
         <div style={{ ...styles.catLabel, marginTop: 12 }}>{list[0] ? monthLabel(list[0].ts) : ""}</div>
@@ -179,14 +185,14 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
           </button>
         ))}
       </div>
-    );
+    ));
   }
 
   const d = days[day];
   if (!d) return null;
   const productos = Object.entries(d.productos).sort((a, b) => b[1].subtotal - a[1].subtotal);
   const mesasAtendidas = new Set(d.cuentas.map((c) => c.mesa)).size;
-  return (
+  return envolver("day", 3, (
     <div className="ancho" style={styles.menuScroll}>
       <button className="no-imprimir" style={styles.backBtn} onClick={() => setView("days")}>← Días</button>
       <div style={{ marginTop: 12, marginBottom: 14, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -265,5 +271,5 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
         <div key={name} style={styles.cajaProductRow}><span style={styles.cajaProductQty}>{p.qty}×</span><span style={styles.cajaProductName}>{name}</span><span style={styles.cajaProductSubtotal}>{money(p.subtotal)}</span></div>
       ))}</Despliegue>
     </div>
-  );
+  ));
 }

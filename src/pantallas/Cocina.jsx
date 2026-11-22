@@ -10,6 +10,7 @@ import { Interruptor } from "../componentes/FilasIos.jsx";
 import { AvisoActivarNotificaciones, Segmentado } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
 import { avisar } from "../avisos.jsx";
+import { Transicion, FilaDeslizable, useFlip } from "../movimiento.jsx";
 import { impresora } from "../termica/impresora.js";
 import { crearControlImpresos } from "../termica/autoCocina.js";
 import { servicioComandas } from "../termica/imprimirComandas.js";
@@ -17,7 +18,8 @@ import { eventosParaCocina, ambitoDe, numeroRonda, yaImpreso } from "../termica/
 
 const ESPERA_DEDUP_MS = 6000; // tiempo que Cocina espera antes de imprimir un pedido, para que el equipo del mesero imprima primero si le toca
 import { getPisos, pisoPrepDeLinea, pisoEntregaDeLinea, nombrePiso } from "../pisos.js";
-import { conProgreso, elapsedLabel, itemListos, itemServidos, mesaNombre, timeLabel, urgencyColor } from "../utilidades.js";
+import { conProgreso, itemListos, itemServidos, mesaNombre, timeLabel } from "../utilidades.js";
+import { COLOR_NIVEL, getUmbrales, nivelEspera, relojEspera, useAhora } from "../tiempos.js";
 
 /* ---------------- COCINA ---------------- */
 
@@ -27,6 +29,8 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
   // La estación y el tamaño de letra se guardan en ESTE dispositivo.
   const estaciones = getEstaciones(config);
   const multi = estaciones.length > 1;
+  const railRef = useRef(null);
+  useFlip(railRef);
   const [estSel, setEstSel] = useState(() => { try { return localStorage.getItem("comandas_estacion") || "todas"; } catch (e) { return "todas"; } });
   const est = multi && estaciones.some((e) => e.id === estSel) ? estSel : "todas";
   const elegirEstacion = (id) => { setEstSel(id); try { localStorage.setItem("comandas_estacion", id); } catch (e) {} };
@@ -96,6 +100,11 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
   // "Entregar en piso 3": solo se muestra cuando se prepara en un piso y se entrega en otro
   const traspaso = (it) => (variosPisos && pisoEntregaDeLinea(it, config) !== pisoPrepDeLinea(it, config) ? `→ Entregar en ${nombrePiso(config, pisoEntregaDeLinea(it, config))}` : null);
   const nombreEstacion = (it) => (estaciones.find((e) => e.id === estacionDeLinea(it, config)) || estaciones[0]).nombre;
+
+  // Reloj en vivo (cada segundo) y umbrales ámbar/rojo editables en Ajustes → Tiempos de espera
+  const ahora = useAhora(1000);
+  const umbrales = getUmbrales(config);
+  const nivelDe = (ts) => nivelEspera(ts, umbrales, ahora);
 
   const activos = orders.filter((o) => o.estado !== "listo" && o.estado !== "servido" && o.estado !== "cancelado");
   const active = activos.filter((o) => o.items.some((it) => enEstacion(it) && itemListos(o, it) < it.qty)).sort((a, b) => a.ts - b.ts);
@@ -289,13 +298,13 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
         </Segmentado>
       )}
 
-      <div style={ck.pestanas}>
+      <Segmentado style={ck.pestanas} radio={11} ariaLabel="Estado de los pedidos">
         {[["pendientes", "Pendientes", pendientes.length, "var(--warn-solid)"], ["preparando", "Preparando", preparando.length, "var(--accent)"], ["listas", "Listas", recienListos.length, "var(--ok-solid)"]].map(([id, label, n, color]) => (
-          <button key={id} style={{ ...ck.pestana, ...(vista === id ? ck.pestanaOn : {}) }} onClick={() => setVista(id)}>
+          <button key={id} role="tab" aria-selected={vista === id} style={{ ...ck.pestana, ...(vista === id ? ck.pestanaOn : {}) }} onClick={() => setVista(id)}>
             {label} <span style={{ ...ck.contador, ...(n > 0 ? { background: color } : { background: "var(--c-ede7d8-b)", color: "var(--c-8a8272-t)" }) }}>{n}</span>
           </button>
         ))}
-      </div>
+      </Segmentado>
 
       {avisos > 0 && (
         <div style={ck.avisos}>
@@ -322,7 +331,8 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
         </div>
       )}
 
-      <div key={vista} className="tab-anim">
+      <Transicion clave={`${vista}|${pisoFiltro}|${est}`} indice={["pendientes", "preparando", "listas"].indexOf(vista) * 100 + Math.max(0, ["todas", ...estaciones.map((e) => e.id)].indexOf(est))} estiloDentro={{ minHeight: 0 }}>
+      <div data-swipe-pestanas="">
       {vista === "listas" ? (
         recienListos.length === 0 ? (
           <div style={styles.emptyKitchen} className="anim-in">
@@ -371,15 +381,17 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
           <div style={styles.emptyKitchenSub}>Cuando un mesero envíe un pedido aparece aquí y suena la campana.</div>
         </div>
       ) : (
-        <div style={{ ...styles.railGrid, zoom: escala }}>
+        <div ref={railRef} style={{ ...styles.railGrid, zoom: escala }}>
           {lista.map((o) => (
-            <div key={o.id} className="anim-in" style={{ ...styles.ticket, borderLeftColor: urgencyColor(o.ts) }}>
+            <FilaDeslizable key={o.id} data-flip={o.id} radio={12}
+              izquierda={{ texto: o.estado === "pendiente" ? "Empezar" : "Todo listo", icono: o.estado === "pendiente" ? Flame : Check, color: o.estado === "pendiente" ? "var(--warn-solid)" : "var(--ok-solid)", onAccion: () => advance(o.id) }}>
+            <div className={"anim-in" + (nivelDe(o.ts) === "rojo" ? " ticket-urgente" : "")} style={{ ...styles.ticket, borderLeftColor: COLOR_NIVEL[nivelDe(o.ts)] }}>
               <div style={styles.ticketHead}>
                 <span style={styles.ticketMesa}>
                   {mesaNombre(mesas, o.mesa).toUpperCase()}
                   {o.editado && <span style={{ ...styles.editedBadge, ...(o.cambio && o.cambioVisto === false ? { background: "var(--warn-solid)", color: "#FFFFFF" } : {}) }}>MODIFICADO</span>}
                 </span>
-                <span style={{ ...styles.ticketTime, color: urgencyColor(o.ts), fontWeight: 700 }}><Clock size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{elapsedLabel(o.ts)}</span>
+                <span className={"ticket-reloj" + (nivelDe(o.ts) === "rojo" ? " ticket-reloj--rojo" : "")} style={{ ...styles.ticketTime, color: COLOR_NIVEL[nivelDe(o.ts)], fontWeight: 700, fontVariantNumeric: "tabular-nums" }}><Clock size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{relojEspera(o.ts, ahora)}</span>
               </div>
               <div style={styles.ticketExactTime}>
                 {o.tipo === "llevar" && <span style={styles.ticketTipo}>PARA LLEVAR</span>}
@@ -441,10 +453,12 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
                 </button>
               </div>
             </div>
+            </FilaDeslizable>
           ))}
         </div>
       )}
       </div>
+      </Transicion>
     </div>
   );
 }
@@ -466,7 +480,7 @@ const ck = {
   herr: { display: "flex", gap: 8 },
   btnIcono: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 1, minWidth: 40, height: 40, borderRadius: 12, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-f1ecdd-b)", color: "var(--c-3b372e-t)", cursor: "pointer" },
   estaciones: { display: "flex", gap: 8, overflowX: "auto", padding: "6px 16px", scrollbarWidth: "none" },
-  chip: { display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "transparent", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 },
+  chip: { display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 999, borderWidth: 1, borderStyle: "solid", borderColor: "var(--c-e4dfce-o)", background: "transparent", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 },
   chipOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "transparent", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontWeight: 700 },
   pestanas: { display: "flex", gap: 4, margin: "8px 16px 12px", padding: 4, borderRadius: 14, background: "var(--c-f1ecdd-b)" },
   pestana: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px 6px", borderRadius: 11, border: "none", background: "transparent", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 700, cursor: "pointer" },

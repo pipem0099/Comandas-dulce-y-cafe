@@ -6,10 +6,12 @@ import { parcharCuenta, avisarFalloGuardado } from "../cuentasOps.js";
 import { idCuentaNueva } from "../cobros.js";
 import { orderTotal } from "../dinero.js";
 import { vibrar } from "../theme.js";
+import { COLOR_NIVEL, getUmbrales, haceCuanto, nivelEspera, useAhora } from "../tiempos.js";
 import { estacionDeLinea, claveLinea, precioUnitario, modsTexto, itemNombre, tieneOpciones, estacionDe, consumoDeItems, difConsumo, negar, faltaStock, TIPO_META, esExterna, etiquetaExterna, uid, money } from "../logica.js";
 import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
 import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
 import { AvisoActivarNotificaciones, Chevron, Segmentado } from "../componentes/Comunes.jsx";
+import { Transicion } from "../movimiento.jsx";
 import { STATE_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { PlanoSalon } from "../pantallas/Mesas.jsx";
@@ -108,6 +110,8 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   // no tiene que estar entrando a cada mesa a chequear si ya puede servir.
   const idsListosVistosRef = useRef(null);
   const [avisoListo, setAvisoListo] = useState(null);
+  const timerAvisoListo = useRef(null);
+  useEffect(() => () => clearTimeout(timerAvisoListo.current), []);
   useEffect(() => {
     const misCuentaIds = new Set(cuentas.filter((c) => c.mesero === meseroActual && c.estado === "abierta").map((c) => c.id));
     const abiertasIds = new Set(cuentas.filter((c) => c.estado === "abierta").map((c) => c.id));
@@ -133,6 +137,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
     idsListosVistosRef.current = idsActuales;
     if (nuevos.length > 0) {
       playBeep();
+      try { if (navigator.vibrate) navigator.vibrate([120, 80, 120]); } catch (e) {}
       // "Mesa 3: 2× Limonada Natural" — qué mesa y qué producto, agrupando lo que salió junto
       const grupos = new Map();
       nuevos.forEach((u) => {
@@ -145,7 +150,8 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
       const mesasUnicas = [...new Set(lista.map((g) => g.mesa))];
       setAvisoListo({ texto, mesa: mesasUnicas.length === 1 ? mesasUnicas[0] : null });
       mostrarNotificacionSistema("Para servir", texto);
-      setTimeout(() => setAvisoListo(null), 7000);
+      clearTimeout(timerAvisoListo.current);
+      timerAvisoListo.current = setTimeout(() => setAvisoListo(null), 15000); // en un salón con ruido 7 s se pasaba de largo
     }
   }, [orders, cuentas, meseroActual, mesas, pisoVista]);
 
@@ -765,7 +771,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           <div style={styles.sentBanner}><Check size={14} /> Pedido enviado a cocina</div>
         )}
 
-        <div className="vidrio" style={{ ...styles.catPillsWrap, position: "sticky", top: 0, zIndex: 5, background: "var(--c-f7f4ec-b)" }}>
+        <div style={{ ...styles.catPillsWrap, position: "sticky", top: 0, zIndex: 6, background: "var(--c-f7f4ec-b)", boxShadow: "0 1px 0 var(--c-e4dfce-o)" }}>
           <div style={{ position: "relative" }}>
             <Search size={17} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--c-8a8272-t)", pointerEvents: "none" }} />
             <input style={{ ...styles.searchInput, width: "100%", boxSizing: "border-box", paddingLeft: 40, paddingRight: search ? 38 : 12 }} ref={buscadorProdRef} data-enter="blur" placeholder="Buscar producto…  ( / )" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -774,18 +780,18 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
             )}
           </div>
           {!search.trim() && (
-            <div style={styles.catPills}>
+            <Segmentado ariaLabel="Categoría" style={styles.catPills}>
               {categories.map((cat) => {
                 const qtyInCat = menu.filter((m) => m.cat === cat).reduce((s, m) => s + (draft[m.id]?.qty || 0), 0);
                 const isActive = (activeCat || categories[0]) === cat;
                 return (
-                  <button key={cat} style={{ ...styles.catPill, ...(isActive ? styles.catPillActive : {}) }} onClick={() => setActiveCat(cat)}>
+                  <button key={cat} role="tab" aria-selected={isActive} style={{ ...styles.catPill, ...(isActive ? styles.catPillActive : {}) }} onClick={() => setActiveCat(cat)}>
                     {cat}
                     {qtyInCat > 0 && <span style={styles.catPillBadge}>{qtyInCat}</span>}
                   </button>
                 );
               })}
-            </div>
+            </Segmentado>
           )}
         </div>
 
@@ -892,6 +898,8 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const mesasVisibles = variosPisos ? mesasDelPiso(mesas, pisoVista, config) : mesas;
 
   // Todo lo que ya salió de cocina y falta llevar, por mesa — mis cuentas abiertas + lo que sube/baja hacia el piso que atiendo.
+  const ahoraServir = useAhora(30000);
+  const umbralesServir = getUmbrales(config);
   const paraServirPorMesa = (() => {
     const grupos = [];
     cuentas
@@ -943,10 +951,10 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           <div style={styles.pageTitle}>Mesas</div>
         </div>
       </div>
-      <div className="ancho" style={styles.vistaMesasSwitch}>
-        <button style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "grid" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("grid")}>Cuadrícula</button>
-        <button style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "plano" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("plano")}>Plano</button>
-      </div>
+      <Segmentado className="ancho" ariaLabel="Vista de mesas" style={styles.vistaMesasSwitch}>
+        <button role="tab" aria-selected={vistaMesas === "grid"} style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "grid" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("grid")}>Cuadrícula</button>
+        <button role="tab" aria-selected={vistaMesas === "plano"} style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "plano" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("plano")}>Plano</button>
+      </Segmentado>
       {variosPisos && (
         <Segmentado className="ancho" ariaLabel="Piso" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", WebkitOverflowScrolling: "touch" }}>
           {pisos.map((p) => {
@@ -961,13 +969,16 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           })}
         </Segmentado>
       )}
-      <div style={styles.mesasScroll}>
+      <div style={styles.mesasScroll} data-swipe-pestanas="">
         {paraServirPorMesa.length > 0 && (
           <div className="ancho" style={styles.paraServirWrap}>
             <div style={styles.paraServirTitulo}><Volume2 size={13} /> PARA SERVIR AHORA</div>
             {paraServirPorMesa.map((g) => (
               <div key={g.mesa} className="anim-in" style={styles.paraServirCard}>
-                <button style={styles.paraServirMesa} onClick={() => enterMesa(g.mesa)}>{g.nombre} ›</button>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                  <button style={styles.paraServirMesa} onClick={() => enterMesa(g.mesa)}>{g.nombre} ›</button>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: COLOR_NIVEL[nivelEspera(g.ts, umbralesServir, ahoraServir)] }}>pedido {haceCuanto(g.ts, ahoraServir)}</span>
+                </div>
                 {g.lineas.map((l) => (
                   <div key={`${l.orderId}-${l.idx}`} style={styles.paraServirLinea}>
                     <span style={styles.paraServirTxt}><b>{l.n}×</b> {l.nombre}{l.desde ? <span style={{ ...styles.paraServirFaltan, color: "var(--c-2f6690-t)" }}> · viene de {l.desde}{l.de ? ` (${l.de})` : ""}</span> : null}{l.faltan > 0 ? <span style={styles.paraServirFaltan}> · faltan {l.faltan} en cocina</span> : null}</span>
@@ -981,12 +992,13 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
             ))}
           </div>
         )}
+      <Transicion clave={`${vistaMesas}|${pisoVista}`} indice={(vistaMesas === "plano" ? 1000 : 0) + Math.max(0, pisos.findIndex((p) => p.id === pisoVista))}>
       {vistaMesas === "plano" ? (
-        <div className="tab-anim" style={{ padding: "0 16px 16px" }}>
+        <div style={{ padding: "0 16px 16px" }}>
           <PlanoSalon mesas={mesasVisibles} zonas={planoDe(config, pisoVista).zonas || []} alto={planoDe(config, pisoVista).alto || 100} cuentas={cuentas} orders={orders} editable={false} onTapMesa={tocarMesa} />
         </div>
       ) : (
-        <div className="ancho tab-anim" style={styles.mesaGrid}>
+        <div className="ancho" style={styles.mesaGrid}>
           {mesasVisibles.length === 0 && (
             <div style={styles.cajaEmptyText}>{variosPisos ? "Este piso todavía no tiene mesas. El administrador las agrega en Mesas." : 'No hay mesas creadas todavía. Toca "Mesas" para agregar la primera.'}</div>
           )}
@@ -1027,6 +1039,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           })}
         </div>
       )}
+      </Transicion>
       <div className="ancho" style={styles.externosWrap}>
         <div style={styles.catLabel}>PARA LLEVAR Y DOMICILIOS</div>
         <div style={{ display: "flex", gap: 8 }}>

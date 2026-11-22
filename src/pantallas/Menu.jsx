@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
-import { Plus, Check, Trash2, Settings2, Search, X, ChevronDown, Camera, Info } from "lucide-react";
+import { Plus, Check, Trash2, Settings2, Search, X, Camera, Info } from "lucide-react";
 import { tieneOpciones, getEstaciones, costoReceta, uid, money } from "../logica.js";
 import { ProductoConfig } from "../extras.jsx";
-import { CampoMonto, Acordeon, Despliegue, Segmentado } from "../componentes/Comunes.jsx";
+import { CampoMonto, Acordeon, Despliegue, Segmentado, Chevron } from "../componentes/Comunes.jsx";
 import { MenuDesdeFoto } from "../componentes/MenuDesdeFoto.jsx";
 import { styles } from "../estilos.js";
+import { Transicion } from "../movimiento.jsx";
 
 export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, insumos, onClose }) {
   const [name, setName] = useState("");
@@ -131,19 +132,19 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
               <CampoMonto style={{ ...styles.editInput, flex: 1 }} placeholder="Costo (opcional)" value={cost} onChange={setCost} />
             </div>
             <div style={m.etiqueta}>Categoría</div>
-            <div style={m.pastillas}>
+            <Segmentado ariaLabel="Categoría del producto" style={m.pastillas}>
               {categorias.map((c) => (
-                <button key={c} style={{ ...m.pastilla, ...(cat === c && !catNueva ? m.pastillaOn : {}) }} onClick={() => { setCat(c); setCatNueva(false); }}>{c}</button>
+                <button key={c} role="tab" aria-selected={cat === c && !catNueva} style={{ ...m.pastilla, ...(cat === c && !catNueva ? m.pastillaOn : {}) }} onClick={() => { setCat(c); setCatNueva(false); }}>{c}</button>
               ))}
-              <button style={{ ...m.pastilla, borderStyle: "dashed", ...(catNueva ? m.pastillaOn : {}) }} onClick={() => { setCatNueva(true); setCat(""); }}><Plus size={13} /> Nueva</button>
-            </div>
+              <button role="tab" aria-selected={!!catNueva} style={{ ...m.pastilla, borderStyle: "dashed", ...(catNueva ? m.pastillaOn : {}) }} onClick={() => { setCatNueva(true); setCat(""); }}><Plus size={13} /> Nueva</button>
+            </Segmentado>
             {catNueva && <input style={styles.editInput} placeholder="Nombre de la nueva categoría" value={cat} onChange={(e) => setCat(e.target.value)} autoFocus />}
             <button style={{ ...styles.sendBtn, opacity: name.trim() && price && cat.trim() ? 1 : 0.4 }} disabled={!(name.trim() && price && cat.trim())} onClick={addItem}><Plus size={15} /> Agregar al menú</button>
           </div>
         )}
 
         {/* Lista */}
-        <div key={filtro} className="tab-anim">
+        <Transicion clave={filtro} indice={["__todas__", ...categorias].indexOf(filtro)}>
         {visibles.length === 0 && <div style={m.vacio}>{q ? `No hay productos que coincidan con "${busqueda}".` : "No hay productos en esta categoría."}</div>}
         {catsVisibles.map((c) => {
           const agrupada = filtro === "__todas__" && !q && !soloSinCosto;      // con buscador, filtro o «sin costo» siempre se ven abiertas
@@ -158,7 +159,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
                   <span style={{ fontSize: 14.5, fontWeight: 600 }}>{c}</span>
                   <span style={{ fontSize: 11.5, color: "var(--c-8a8272-t)" }}>{visibles.filter((x) => x.cat === c).length} {visibles.filter((x) => x.cat === c).length === 1 ? "producto" : "productos"}</span>
                 </span>
-                <ChevronDown size={16} aria-hidden="true" style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: catAbierta ? "rotate(180deg)" : "none" }} />
+                <Chevron abierto={catAbierta} size={16} />
               </button>
             ) : (filtro === "__todas__" && <div style={styles.catLabel}>{c}</div>)}
             <Despliegue abierto={catAbierta}>
@@ -178,7 +179,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
                         })()}
                       </span>
                       <span style={m.precio}>{money(item.price)}</span>
-                      <ChevronDown size={16} style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: abiertoAhora ? "rotate(180deg)" : "none" }} />
+                      <Chevron abierto={abiertoAhora} size={16} />
                     </button>
                     <Despliegue abierto={abiertoAhora}>
                       <div style={m.detalle}>
@@ -213,7 +214,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
           </div>
           );
         })}
-        </div>
+        </Transicion>
       </div>
     </div>
   );

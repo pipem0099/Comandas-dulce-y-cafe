@@ -336,7 +336,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
 const pl = {
   etiqueta: { fontSize: 11.5, color: "var(--c-8a8272-t)", fontWeight: 600 },
   pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
-  pastilla: { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
+  pastilla: { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, borderWidth: 1, borderStyle: "solid", borderColor: "var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
   on: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "transparent", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontWeight: 700 },
   panel: { display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 16, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)" },
   panelTitulo: { fontSize: 15, fontWeight: 700, color: "var(--c-242019-t)" },

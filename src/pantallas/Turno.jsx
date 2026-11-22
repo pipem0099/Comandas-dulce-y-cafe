@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  AlertTriangle, Lock, Download, PlayCircle, DoorClosed, ArrowDownToLine, ArrowUpFromLine, RotateCcw, ChevronDown, ChevronUp, ArrowRightLeft, HandHelping, Printer,
+  AlertTriangle, Lock, Download, PlayCircle, DoorClosed, ArrowDownToLine, ArrowUpFromLine, RotateCcw, ChevronDown, ChevronUp, ArrowRightLeft, HandHelping, Printer, Upload, CalendarDays,
 } from "lucide-react";
 import { uid, money } from "../logica.js";
 import { saveShared, getRecord, saveCollectionArray, mergeCollectionArray, updateRecord } from "../firebase.js";
@@ -398,7 +398,7 @@ const t = {
   rejilla: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 14, alignItems: "start" },
   tarjeta: { display: "flex", flexDirection: "column", gap: 12, padding: 16, borderRadius: 18, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)" },
   tarjetaTitulo: { fontSize: 17, fontWeight: 700, color: "var(--c-242019-t)" },
-  selMov: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "16px 10px", borderRadius: 16, border: "1.5px solid var(--c-e4dfce-o)", background: "var(--c-f7f4ec-b)", color: "var(--c-242019-t)", fontSize: 15, fontWeight: 600, cursor: "pointer" },
+  selMov: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "16px 10px", borderRadius: 16, borderWidth: 1.5, borderStyle: "solid", borderColor: "var(--c-e4dfce-o)", background: "var(--c-f7f4ec-b)", color: "var(--c-242019-t)", fontSize: 15, fontWeight: 600, cursor: "pointer" },
   selEntrada: { borderColor: "rgba(47,143,104,.45)", background: "rgba(47,143,104,.08)" },
   selSalida: { borderColor: "rgba(214,69,69,.45)", background: "rgba(214,69,69,.08)" },
   cuadreFila: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13.5, color: "var(--c-5c5648-t)", padding: "4px 0" },
@@ -485,8 +485,7 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, deud
     <div style={{ marginTop: 8 }}>
       <GrupoSecciones>
 
-        <Seccion titulo="Copia de seguridad completa" resumen="Descargar todo el historial">
-          <div style={{ display: "flex", justifyContent: "flex-end" }}><InfoTip titulo="Copia de seguridad completa">
+        <Seccion titulo="Copia de seguridad completa" resumen="Descargar todo el historial" info={<InfoTip titulo="Copia de seguridad completa">
             Guarda un archivo en este dispositivo con todo el historial del negocio:
             <ul style={styles.respaldoLista}>
               <li>Menú, productos y precios</li>
@@ -496,19 +495,18 @@ export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, deud
               <li>Ajustes del negocio: nombre, marca y registro de seguridad</li>
             </ul>
             No cambia nada en la app. <b>No incluye</b> el inventario ni las cuentas de usuario del equipo.
-          </InfoTip></div>
+          </InfoTip>}>
           <button style={styles.modoChoiceBtn} onClick={onClickDescargar} disabled={cargandoHistorial}>
             <Download size={15} /> {cargandoHistorial ? "Preparando respaldo completo…" : "Descargar copia de seguridad completa"}
           </button>
         </Seccion>
 
-        <Seccion titulo="Restaurar desde un archivo" resumen="Volver a un respaldo anterior">
-          <div style={{ display: "flex", justifyContent: "flex-end" }}><InfoTip titulo="Restaurar desde un archivo">
+        <Seccion titulo="Restaurar desde un archivo" resumen="Volver a un respaldo anterior" info={<InfoTip titulo="Restaurar desde un archivo">
             Vuelve la app al estado de un archivo de respaldo. <b>Reemplaza</b> lo que hay ahora de: menú, pedidos, cuentas, turnos, mesas y ajustes.
             Todo lo registrado después de la fecha del archivo se pierde. No toca el inventario ni los usuarios. Recomendado: descarga una copia de lo actual antes de restaurar.
-          </InfoTip></div>
+          </InfoTip>}>
           {!restaurando ? (
-            <button style={styles.enlaceSistema} onClick={() => setRestaurando(true)}>Restaurar desde un archivo de respaldo</button>
+            <button style={styles.modoChoiceBtn} onClick={() => setRestaurando(true)}><Upload size={15} /> Elegir archivo de respaldo</button>
           ) : (
             <div className="despliega" style={styles.turnoBox}>
               <div style={styles.closeConfirmText}><b>Cuidado:</b> esto no se puede deshacer. Elige el archivo .json del respaldo.</div>
@@ -569,15 +567,14 @@ export function RespaldosAutomaticosBox(propsSeccion) {
   };
 
   return (
-    <Seccion {...propsSeccion} titulo="Copias automáticas" resumen="Los últimos 14 días">
-      <div style={{ display: "flex", justifyContent: "flex-end" }}><InfoTip titulo="Copias automáticas">
+    <Seccion {...propsSeccion} titulo="Copias automáticas" resumen="Los últimos 14 días" info={<InfoTip titulo="Copias automáticas">
         Cada día, la primera vez que un administrador abre la app, se guarda sola una copia del <b>día anterior</b>: sus cuentas y pedidos, más el menú, las mesas y los ajustes.
         Aquí puedes ver y descargar las de los últimos 14 días, útiles para consultar o recuperar lo de un día puntual.
         Cada una trae <b>un solo día</b> de ventas y no incluye turnos, así que no sirven para restaurar todo el negocio (para eso usa la copia completa).
-      </InfoTip></div>
+      </InfoTip>}>
       {dias === null ? (
-        <button style={styles.enlaceSistema} onClick={cargarLista} disabled={cargando}>
-          {cargando ? "Buscando…" : "Ver copias automáticas de los últimos 14 días"}
+        <button style={styles.modoChoiceBtn} onClick={cargarLista} disabled={cargando}>
+          <CalendarDays size={15} /> {cargando ? "Buscando…" : "Ver copias de los últimos 14 días"}
         </button>
       ) : dias.length === 0 ? (
         <div style={styles.cajaEmptyText}>Todavía no hay copias automáticas (se generan solas cada día que un admin abre la app — la de hoy se hace mañana).</div>
@@ -586,7 +583,7 @@ export function RespaldosAutomaticosBox(propsSeccion) {
           {dias.map((r) => (
             <div key={r.dia} style={styles.turnoRow}>
               <span style={styles.cierreDate}>{r.dia} · {(r.cuentas || []).length} {(r.cuentas || []).length === 1 ? "cuenta" : "cuentas"}</span>
-              <button style={styles.inlineLink} onClick={() => descargarDia(r)}><Download size={11} style={{ verticalAlign: -1 }} /> descargar</button>
+              <button style={{ display: "inline-flex", alignItems: "center", gap: 6, minHeight: 34, padding: "0 12px", borderRadius: 999, borderWidth: 1, borderStyle: "solid", borderColor: "var(--btn2-line)", background: "var(--btn2-bg)", color: "var(--btn2-fg)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", flexShrink: 0 }} onClick={() => descargarDia(r)}><Download size={13} /> Descargar</button>
             </div>
           ))}
         </div>

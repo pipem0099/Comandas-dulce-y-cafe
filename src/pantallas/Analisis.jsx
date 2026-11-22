@@ -5,6 +5,7 @@ import { InfoTip } from "../componentes/InfoTip.jsx";
 import { Interruptor } from "../componentes/FilasIos.jsx";
 import { Plegable } from "../componentes/Comunes.jsx";
 import { Minus, Plus } from "lucide-react";
+import { Transicion } from "../movimiento.jsx";
 import { horaReloj, rangoHoras, horasDesdeApertura } from "../horas.js";
 import { styles } from "../estilos.js";
 import { money } from "../logica.js";
@@ -543,13 +544,13 @@ export function Analisis({ onClose, menu, persistMenu, insumos, config, persistC
         <Tabs valor={tab} onChange={setTab} opciones={[["resumen", "Resumen"], ["productos", "Productos"], ["perdidas", "Pérdidas"], ["semana", "Semana"], ["costos", "Costos"]]} />
         {cargandoHistorial && !historialListo && <div style={{ ...nota, color: C.suave, marginBottom: 10 }}>Cargando los últimos 120 días…</div>}
         {errorHistorial && <div style={{ ...nota, color: C.rojo, marginBottom: 10 }}>No se pudo cargar el historial: se muestran solo los últimos días. Revisa tu conexión y vuelve a entrar.</div>}
-        <div key={tab} className="tab-anim">
+        <Transicion clave={tab} indice={["resumen", "productos", "perdidas", "semana", "costos"].indexOf(tab)}>
         {tab === "resumen" && <Resumen ventas={ventas} ahora={ahora} />}
         {tab === "productos" && <Productos ventas={ventas} menu={menu || []} insumos={insumos || []} plantilla={plantilla} ahora={ahora} onCostos={() => setTab("costos")} />}
         {tab === "perdidas" && <Perdidas ventas={ventas} cuentas={cuentasAnalisis || []} ahora={ahora} />}
         {tab === "semana" && <Semana ventas={ventas} menu={menu || []} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
         {tab === "costos" && <Costos ventas={ventas} menu={menu || []} persistMenu={persistMenu} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
-        </div>
+        </Transicion>
       </div>
     </>
   );
