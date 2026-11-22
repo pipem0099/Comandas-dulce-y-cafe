@@ -32,7 +32,7 @@ const Avatar = ({ usuarioActual, size = 30 }) => (
 export function TopBar({ config, usuarioActual, onIr, onSalir, online, alertas, onIrAlerta }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   return (
-    <div className="no-imprimir vidrio" data-barra-superior="" style={{ ...styles.topBar, flexWrap: "nowrap", padding: "calc(10px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 10px calc(16px + env(safe-area-inset-left))" }}>
+    <div className="no-imprimir vidrio" style={{ ...styles.topBar, flexWrap: "nowrap", padding: "calc(10px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 10px calc(16px + env(safe-area-inset-left))" }}>
       <div style={styles.brand}>
         <LogoMarca marca={config.marca} />
         <span style={styles.brandText}>{(config.businessName || "LA COMANDA").toUpperCase()}</span>

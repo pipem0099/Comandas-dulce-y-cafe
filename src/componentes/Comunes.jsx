@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, Children, cloneElement, isValidElement } from "react";
-import { ChevronDown, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { money } from "../logica.js";
@@ -98,17 +98,16 @@ export function Acordeon({ titulo, resumen, inicialAbierto = false, children }) 
 }
 
 /** Contenedor que abre y cierra animando altura y opacidad (curva de Apple): el resto de la pantalla se acomoda despacio, sin saltos. */
-export function Despliegue({ abierto, siempre = false, children }) {
+export function Despliegue({ abierto, children }) {
   const [montado, setMontado] = useState(!!abierto);
   useEffect(() => {
-    if (siempre) return undefined;
     if (abierto) { setMontado(true); return undefined; }
     const t = setTimeout(() => setMontado(false), 420);
     return () => clearTimeout(t);
   }, [abierto]);
   return (
     <div className="despliegue" data-abierto={abierto ? "1" : "0"} aria-hidden={abierto ? undefined : true}>
-      <div className="despliegue-in">{(siempre || abierto || montado) ? children : null}</div>
+      <div className="despliegue-in">{(abierto || montado) ? children : null}</div>
     </div>
   );
 }
@@ -216,11 +215,13 @@ export function Plegable({ titulo, resumen, inicialAbierto = false, estilo, esti
           <span style={{ ...estiloTitulo, margin: 0 }}>{titulo}</span>
           {resumen && <span style={{ fontSize: 12.5, opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{resumen}</span>}
         </span>
-        <Chevron abierto={abierto} size={18} />
+        <ChevronDown size={18} aria-hidden="true" style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: abierto ? "rotate(180deg)" : "none" }} />
       </button>
-      <Despliegue abierto={abierto} siempre>
-        <div className="seccion-cuerpo" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>{children}</div>
-      </Despliegue>
+      <div style={{ display: "grid", gridTemplateRows: abierto ? "1fr" : "0fr", transition: "grid-template-rows .35s cubic-bezier(.32,.72,0,1)" }}>
+        <div style={{ overflow: "hidden", minHeight: 0, visibility: abierto ? "visible" : "hidden", transition: "visibility .35s" }}>
+          <div className="seccion-cuerpo" style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>{children}</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -244,21 +245,22 @@ export function GrupoSecciones({ children, inicial = null }) {
   );
 }
 
-export function Seccion({ titulo, resumen, info, abierta, alternar, ultima, children }) {
+export function Seccion({ titulo, resumen, abierta, alternar, ultima, children }) {
   return (
-    <div style={{ position: "relative", borderBottom: ultima ? "none" : "1px solid var(--c-e4dfce-o)" }}>
+    <div style={{ borderBottom: ultima ? "none" : "1px solid var(--c-e4dfce-o)" }}>
       <button type="button" aria-expanded={!!abierta} onClick={alternar}
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, width: "100%", minHeight: 52, padding: info ? "13px 14px 13px 14px" : "13px 14px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", color: "var(--c-242019-t)", font: "inherit" }}>
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, width: "100%", minHeight: 52, padding: "13px 14px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", color: "var(--c-242019-t)", font: "inherit" }}>
         <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
           <span style={{ fontSize: 14.5, fontWeight: 600 }}>{titulo}</span>
           {resumen && <span style={{ fontSize: 11.5, color: "var(--c-8a8272-t)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{resumen}</span>}
         </span>
-        <Chevron abierto={!!abierta} size={16} style={{ color: "var(--c-9a9382-t)", marginLeft: info ? 34 : 0 }} />
+        <ChevronRight size={16} aria-hidden="true" color="var(--c-9a9382-t)" style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: abierta ? "rotate(90deg)" : "none" }} />
       </button>
-      {info && <div style={{ position: "absolute", right: 38, top: 12, display: "flex" }}>{info}</div>}
-      <Despliegue abierto={!!abierta} siempre>
-        <div className="seccion-cuerpo" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "2px 14px 16px" }}>{children}</div>
-      </Despliegue>
+      <div style={{ display: "grid", gridTemplateRows: abierta ? "1fr" : "0fr", transition: "grid-template-rows .35s cubic-bezier(.32,.72,0,1)" }}>
+        <div style={{ overflow: "hidden", minHeight: 0, visibility: abierta ? "visible" : "hidden", transition: "visibility .35s" }}>
+          <div className="seccion-cuerpo" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "2px 14px 16px" }}>{children}</div>
+        </div>
+      </div>
     </div>
   );
 }

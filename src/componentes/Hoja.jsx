@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
 /*
  * Hoja flotante (bottom sheet) tipo iOS — la usan TODOS los diálogos de la app.
@@ -17,18 +16,8 @@ const pila = [];
 let idSecuencia = 0;
 let ignorarPop = 0;
 
-/* Borde inferior de la barra superior fija (celular): el menú de la cuenta se ancla justo debajo de ella. */
-function bajoBarraSuperior() {
-  try {
-    if (window.matchMedia && window.matchMedia("(min-width: 700px)").matches) return null;
-    const b = document.querySelector("[data-barra-superior]");
-    return b ? Math.max(0, Math.round(b.getBoundingClientRect().bottom)) : null;
-  } catch (e) { return null; }
-}
-
-export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60, padding, centro = false, vidrio = false, bajoBarra = false }) {
+export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60, padding, centro = false, vidrio = false }) {
   const [fase, setFase] = useState("entrando");
-  const [yBarra] = useState(() => (bajoBarra ? bajoBarraSuperior() : null));
   const panelRef = useRef(null);
   const scrimRef = useRef(null);
   const scrollRef = useRef(null);
@@ -104,8 +93,6 @@ export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60,
 
     const inicio = (e) => {
       if (e.touches.length !== 1 || cerrando.current) { activo = false; return; }
-      // ruedas, listas con imán, etc.: su propio desplazamiento vertical no debe arrastrar la hoja
-      if (e.target.closest && e.target.closest("[data-no-arrastre]")) { activo = false; return; }
       activo = true; arrastrando = false; dy = 0; vel = 0;
       y0 = lastY = e.touches[0].clientY;
       lastT = performance.now();
@@ -166,10 +153,8 @@ export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60,
     };
   }, [cerrar, centro]);
 
-  /* Se dibuja en <body> (portal): así ninguna barra con vidrio/filtro ni animación de la pantalla de abajo puede
-     recortarla o taparla. Siempre queda por encima de la cabecera y respeta las áreas seguras (notch, isla, barra gestual). */
-  const hoja = (
-    <div className={"hoja-v2 hoja-overlay-v2" + (centro ? " hoja-v2--centro" : "") + (vidrio ? " hoja-v2--vidrio" : "") + (yBarra != null ? " hoja-v2--bajo-barra" : "")} data-fase={fase} style={{ zIndex: z, ...(yBarra != null ? { "--hoja-top": yBarra + "px" } : null) }}>
+  return (
+    <div className={"hoja-v2 hoja-overlay-v2" + (centro ? " hoja-v2--centro" : "") + (vidrio ? " hoja-v2--vidrio" : "")} data-fase={fase} style={{ zIndex: z }}>
       <div ref={scrimRef} className="hoja-v2-scrim" onClick={cerrarPublico} />
       <div ref={panelRef} className="hoja-v2-panel" style={{ maxWidth: Math.min(ancho, 520) }} role="dialog" aria-modal="true" aria-label={label}>
         <div className="hoja-v2-agarre" data-agarre aria-hidden="true"><span /></div>
@@ -179,5 +164,4 @@ export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60,
       </div>
     </div>
   );
-  return typeof document !== "undefined" && document.body ? createPortal(hoja, document.body) : hoja;
 }
