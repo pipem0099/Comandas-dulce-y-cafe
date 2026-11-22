@@ -1,10 +1,11 @@
-import { Plegable, GrupoSecciones, Seccion } from "./componentes/Comunes.jsx";
+import { Plegable, GrupoSecciones, Seccion, Segmentado } from "./componentes/Comunes.jsx";
 import React, { useState, useEffect, useRef } from "react";
 import { CabeceraAdmin } from "./componentes/CabeceraAdmin.jsx";
 import { Plus, Minus, Trash2, Check, X, Upload, Boxes, AlertTriangle, Pencil, ShoppingBag, Bike, Image as ImageIcon, ChevronDown } from "lucide-react";
 import { ACENTOS, FUENTES, MARCA_POR_DEFECTO, reducirLogo, vibrar } from "./theme.js";
 import { Hoja } from "./componentes/Hoja.jsx";
 import { Selector } from "./componentes/Campos.jsx";
+import { getUmbrales, UMBRALES_DEFECTO, LIMITES_UMBRAL } from "./tiempos.js";
 import { getCajas, CAJA_BASE, turnosSinCaja } from "./pisos.js";
 import { updateRecord } from "./firebase.js";
 import {
@@ -299,10 +300,10 @@ export function ProductoConfig({ item, config, insumos, onSave, onClose }) {
             <button className="toque44" style={x.btnDanger} onClick={() => setGrupos((gs) => gs.filter((v) => v.id !== g.id))} aria-label="Quitar grupo"><Trash2 size={14} /></button>
           </div>
           <div style={{ ...x.row, flexWrap: "wrap" }}>
-            <div style={x.segmented}>
-              <button style={{ ...x.segBtn, ...(g.tipo === "uno" ? x.segBtnOn : {}) }} onClick={() => upG(g.id, { tipo: "uno" })}>Elige una</button>
-              <button style={{ ...x.segBtn, ...(g.tipo === "varios" ? x.segBtnOn : {}) }} onClick={() => upG(g.id, { tipo: "varios" })}>Elige varias</button>
-            </div>
+            <Segmentado ariaLabel="Cuántas se pueden elegir" radio={10} style={x.segmented}>
+              <button role="tab" aria-selected={g.tipo === "uno"} style={{ ...x.segBtn, ...(g.tipo === "uno" ? x.segBtnOn : {}) }} onClick={() => upG(g.id, { tipo: "uno" })}>Elige una</button>
+              <button role="tab" aria-selected={g.tipo === "varios"} style={{ ...x.segBtn, ...(g.tipo === "varios" ? x.segBtnOn : {}) }} onClick={() => upG(g.id, { tipo: "varios" })}>Elige varias</button>
+            </Segmentado>
             <Interruptor checked={!!g.requerido} onChange={(v) => upG(g.id, { requerido: v })}>Obligatorio</Interruptor>
           </div>
           {g.tipo === "varios" && (
@@ -415,6 +416,14 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
     try { setMarca({ logo: await reducirLogo(f) }); } catch (err) { setErrorLogo(err.message || "No se pudo usar esa imagen"); }
   };
 
+  const umbrales = getUmbrales(config);
+  const setUmbral = (k, v) => {
+    const n = Math.max(LIMITES_UMBRAL.min, Math.min(LIMITES_UMBRAL.max, v));
+    const t = { ...umbrales, [k]: n };
+    if (k === "ambar" && t.rojo <= n) t.rojo = Math.min(LIMITES_UMBRAL.max, n + 1);
+    if (k === "rojo" && t.ambar >= n) t.ambar = Math.max(LIMITES_UMBRAL.min, n - 1);
+    persistConfig({ ...config, tiempos: t });
+  };
   const setEstaciones = (lista, extra = {}) => persistConfig({ ...config, estaciones: lista, ...extra });
   const agregarEstacion = () => {
     const n = nuevaEst.trim();
@@ -562,6 +571,18 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
         </Seccion>
 
         {/* Cajas */}
+        <Seccion titulo="Tiempos de espera" resumen={`Ámbar ${umbrales.ambar} min · Rojo ${umbrales.rojo} min`}>
+          <div style={x.hint}>En Cocina, cada comanda cambia de color según cuánto lleva esperando: verde al llegar, ámbar al pasar el primer tiempo y rojo (con un latido suave) al pasar el segundo.</div>
+          {[["ambar", "Ámbar a los", "var(--c-b98a2e-t)"], ["rojo", "Rojo a los", "var(--c-c1442d-t)"]].map(([k, et, col]) => (
+            <div key={k} style={x.row}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, fontSize: 14.5, fontWeight: 600 }}><span style={{ width: 10, height: 10, borderRadius: 5, background: col, flexShrink: 0 }} />{et}</span>
+              <button type="button" aria-label={`Menos minutos (${k})`} style={x.btnSmall} onClick={() => setUmbral(k, umbrales[k] - 1)}><Minus size={14} /></button>
+              <span style={{ minWidth: 64, textAlign: "center", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{umbrales[k]} min</span>
+              <button type="button" aria-label={`Más minutos (${k})`} style={x.btnSmall} onClick={() => setUmbral(k, umbrales[k] + 1)}><Plus size={14} /></button>
+            </div>
+          ))}
+          <button type="button" style={{ ...x.btnSmall, alignSelf: "flex-start" }} onClick={() => persistConfig({ ...config, tiempos: { ...UMBRALES_DEFECTO } })}>Restablecer ({UMBRALES_DEFECTO.ambar} y {UMBRALES_DEFECTO.rojo} min)</button>
+        </Seccion>
         <Seccion titulo="Cajas" resumen={cajas.length > 1 ? `${cajas.length} cajas` : "1 caja"}>
           <div style={x.hint}>Si tienes más de una caja (por ejemplo una por piso), créalas aquí. Cada caja abre y cierra su propio turno y cuadra su efectivo; los clientes pueden pagar en cualquiera de ellas. Puedes agregar una caja con el negocio abierto: el turno que está abierto sigue como «Caja 1» y la nueva se abre aparte.</div>
           {cajas.length > 1 && cajas.map((c) => (

@@ -127,18 +127,6 @@ export function qtyAsignadaPorProducto(cuenta) {
   return map;
 }
 
-export function elapsedLabel(ts) {
-  const secs = Math.floor((Date.now() - ts) / 1000);
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-export function urgencyColor(ts) {
-  const mins = (Date.now() - ts) / 60000;
-  if (mins >= 10) return "var(--c-c1442d-t)";
-  if (mins >= 5) return "var(--c-b98a2e-t)";
-  return "var(--c-5b7553-t)";
-}
 export function timeLabel(ts) {
   return new Date(ts).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
 }
