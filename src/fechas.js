@@ -18,6 +18,14 @@ export function fechaLegible(k) {
   return `${DIAS_CORTO[d.getDay()]} ${d.getDate()} ${MESES_CORTO[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** Versión corta para botones y campos (una sola línea): "sáb 28 nov"; el año solo se muestra si no es el actual. */
+export function fechaCorta(k) {
+  if (!k) return "";
+  const d = deClave(k);
+  const base = `${DIAS_CORTO[d.getDay()]} ${d.getDate()} ${MESES_CORTO[d.getMonth()]}`;
+  return d.getFullYear() === new Date().getFullYear() ? base : `${base} ${d.getFullYear()}`;
+}
+
 /** Semanas (lunes a domingo) de un mes: filas con 7 casillas; las vacías son null. `mes` va de 0 (enero) a 11. */
 export function semanasDelMes(anio, mes) {
   const primero = new Date(anio, mes, 1);

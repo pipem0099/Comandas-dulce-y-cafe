@@ -24,7 +24,7 @@ export const reducirMovimiento = () => {
  * nada) mientras se funde hacia afuera y el nuevo entra deslizándose desde el lado correcto. `indice` (número) decide
  * la dirección: si crece entra desde la derecha. La altura del contenedor se anima, así la pantalla no da un salto.
  * `altura={false}` para contenedores que llenan la pantalla (flex) y no deben animar su alto. */
-export function Transicion({ clave, indice, altura = true, children, className = "", style, estiloDentro }) {
+export function Transicion({ clave, indice, altura = true, modo = "fundido", children, className = "", style, estiloDentro }) {
   const caja = useRef(null);
   const dentro = useRef(null);
   const claveAnt = useRef(clave);
@@ -38,7 +38,7 @@ export function Transicion({ clave, indice, altura = true, children, className =
   // Durante el render el DOM todavía es el de la clave anterior: ahí se toma la "foto" del contenido que se va.
   if (claveAnt.current !== clave) {
     if (!foto.current && dentro.current) {
-      try { foto.current = dentro.current.cloneNode(true); altoAnt.current = dentro.current.offsetHeight; } catch (e) { foto.current = null; }
+      try { foto.current = dentro.current.cloneNode(true); altoAnt.current = caja.current ? caja.current.offsetHeight : dentro.current.offsetHeight; } catch (e) { foto.current = null; }
     }
     dir.current = typeof indice === "number" && typeof indiceAnt.current === "number" ? Math.sign(indice - indiceAnt.current) : 0;
     hubo.current = true;
@@ -69,7 +69,7 @@ export function Transicion({ clave, indice, altura = true, children, className =
     }
     const h0 = altoAnt.current;
     if (altura && h0) {
-      const h1 = nuevo.offsetHeight;
+      const h1 = c.offsetHeight; // alto natural de la caja (sin altura fija todavía)
       if (Math.abs(h1 - h0) > 2) {
         c.style.transition = "none"; c.style.height = h0 + "px"; c.style.overflow = "hidden";
         void c.offsetHeight; // fuerza el cálculo para que arranque desde la altura anterior
@@ -85,7 +85,7 @@ export function Transicion({ clave, indice, altura = true, children, className =
   useEffect(() => () => clearTimeout(timer.current), []);
 
   return (
-    <div ref={caja} className={("trans " + className).trim()} style={{ position: "relative", ...style }}>
+    <div ref={caja} className={("trans " + (modo === "fundido" ? "trans--fundido " : "") + className).trim()} style={{ position: "relative", display: "flow-root", ...style }}>
       <div key={String(clave)} ref={dentro} className={hubo.current ? "trans-entra" : undefined} style={{ ...estiloDentro, "--dir": dir.current, "--dirabs": Math.abs(dir.current) }}>
         {children}
       </div>

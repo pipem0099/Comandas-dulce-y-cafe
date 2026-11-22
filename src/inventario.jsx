@@ -6,7 +6,7 @@ import {
 import { uid, money, fmtNum, UNIDADES, estadoStock } from "./logica.js";
 import { vibrar } from "./theme.js";
 import { K, x, CampoNumero, CampoPesos, EmptyState } from "./extras.jsx";
-import { Chevron, Segmentado } from "./componentes/Comunes.jsx";
+import { Chevron, Segmentado, Despliegue } from "./componentes/Comunes.jsx";
 import { Selector, CampoFecha } from "./componentes/Campos.jsx";
 import { imprimir, Hoja, Seccion, Kpis, Tabla, Firmas } from "./impresion.jsx";
 import { tieneRol } from "./utilidades.js";
@@ -382,7 +382,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
       )}
 
       {/* Tarjetas */}
-      {!creando && <div className="rejilla-auto">{lista.map((ins) => {
+      {!creando && <div key={filtro} className="rejilla-auto tab-anim">{lista.map((ins) => {
         const est = estadoStock(ins); const meta = META_STOCK[est];
         const ev = estadoVence(ins);
         const stock = Number(ins.stock) || 0;
@@ -409,8 +409,9 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
                 <CalendarClock size={13} /> {ev.k === "vencido" ? "Vencido" : ev.d === 0 ? "Vence hoy" : `Vence en ${ev.d} ${ev.d === 1 ? "día" : "días"}`}
               </div>
             )}
-            {abierto && (
-              <>
+            <div style={{ marginTop: -10 }}>{/* anula el gap de la tarjeta cuando está plegada */}
+            <Despliegue abierto={abierto}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 10 }}>
                 <div style={x.bar}><div style={{ width: `${pct}%`, height: "100%", background: meta.bar, transition: "width .4s ease" }} /></div>
                 <div style={x.hint}>
                   {ins.ideal ? `Ideal ${fmtNum(ins.ideal)} ${ins.unidad}` : "Sin stock ideal definido"}{ins.costo ? ` · ${money(ins.costo)} por ${unidadSing(ins.unidad)}` : ""}{ins.costo && stock > 0 ? ` · en stock vale ${money(stock * ins.costo)}` : ""}
@@ -425,11 +426,11 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
                     <CalendarClock size={13} /> {ev.k === "vencido" ? `Venció el ${venceCorta(ins.vence)}` : ev.d === 0 ? "Vence hoy" : `Vence en ${ev.d} ${ev.d === 1 ? "día" : "días"} (${venceCorta(ins.vence)})`}
                   </div>
                 )}
-              </>
-            )}
+              </div>
+            </Despliegue>
 
-            {abierto && !a && confirmDel !== ins.id && (
-              <div style={{ ...x.row, flexWrap: "wrap" }}>
+            <Despliegue abierto={abierto && !a && confirmDel !== ins.id}>
+              <div style={{ ...x.row, flexWrap: "wrap", paddingTop: 10 }}>
                 <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "entrada", valor: "", enPres: false, costoNuevo: "", vence: "", nota: "" })}><Plus size={13} /> Entrada</button>
                 <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "salida", valor: "", motivo: MOTIVOS_SALIDA[0], nota: "" })}><Minus size={13} /> Salida</button>
                 <button style={x.btnSmall} onClick={() => setAccion({ id: ins.id, tipo: "conteo", valor: "" })}><Check size={13} /> Contar</button>
@@ -437,7 +438,8 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
                 <button className="toque44" style={x.btnIcon} onClick={() => setAccion({ id: ins.id, tipo: "historial" })} aria-label="Historial"><History size={14} /></button>
                 <button className="toque44" style={{ ...x.btnDanger, marginLeft: "auto" }} onClick={() => setConfirmDel(ins.id)} aria-label="Eliminar"><Trash2 size={14} /></button>
               </div>
-            )}
+            </Despliegue>
+            </div>
             {confirmDel === ins.id && (
               <div style={{ ...x.row, justifyContent: "space-between" }}>
                 <span style={{ fontSize: 13, color: K.red, fontWeight: 600 }}>¿Eliminar este artículo?</span>
