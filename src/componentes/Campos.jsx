@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Check, ChevronLeft, ChevronRight, CalendarDays, Clock } from "lucide-react";
 import { Hoja } from "./Hoja.jsx";
 import { Chevron } from "./Comunes.jsx";
+import { Rueda } from "../movimiento.jsx";
 import { MESES, pad, aClave, deClave, fechaLegible, semanasDelMes, horaLegible } from "../fechas.js";
 
 /*
@@ -124,15 +125,27 @@ export function CampoFecha({ value, onChange, min, max, opcional = false, placeh
 }
 
 /* ───────────────────────── Hora ───────────────────────── */
-/** 16 → "4 p. m.",  0 → "12 a. m." */
-const horaCorta = (h) => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "a. m." : "p. m."}`;
+const H12 = Array.from({ length: 12 }, (_, i) => ({ v: i + 1, label: String(i + 1) }));
+const AMPM = [{ v: "am", label: "a. m." }, { v: "pm", label: "p. m." }];
+const A24 = (h12, pm) => (h12 % 12) + (pm ? 12 : 0);
 
+/* Hora con ruedas que se frenan en cada valor (como el selector de iOS): hora · minutos · a. m./p. m. */
 export function CampoHora({ value, onChange, placeholder = "Elegir hora", ariaLabel, style, titulo: tit = "Elegir hora" }) {
   const [abierto, setAbierto] = useState(false);
   const [h0, m0] = value ? String(value).split(":").map(Number) : [null, 0];
-  const [hora, setHora] = useState(h0);
-  const abrir = () => { setHora(h0); setAbierto(true); };
-  const casilla = (on) => ({ minHeight: 44, borderRadius: 10, border: "none", fontSize: 14, fontWeight: on ? 700 : 500, cursor: "pointer", fontFamily: "var(--font-body)", background: on ? "var(--chip-on-bg)" : "var(--btn2-bg)", color: on ? "var(--chip-on-fg)" : "var(--btn2-fg)", boxShadow: on ? "inset 0 0 0 1px var(--chip-on-line)" : "none" });
+  const [h12, setH12] = useState(12);
+  const [min, setMin] = useState(0);
+  const [pm, setPm] = useState("pm");
+  const abrir = () => {
+    if (h0 != null) { setH12(h0 % 12 === 0 ? 12 : h0 % 12); setMin(m0 || 0); setPm(h0 >= 12 ? "pm" : "am"); }
+    else { setH12(12); setMin(0); setPm("pm"); }
+    setAbierto(true);
+  };
+  // minutos de 5 en 5; si la hora guardada trae otro minuto (p. ej. 20:07) también aparece
+  const minutos = Array.from({ length: 12 }, (_, i) => i * 5);
+  if (!minutos.includes(min)) minutos.push(min);
+  minutos.sort((a, b) => a - b);
+  const opcionesMin = minutos.map((m) => ({ v: m, label: pad(m) }));
   return (
     <>
       <button type="button" aria-haspopup="dialog" aria-label={ariaLabel || tit} onClick={abrir} style={{ ...campo, ...style }}>
@@ -140,22 +153,20 @@ export function CampoHora({ value, onChange, placeholder = "Elegir hora", ariaLa
         <Clock size={16} color="var(--btn2-mute)" />
       </button>
       {abierto && createPortal(
-        <Hoja onCerrar={() => setAbierto(false)} ancho={400} gap={10} label={tit} z={Z}>
+        <Hoja onCerrar={() => setAbierto(false)} ancho={400} gap={12} label={tit} z={Z}>
           {({ cerrar }) => (
             <>
               <div style={titulo}>{tit}</div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--btn2-mute)" }}>HORA</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
-                {Array.from({ length: 24 }, (_, h) => <button key={h} type="button" aria-pressed={h === hora} style={casilla(h === hora)} onClick={() => setHora(h)}>{horaCorta(h)}</button>)}
+              <div className="ruedas">
+                <Rueda etiqueta="Hora" opciones={H12} valor={h12} onChange={setH12} />
+                <Rueda etiqueta="Minutos" opciones={opcionesMin} valor={min} onChange={setMin} />
+                <Rueda etiqueta="a. m. o p. m." opciones={AMPM} valor={pm} onChange={setPm} />
               </div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--btn2-mute)" }}>MINUTOS</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
-                {Array.from({ length: 12 }, (_, i) => i * 5).map((mm) => (
-                  <button key={mm} type="button" disabled={hora == null} aria-pressed={hora != null && mm === m0 && h0 === hora} style={{ ...casilla(hora != null && mm === m0 && h0 === hora), opacity: hora == null ? 0.4 : 1 }}
-                    onClick={() => { onChange(`${pad(hora)}:${pad(mm)}`); cerrar(); }}>{pad(mm)}</button>
-                ))}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" style={botonSec} onClick={cerrar}>Cancelar</button>
+                <button type="button" style={{ ...botonSec, background: "var(--accent)", color: "var(--accent-fg)", border: "none", fontWeight: 700 }}
+                  onClick={() => { onChange(`${pad(A24(h12, pm === "pm"))}:${pad(min)}`); cerrar(); }}>Listo</button>
               </div>
-              <button type="button" style={botonSec} onClick={cerrar}>Cerrar</button>
             </>
           )}
         </Hoja>,
