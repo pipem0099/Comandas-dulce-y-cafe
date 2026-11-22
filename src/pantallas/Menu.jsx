@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
-import { Plus, Check, Trash2, Settings2, Search, X, ChevronDown, Camera, Info } from "lucide-react";
+import { Plus, Check, Trash2, Settings2, Search, X, Camera, Info } from "lucide-react";
 import { tieneOpciones, getEstaciones, costoReceta, uid, money } from "../logica.js";
 import { ProductoConfig } from "../extras.jsx";
-import { CampoMonto, Acordeon, Despliegue, Segmentado } from "../componentes/Comunes.jsx";
+import { CampoMonto, Acordeon, Despliegue, Segmentado, Chevron } from "../componentes/Comunes.jsx";
 import { MenuDesdeFoto } from "../componentes/MenuDesdeFoto.jsx";
 import { styles } from "../estilos.js";
 import { Transicion } from "../movimiento.jsx";
@@ -159,7 +159,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
                   <span style={{ fontSize: 14.5, fontWeight: 600 }}>{c}</span>
                   <span style={{ fontSize: 11.5, color: "var(--c-8a8272-t)" }}>{visibles.filter((x) => x.cat === c).length} {visibles.filter((x) => x.cat === c).length === 1 ? "producto" : "productos"}</span>
                 </span>
-                <ChevronDown size={16} aria-hidden="true" style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: catAbierta ? "rotate(180deg)" : "none" }} />
+                <Chevron abierto={catAbierta} size={16} />
               </button>
             ) : (filtro === "__todas__" && <div style={styles.catLabel}>{c}</div>)}
             <Despliegue abierto={catAbierta}>
@@ -179,7 +179,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
                         })()}
                       </span>
                       <span style={m.precio}>{money(item.price)}</span>
-                      <ChevronDown size={16} style={{ flexShrink: 0, transition: "transform .3s cubic-bezier(.32,.72,0,1)", transform: abiertoAhora ? "rotate(180deg)" : "none" }} />
+                      <Chevron abierto={abiertoAhora} size={16} />
                     </button>
                     <Despliegue abierto={abiertoAhora}>
                       <div style={m.detalle}>

@@ -132,11 +132,11 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
             {d.label}{cuenta(d.key) > 0 && <span style={rv.contador}>{cuenta(d.key)}</span>}
           </button>
         ))}
-        <CampoFecha value={dia} onChange={(k) => k && setDia(k)} ariaLabel="Otra fecha" titulo="Otra fecha" style={{ width: "auto", minHeight: 40, borderRadius: 999, fontSize: 13 }} />
+        <CampoFecha value={dia} onChange={(k) => k && setDia(k)} ariaLabel="Otra fecha" titulo="Otra fecha" style={{ width: "auto", flexShrink: 0, minHeight: 40, borderRadius: 999, fontSize: 13 }} />
       </Segmentado>
 
       <div ref={listaRef} className="ancho" style={styles.menuScroll}>
-        <Transicion clave={dia} indice={Date.parse(`${dia}T12:00:00`)}>
+        <Transicion modo="deslizar" clave={dia} indice={Date.parse(`${dia}T12:00:00`)}>
         <div style={rv.resumen}>
           <div style={rv.resCelda}><span style={rv.resEt}>Reservas</span><span style={rv.resNum}><NumeroAnimado valor={vigentes.length} /></span></div>
           <div style={rv.resCelda}><span style={rv.resEt}>Personas</span><span style={rv.resNum}><NumeroAnimado valor={personas} /></span></div>

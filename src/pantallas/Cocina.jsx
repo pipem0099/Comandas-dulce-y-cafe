@@ -18,7 +18,8 @@ import { eventosParaCocina, ambitoDe, numeroRonda, yaImpreso } from "../termica/
 
 const ESPERA_DEDUP_MS = 6000; // tiempo que Cocina espera antes de imprimir un pedido, para que el equipo del mesero imprima primero si le toca
 import { getPisos, pisoPrepDeLinea, pisoEntregaDeLinea, nombrePiso } from "../pisos.js";
-import { conProgreso, elapsedLabel, itemListos, itemServidos, mesaNombre, timeLabel, urgencyColor } from "../utilidades.js";
+import { conProgreso, itemListos, itemServidos, mesaNombre, timeLabel } from "../utilidades.js";
+import { COLOR_NIVEL, getUmbrales, nivelEspera, relojEspera, useAhora } from "../tiempos.js";
 
 /* ---------------- COCINA ---------------- */
 
@@ -99,6 +100,11 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
   // "Entregar en piso 3": solo se muestra cuando se prepara en un piso y se entrega en otro
   const traspaso = (it) => (variosPisos && pisoEntregaDeLinea(it, config) !== pisoPrepDeLinea(it, config) ? `→ Entregar en ${nombrePiso(config, pisoEntregaDeLinea(it, config))}` : null);
   const nombreEstacion = (it) => (estaciones.find((e) => e.id === estacionDeLinea(it, config)) || estaciones[0]).nombre;
+
+  // Reloj en vivo (cada segundo) y umbrales ámbar/rojo editables en Ajustes → Tiempos de espera
+  const ahora = useAhora(1000);
+  const umbrales = getUmbrales(config);
+  const nivelDe = (ts) => nivelEspera(ts, umbrales, ahora);
 
   const activos = orders.filter((o) => o.estado !== "listo" && o.estado !== "servido" && o.estado !== "cancelado");
   const active = activos.filter((o) => o.items.some((it) => enEstacion(it) && itemListos(o, it) < it.qty)).sort((a, b) => a.ts - b.ts);
@@ -379,13 +385,13 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
           {lista.map((o) => (
             <FilaDeslizable key={o.id} data-flip={o.id} radio={12}
               izquierda={{ texto: o.estado === "pendiente" ? "Empezar" : "Todo listo", icono: o.estado === "pendiente" ? Flame : Check, color: o.estado === "pendiente" ? "var(--warn-solid)" : "var(--ok-solid)", onAccion: () => advance(o.id) }}>
-            <div className="anim-in" style={{ ...styles.ticket, borderLeftColor: urgencyColor(o.ts) }}>
+            <div className={"anim-in" + (nivelDe(o.ts) === "rojo" ? " ticket-urgente" : "")} style={{ ...styles.ticket, borderLeftColor: COLOR_NIVEL[nivelDe(o.ts)] }}>
               <div style={styles.ticketHead}>
                 <span style={styles.ticketMesa}>
                   {mesaNombre(mesas, o.mesa).toUpperCase()}
                   {o.editado && <span style={{ ...styles.editedBadge, ...(o.cambio && o.cambioVisto === false ? { background: "var(--warn-solid)", color: "#FFFFFF" } : {}) }}>MODIFICADO</span>}
                 </span>
-                <span style={{ ...styles.ticketTime, color: urgencyColor(o.ts), fontWeight: 700 }}><Clock size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{elapsedLabel(o.ts)}</span>
+                <span className={"ticket-reloj" + (nivelDe(o.ts) === "rojo" ? " ticket-reloj--rojo" : "")} style={{ ...styles.ticketTime, color: COLOR_NIVEL[nivelDe(o.ts)], fontWeight: 700, fontVariantNumeric: "tabular-nums" }}><Clock size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{relojEspera(o.ts, ahora)}</span>
               </div>
               <div style={styles.ticketExactTime}>
                 {o.tipo === "llevar" && <span style={styles.ticketTipo}>PARA LLEVAR</span>}

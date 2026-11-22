@@ -93,7 +93,7 @@ export function PendientesView({ deudas, usuarioActual, turnoAbierto, config }) 
         <div style={cj.sumaFila}>{filtradas.length} {filtradas.length === 1 ? "cuenta" : "cuentas"} · {estado === "condonada" ? "condonado" : "cobrado después"}: <b>{money(sumaFiltradas)}</b>{!desde && !hasta ? ` · últimos ${DIAS_RESUELTAS} días` : ""}</div>
       )}
 
-      <Transicion clave={estado} indice={["pendiente", "pagada", "condonada"].indexOf(estado)} estiloDentro={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+      <Transicion clave={estado + "|" + (estado !== "pendiente" && resueltas === null ? "c" : filtradas.length === 0 ? "v" : "l")} indice={["pendiente", "pagada", "condonada"].indexOf(estado)} estiloDentro={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
         {estado !== "pendiente" && resueltas === null ? (
           <EsqueletoLista filas={3} />
         ) : filtradas.length === 0 ? (
