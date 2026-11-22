@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Plus, Phone, Users, X, Check, MessageCircle, Pencil, Minus } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Plus, Phone, Users, X, Check, MessageCircle, Pencil, Minus, ChevronDown, UserCheck, UserX, RotateCcw } from "lucide-react";
 import { styles } from "../estilos.js";
 import { uid } from "../logica.js";
 import { mesaNombre, mesasDeReserva } from "../utilidades.js";
@@ -8,6 +8,8 @@ import { Acordeon, Segmentado } from "../componentes/Comunes.jsx";
 import { CampoFecha, CampoHora } from "../componentes/Campos.jsx";
 
 import { Hoja } from "../componentes/Hoja.jsx";
+import { Transicion, NumeroAnimado, FilaDeslizable, HojaAcciones, useFlip, useDeslizarHorizontal } from "../movimiento.jsx";
+import { avisar } from "../avisos.jsx";
 /* ---------------- RESERVAS ---------------- */
 /* reserva: { id, nombre, telefono, personas, fecha "YYYY-MM-DD", hora "HH:MM", ts, mesaId?, mesasExtra? (mesas juntas), nota, estado, creadaPor, creadaTs }
    estados: pendiente → confirmada → llego | no_asistio | cancelada */
@@ -39,9 +41,33 @@ function diasSiguientes(n = 7) {
 }
 
 function TarjetaReserva({ r, mesas, cambiarEstado, onEditar }) {
+  const [menu, setMenu] = useState(false);
   const e = ESTADOS[r.estado] || ESTADOS.pendiente;
   const wa = waLink(r.telefono);
+  const activa = ACTIVA(r);
+  // Desde un gesto (deslizar o mantener pulsado) el cambio avisa y se puede deshacer
+  const cambiar = (estado, texto) => {
+    const antes = r.estado;
+    cambiarEstado(r, estado);
+    avisar({ texto, detalle: r.nombre, deshacer: async () => { cambiarEstado(r, antes); } });
+  };
+  const derechaAccion = r.estado === "pendiente" ? { texto: "Confirmar", icono: Check, color: "#3B82F6", onAccion: () => cambiar("confirmada", "Reserva confirmada") }
+    : r.estado === "confirmada" ? { texto: "Ya llegó", icono: UserCheck, color: "var(--ok-solid)", onAccion: () => cambiar("llego", "Marcada como llegó") }
+    : !activa ? { texto: "Reabrir", icono: RotateCcw, color: "var(--warn-solid)", onAccion: () => cambiar("pendiente", "Reserva reabierta") } : null;
+  const izquierdaAccion = activa ? { texto: "Cancelar", icono: X, color: "var(--danger-solid)", onAccion: () => cambiar("cancelada", "Reserva cancelada") } : null;
+  const acciones = [
+    r.estado === "pendiente" && { texto: "Confirmar", icono: Check, onClick: () => cambiar("confirmada", "Reserva confirmada") },
+    activa && { texto: "Ya llegó", icono: UserCheck, onClick: () => cambiar("llego", "Marcada como llegó") },
+    activa && { texto: "No llegó", icono: UserX, onClick: () => cambiar("no_asistio", "Marcada como no llegó") },
+    !activa && { texto: "Reabrir", icono: RotateCcw, onClick: () => cambiar("pendiente", "Reserva reabierta") },
+    r.telefono && { texto: "Llamar", icono: Phone, onClick: () => { window.location.href = `tel:${soloDigitos(r.telefono)}`; } },
+    wa && { texto: "WhatsApp", icono: MessageCircle, onClick: () => { window.open(wa, "_blank", "noreferrer"); } },
+    { texto: "Editar", icono: Pencil, abre: true, onClick: () => onEditar(r) },
+    activa && { texto: "Cancelar reserva", icono: X, peligro: true, onClick: () => cambiar("cancelada", "Reserva cancelada") },
+  ];
   return (
+    <>
+    <FilaDeslizable data-flip={r.id} radio={16} izquierda={derechaAccion} derecha={izquierdaAccion} onMantener={() => setMenu(true)}>
     <div className="anim-in" style={rv.tarjeta}>
       <div style={rv.fila1}>
         <span style={rv.hora}>{horaLabel(r)}</span>
@@ -60,13 +86,16 @@ function TarjetaReserva({ r, mesas, cambiarEstado, onEditar }) {
       )}
       <div style={rv.acciones}>
         {r.estado === "pendiente" && <button style={rv.btn} onClick={() => cambiarEstado(r, "confirmada")}>Confirmar</button>}
-        {ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "llego")}>Ya llegó</button>}
-        {ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "no_asistio")}>No llegó</button>}
-        {ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "cancelada")}>Cancelar</button>}
-        {!ACTIVA(r) && <button style={rv.btn} onClick={() => cambiarEstado(r, "pendiente")}>Reabrir</button>}
+        {activa && <button style={rv.btn} onClick={() => cambiarEstado(r, "llego")}>Ya llegó</button>}
+        {activa && <button style={rv.btn} onClick={() => cambiarEstado(r, "no_asistio")}>No llegó</button>}
+        {activa && <button style={rv.btn} onClick={() => cambiarEstado(r, "cancelada")}>Cancelar</button>}
+        {!activa && <button style={rv.btn} onClick={() => cambiarEstado(r, "pendiente")}>Reabrir</button>}
         <button style={{ ...rv.btn, flex: "0 0 auto" }} onClick={() => onEditar(r)} aria-label="Editar"><Pencil size={14} /></button>
       </div>
     </div>
+    </FilaDeslizable>
+    {menu && <HojaAcciones titulo={r.nombre} subtitulo={`${horaLabel(r)} · ${r.personas} ${r.personas === 1 ? "persona" : "personas"}`} acciones={acciones} onCerrar={() => setMenu(false)} />}
+    </>
   );
 }
 
@@ -80,6 +109,12 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
   const personas = vigentes.reduce((a, r) => a + (r.personas || 0), 0);
   const porLlegar = vigentes.filter(ACTIVA).length;
   const cuenta = (key) => reservas.filter((r) => r.fecha === key && ACTIVA(r)).length;
+  const rejillaRef = useRef(null);
+  const listaRef = useRef(null);
+  useFlip(rejillaRef);
+  // Deslizar de lado en la lista cambia de día (la transición entra desde el lado correcto)
+  const irDia = (n) => { const d = new Date(`${dia}T12:00:00`); d.setDate(d.getDate() + n); setDia(fechaStr(d)); };
+  useDeslizarHorizontal(listaRef, { onIzq: () => irDia(1), onDer: () => irDia(-1) });
 
   const cambiarEstado = (r, estado) => saveReserva({ ...r, estado, [`${estado}Ts`]: Date.now(), [`${estado}Por`]: usuarioActual.nombre });
   const nueva = () => setForm({ id: null, nombre: "", telefono: "", personas: 2, fecha: dia, hora: "20:00", mesaId: "", nota: "", estado: "pendiente" });
@@ -100,12 +135,12 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
         <CampoFecha value={dia} onChange={(k) => k && setDia(k)} ariaLabel="Otra fecha" titulo="Otra fecha" style={{ width: "auto", minHeight: 40, borderRadius: 999, fontSize: 13 }} />
       </Segmentado>
 
-      <div className="ancho" style={styles.menuScroll}>
-        <div key={dia} className="tab-anim">
+      <div ref={listaRef} className="ancho" style={styles.menuScroll}>
+        <Transicion clave={dia} indice={Date.parse(`${dia}T12:00:00`)}>
         <div style={rv.resumen}>
-          <div style={rv.resCelda}><span style={rv.resEt}>Reservas</span><span style={rv.resNum}>{vigentes.length}</span></div>
-          <div style={rv.resCelda}><span style={rv.resEt}>Personas</span><span style={rv.resNum}>{personas}</span></div>
-          <div style={rv.resCelda}><span style={rv.resEt}>Por llegar</span><span style={{ ...rv.resNum, color: "var(--accent-t)" }}>{porLlegar}</span></div>
+          <div style={rv.resCelda}><span style={rv.resEt}>Reservas</span><span style={rv.resNum}><NumeroAnimado valor={vigentes.length} /></span></div>
+          <div style={rv.resCelda}><span style={rv.resEt}>Personas</span><span style={rv.resNum}><NumeroAnimado valor={personas} /></span></div>
+          <div style={rv.resCelda}><span style={rv.resEt}>Por llegar</span><span style={{ ...rv.resNum, color: "var(--accent-t)" }}><NumeroAnimado valor={porLlegar} /></span></div>
         </div>
 
         {vigentes.length === 0 ? (
@@ -114,7 +149,7 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
             <div style={{ fontSize: 13, color: "var(--c-8a8272-t)" }}>Toca "Nueva reserva" para anotar la primera.</div>
           </div>
         ) : (
-          <div style={rv.rejilla}>{vigentes.map((r) => <TarjetaReserva key={r.id} r={r} mesas={mesas} cambiarEstado={cambiarEstado} onEditar={setForm} />)}</div>
+          <div ref={rejillaRef} style={rv.rejilla}>{vigentes.map((r) => <TarjetaReserva key={r.id} r={r} mesas={mesas} cambiarEstado={cambiarEstado} onEditar={setForm} />)}</div>
         )}
 
         {cerradas.length > 0 && (
@@ -124,11 +159,11 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
             </Acordeon>
           </div>
         )}
-        </div>
+        </Transicion>
       </div>
 
       {form && <FormReserva config={config} inicial={form} mesas={mesas} reservas={reservas} usuarioActual={usuarioActual}
-        onGuardar={async (r) => { await saveReserva(r); setDia(r.fecha); setForm(null); }}
+        onGuardar={async (r) => { const nueva = !form.id; await saveReserva(r); setDia(r.fecha); setForm(null); avisar({ texto: nueva ? "Reserva guardada" : "Reserva actualizada", detalle: `${r.nombre} · ${horaLabel(r)}` }); }}
         onEliminar={form.id ? async () => { await deleteReserva(form.id); setForm(null); } : null}
         onCerrar={() => setForm(null)} />}
     </div>
@@ -147,6 +182,12 @@ function FormReserva({ config = {}, inicial, mesas, reservas, usuarioActual, onG
     return { ...p, mesaId: sig.length ? orig(sig[0]) : "", mesasExtra: sig.slice(1).map(orig) };
   });
   const [confirmarBorrar, setConfirmarBorrar] = useState(false);
+  const [verMesas, setVerMesas] = useState(false);
+  // Si dos mesas se llaman igual en pisos distintos, se agrega el piso para distinguirlas
+  const nombreRepetido = (m) => mesas.filter((x) => x.nombre === m.nombre).length > 1;
+  const pisoDe = (m) => nombrePiso(config, pisoIdDeMesa(m, config));
+  const nombreCorto = (id) => { const m = mesas.find((x) => String(x.id) === String(id)); return m && variosPisos && nombreRepetido(m) ? `${m.nombre} · ${pisoDe(m)}` : mesaNombre(mesas, id); };
+  const etiquetaMesas = elegidas.length ? elegidas.map(nombreCorto).join(", ") : "Sin asignar";
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
   const ts = tsDe(f.fecha, f.hora);
   const valido = f.nombre.trim() && f.personas >= 1 && f.fecha && f.hora;
@@ -162,6 +203,7 @@ function FormReserva({ config = {}, inicial, mesas, reservas, usuarioActual, onG
     onGuardar(base);
   };
   return (
+    <>
     <Hoja onCerrar={onCerrar} ancho={460} gap={10} label="Reserva">
 {({ cerrar: cerrarHoja }) => (
 <>
@@ -175,15 +217,13 @@ function FormReserva({ config = {}, inicial, mesas, reservas, usuarioActual, onG
         <div style={rv.et}>Personas</div>
         <div style={rv.stepper}>
           <button aria-label="Una persona menos" style={rv.stepBtn} onClick={() => set("personas", Math.max(1, f.personas - 1))}><Minus size={16} /></button>
-          <span style={{ fontSize: 20, fontWeight: 700, minWidth: 34, textAlign: "center" }}>{f.personas}</span>
+          <span style={{ fontSize: 20, fontWeight: 700, minWidth: 34, textAlign: "center" }}><NumeroAnimado valor={f.personas} ms={240} /></span>
           <button aria-label="Una persona más" style={rv.stepBtn} onClick={() => set("personas", Math.min(40, f.personas + 1))}><Plus size={16} /></button>
         </div>
-        <div style={rv.et}>Mesa (opcional) · toca varias para juntarlas</div>
-        <div style={rv.pastillas}>
-          <button aria-pressed={elegidas.length === 0} style={{ ...rv.pastilla, ...(elegidas.length === 0 ? rv.pastillaOn : {}) }} onClick={() => setF((p) => ({ ...p, mesaId: "", mesasExtra: [] }))}>Sin asignar</button>
-          {mesas.map((m) => { const on = elegidas.some((e) => String(e) === String(m.id)); return <button key={m.id} aria-pressed={on} style={{ ...rv.pastilla, ...(on ? rv.pastillaOn : {}) }} onClick={() => alternarMesa(m.id)}>{m.nombre}{variosPisos ? ` · ${nombrePiso(config, pisoIdDeMesa(m, config))}` : ""}</button>; })}
-        </div>
-        {elegidas.length > 1 && <div style={{ fontSize: 13, color: "var(--c-5c5648-t)" }}>Mesas juntas: <b>{elegidas.map((m) => mesaNombre(mesas, m)).join(" + ")}</b></div>}
+        <div style={rv.et}>Mesa (opcional) · puedes elegir varias para juntarlas</div>
+        <button type="button" className="selector-mesas" data-vacio={elegidas.length ? "0" : "1"} aria-haspopup="dialog" aria-expanded={verMesas} onClick={() => setVerMesas(true)}>
+          <span>{etiquetaMesas}</span><ChevronDown size={18} />
+        </button>
         {choque && <div style={rv.aviso}>{mesaChoque || "Esa mesa"} ya está reservada cerca de esa hora por {choque.nombre}.</div>}
         <input style={styles.editInput} placeholder="Nota (cumpleaños, alergias, silla de bebé…)" value={f.nota || ""} onChange={(e) => set("nota", e.target.value)} />
         <button style={{ ...styles.sendBtn, opacity: valido ? 1 : 0.4 }} disabled={!valido} onClick={guardar}><Check size={16} /> {f.id ? "Guardar cambios" : "Guardar reserva"}</button>
@@ -193,12 +233,34 @@ function FormReserva({ config = {}, inicial, mesas, reservas, usuarioActual, onG
       </>
 )}
 </Hoja>
+{verMesas && (
+  <Hoja onCerrar={() => setVerMesas(false)} ancho={460} gap={10} label="Elegir mesas" z={80}>
+    {({ cerrar: cerrarMesas }) => (
+      <>
+        <div style={rv.hojaHead}><span style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700 }}>Mesas de la reserva</span><button className="toque44" style={styles.cerrarPanelBtn} onClick={cerrarMesas} aria-label="Cerrar"><X size={16} /></button></div>
+        <div style={{ fontSize: 12.5, color: "var(--c-8a8272-t)", marginTop: -4 }}>Toca una o varias mesas para juntarlas.</div>
+        <button type="button" className="mesa-op" aria-pressed={elegidas.length === 0} onClick={() => setF((p) => ({ ...p, mesaId: "", mesasExtra: [] }))}>
+          <span className="caja"><Check size={14} strokeWidth={3} /></span><span>Sin asignar</span>
+        </button>
+        <div className="mesas-rejilla">
+          {mesas.map((m) => { const on = elegidas.some((e) => String(e) === String(m.id)); return (
+            <button type="button" key={m.id} className="mesa-op" aria-pressed={on} onClick={() => alternarMesa(m.id)}>
+              <span className="caja"><Check size={14} strokeWidth={3} /></span>
+              <span><span>{m.nombre}</span>{variosPisos && <small>{pisoDe(m)}</small>}</span>
+            </button>); })}
+        </div>
+        <button style={styles.sendBtn} onClick={cerrarMesas}><Check size={16} /> {elegidas.length > 1 ? `Listo · ${elegidas.length} mesas` : "Listo"}</button>
+      </>
+    )}
+  </Hoja>
+)}
+    </>
   );
 }
 
 const rv = {
   dias: { display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", scrollbarWidth: "none", alignItems: "center" },
-  dia: { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 },
+  dia: { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 999, borderWidth: 1, borderStyle: "solid", borderColor: "var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 },
   diaOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "transparent", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontWeight: 700 },
   contador: { minWidth: 20, height: 20, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, fontWeight: 800, background: "var(--c-242019-b)", color: "#fff", padding: "0 5px" },
   fecha: { flexShrink: 0, height: 38, padding: "0 10px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13 },
@@ -225,7 +287,7 @@ const rv = {
   stepper: { display: "flex", alignItems: "center", gap: 10 },
   stepBtn: { width: 44, height: 44, borderRadius: 8, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-242019-t)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
   pastillas: { display: "flex", gap: 8, flexWrap: "wrap" },
-  pastilla: { padding: "8px 13px", borderRadius: 999, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
+  pastilla: { padding: "8px 13px", borderRadius: 999, borderWidth: 1, borderStyle: "solid", borderColor: "var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-5c5648-t)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
   pastillaOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "transparent", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontWeight: 700 },
   aviso: { fontSize: 12.5, padding: "8px 12px", borderRadius: 10, background: "var(--c-fbefd9-b)", border: "1px solid var(--warn-border)", color: "var(--c-8a611a-t)" },
   eliminar: { padding: 10, background: "transparent", border: "none", color: "var(--c-c1442d-t)", fontSize: 14, fontWeight: 600, cursor: "pointer" },

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { X, ArrowDownToLine, ArrowUpFromLine, Check, Receipt, Landmark, SlidersHorizontal } from "lucide-react";
 import { money } from "../logica.js";
-import { CampoMonto } from "../componentes/Comunes.jsx";
+import { CampoMonto, Segmentado } from "../componentes/Comunes.jsx";
 import { dateTimeLabel, timeLabel } from "../utilidades.js";
 import { vibrar } from "../theme.js";
 
@@ -76,16 +76,16 @@ export function FormularioMovimiento({ tipoInicial, onCancelar, onGuardar }) {
           <div style={x.titulo}>Movimiento de efectivo</div>
           <button className="toque44" style={x.cerrar} onClick={cerrarHoja} aria-label="Cerrar"><X size={16} /></button>
         </div>
-        <div style={x.seg}>
-          <button style={{ ...x.segBtn, ...(tipo === "entrada" ? x.segOn : {}) }} onClick={() => cambiarTipo("entrada")}><ArrowDownToLine size={15} color="#2f8f68" /> Entrada</button>
-          <button style={{ ...x.segBtn, ...(tipo === "salida" ? x.segOn : {}) }} onClick={() => cambiarTipo("salida")}><ArrowUpFromLine size={15} color="var(--danger-solid)" /> Salida</button>
-        </div>
+        <Segmentado ariaLabel="Tipo de movimiento" radio={10} style={x.seg}>
+          <button role="tab" aria-selected={tipo === "entrada"} style={{ ...x.segBtn, ...(tipo === "entrada" ? x.segOn : {}) }} onClick={() => cambiarTipo("entrada")}><ArrowDownToLine size={15} color="#2f8f68" /> Entrada</button>
+          <button role="tab" aria-selected={tipo === "salida"} style={{ ...x.segBtn, ...(tipo === "salida" ? x.segOn : {}) }} onClick={() => cambiarTipo("salida")}><ArrowUpFromLine size={15} color="var(--danger-solid)" /> Salida</button>
+        </Segmentado>
         <div style={x.etiqueta}>{esSalida ? "¿QUÉ SALE DE LA CAJA?" : "¿QUÉ ENTRA A LA CAJA?"}</div>
-        <div style={x.chips}>
+        <Segmentado ariaLabel="Categoría" style={x.chips}>
           {CATEGORIAS_MOV[tipo].map((c) => (
-            <button key={c} style={{ ...x.chip, ...(categoria === c ? x.chipOn : {}) }} onClick={() => setCategoria(c)}>{c}</button>
+            <button key={c} role="tab" aria-selected={categoria === c} style={{ ...x.chip, ...(categoria === c ? x.chipOn : {}) }} onClick={() => setCategoria(c)}>{c}</button>
           ))}
-        </div>
+        </Segmentado>
         <CampoMonto placeholder="Monto" value={monto} onChange={(v) => { setMonto(v); setError(""); }} />
         <input
           style={x.input} value={nota} onChange={(e) => { setNota(e.target.value); setError(""); }}
@@ -177,15 +177,15 @@ export function RegistrarMovimiento({ onGuardar }) {
       </div>
       <div style={{ fontSize: 12.5, color: K.sub, lineHeight: 1.45 }}>{def.ayuda}</div>
       {tipoId === "ajuste" && (
-        <div style={x.seg}>
-          <button style={{ ...x.segBtn, ...(signo === "sobra" ? x.segOn : {}) }} onClick={() => setSigno("sobra")}>Sobra dinero (+)</button>
-          <button style={{ ...x.segBtn, ...(signo === "falta" ? x.segOn : {}) }} onClick={() => setSigno("falta")}>Falta dinero (−)</button>
-        </div>
+        <Segmentado ariaLabel="Sobra o falta" radio={10} style={x.seg}>
+          <button role="tab" aria-selected={signo === "sobra"} style={{ ...x.segBtn, ...(signo === "sobra" ? x.segOn : {}) }} onClick={() => setSigno("sobra")}>Sobra dinero (+)</button>
+          <button role="tab" aria-selected={signo === "falta"} style={{ ...x.segBtn, ...(signo === "falta" ? x.segOn : {}) }} onClick={() => setSigno("falta")}>Falta dinero (−)</button>
+        </Segmentado>
       )}
       {def.cats.length > 1 && (
-        <div style={x.chips}>
-          {def.cats.map((c) => <button key={c} style={{ ...x.chip, ...(cat === c ? x.chipOn : {}) }} onClick={() => setCat(c)}>{c}</button>)}
-        </div>
+        <Segmentado ariaLabel="Categoría" style={x.chips}>
+          {def.cats.map((c) => <button key={c} role="tab" aria-selected={cat === c} style={{ ...x.chip, ...(cat === c ? x.chipOn : {}) }} onClick={() => setCat(c)}>{c}</button>)}
+        </Segmentado>
       )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} onKeyDown={(e) => { if (e.key === "Enter" && e.target.tagName === "INPUT" && !guardando) { e.preventDefault(); guardar(); } }}>
         <div className="campo-prefijo" style={{ flex: "0 0 140px", display: "flex", alignItems: "center", gap: 6, padding: "0 0 0 12px", borderRadius: 10, border: `1px solid ${K.border}`, background: K.surface }}>

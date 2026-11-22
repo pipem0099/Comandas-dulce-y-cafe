@@ -10,6 +10,7 @@ import { estacionDeLinea, claveLinea, precioUnitario, modsTexto, itemNombre, tie
 import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
 import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
 import { AvisoActivarNotificaciones, Chevron, Segmentado } from "../componentes/Comunes.jsx";
+import { Transicion } from "../movimiento.jsx";
 import { STATE_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { PlanoSalon } from "../pantallas/Mesas.jsx";
@@ -943,10 +944,10 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           <div style={styles.pageTitle}>Mesas</div>
         </div>
       </div>
-      <div className="ancho" style={styles.vistaMesasSwitch}>
-        <button style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "grid" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("grid")}>Cuadrícula</button>
-        <button style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "plano" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("plano")}>Plano</button>
-      </div>
+      <Segmentado className="ancho" ariaLabel="Vista de mesas" style={styles.vistaMesasSwitch}>
+        <button role="tab" aria-selected={vistaMesas === "grid"} style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "grid" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("grid")}>Cuadrícula</button>
+        <button role="tab" aria-selected={vistaMesas === "plano"} style={{ ...styles.vistaMesasBtn, ...(vistaMesas === "plano" ? styles.vistaMesasBtnActive : {}) }} onClick={() => setVistaMesas("plano")}>Plano</button>
+      </Segmentado>
       {variosPisos && (
         <Segmentado className="ancho" ariaLabel="Piso" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", WebkitOverflowScrolling: "touch" }}>
           {pisos.map((p) => {
@@ -961,7 +962,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           })}
         </Segmentado>
       )}
-      <div style={styles.mesasScroll}>
+      <div style={styles.mesasScroll} data-swipe-pestanas="">
         {paraServirPorMesa.length > 0 && (
           <div className="ancho" style={styles.paraServirWrap}>
             <div style={styles.paraServirTitulo}><Volume2 size={13} /> PARA SERVIR AHORA</div>
@@ -981,12 +982,13 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
             ))}
           </div>
         )}
+      <Transicion clave={`${vistaMesas}|${pisoVista}`} indice={(vistaMesas === "plano" ? 1000 : 0) + Math.max(0, pisos.findIndex((p) => p.id === pisoVista))}>
       {vistaMesas === "plano" ? (
-        <div className="tab-anim" style={{ padding: "0 16px 16px" }}>
+        <div style={{ padding: "0 16px 16px" }}>
           <PlanoSalon mesas={mesasVisibles} zonas={planoDe(config, pisoVista).zonas || []} alto={planoDe(config, pisoVista).alto || 100} cuentas={cuentas} orders={orders} editable={false} onTapMesa={tocarMesa} />
         </div>
       ) : (
-        <div className="ancho tab-anim" style={styles.mesaGrid}>
+        <div className="ancho" style={styles.mesaGrid}>
           {mesasVisibles.length === 0 && (
             <div style={styles.cajaEmptyText}>{variosPisos ? "Este piso todavía no tiene mesas. El administrador las agrega en Mesas." : 'No hay mesas creadas todavía. Toca "Mesas" para agregar la primera.'}</div>
           )}
@@ -1027,6 +1029,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           })}
         </div>
       )}
+      </Transicion>
       <div className="ancho" style={styles.externosWrap}>
         <div style={styles.catLabel}>PARA LLEVAR Y DOMICILIOS</div>
         <div style={{ display: "flex", gap: 8 }}>

@@ -22,7 +22,7 @@ const confirmarConEnter = () => {
   const b = document.querySelector("[data-confirmar]:not([disabled])");
   if (b) b.click();
 };
-import { CampoMonto, MetodoPills, Chevron, FilaDato, Despliegue } from "../componentes/Comunes.jsx";
+import { CampoMonto, MetodoPills, Chevron, FilaDato, Despliegue, Segmentado } from "../componentes/Comunes.jsx";
 import { METODO_META, PROPINA_OPCIONES } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { conProgreso, cuentaGranTotal, cuentaItemCount, cuentaOrders, cuentaSubtotal, dateTimeLabel, itemsAgregados, mesaNombre, orderTotal, pagosDe, pagosTotal, qtyAsignadaPorProducto, tieneRol, timeLabel } from "../utilidades.js";
@@ -580,12 +580,12 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                 {(!cuenta.propina || editandoPropina) && !mostrarDescuento && (
                   <div style={styles.propinaBox}>
                     <span style={styles.closeConfirmText}>Propina:</span>
-                    <div style={styles.propinaPillsRow}>
+                    <Segmentado ariaLabel="Propina" style={styles.propinaPillsRow}>
                       {PROPINA_OPCIONES.map((p) => (
-                        <button key={p} style={{ ...styles.propinaPill, ...(cuenta.propina && cuenta.propina.pct === p ? styles.pillOn : {}) }} onClick={() => setPropina(p)}>{p}%</button>
+                        <button key={p} role="tab" aria-selected={!!(cuenta.propina && cuenta.propina.pct === p)} style={{ ...styles.propinaPill, ...(cuenta.propina && cuenta.propina.pct === p ? styles.pillOn : {}) }} onClick={() => setPropina(p)}>{p}%</button>
                       ))}
                       <span className="campo-prefijo" style={styles.propinaCustomWrap}><span style={{ color: "var(--c-8a8272-t)", fontWeight: 700, fontSize: 13 }}>$</span><CampoMonto style={styles.propinaCustomInput} placeholder="Otro monto" value={propinaCustom} onChange={setPropinaCustom} onEnter={aplicarPropinaCustom} onBlur={aplicarPropinaCustom} /></span>
-                    </div>
+                    </Segmentado>
                     {editandoPropina && <button style={styles.cancelEditBtn} onClick={() => setEditandoPropina(false)}>Dejar como está</button>}
                   </div>
                 )}

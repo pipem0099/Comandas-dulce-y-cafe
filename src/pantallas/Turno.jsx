@@ -398,7 +398,7 @@ const t = {
   rejilla: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 14, alignItems: "start" },
   tarjeta: { display: "flex", flexDirection: "column", gap: 12, padding: 16, borderRadius: 18, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)" },
   tarjetaTitulo: { fontSize: 17, fontWeight: 700, color: "var(--c-242019-t)" },
-  selMov: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "16px 10px", borderRadius: 16, border: "1.5px solid var(--c-e4dfce-o)", background: "var(--c-f7f4ec-b)", color: "var(--c-242019-t)", fontSize: 15, fontWeight: 600, cursor: "pointer" },
+  selMov: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "16px 10px", borderRadius: 16, borderWidth: 1.5, borderStyle: "solid", borderColor: "var(--c-e4dfce-o)", background: "var(--c-f7f4ec-b)", color: "var(--c-242019-t)", fontSize: 15, fontWeight: 600, cursor: "pointer" },
   selEntrada: { borderColor: "rgba(47,143,104,.45)", background: "rgba(47,143,104,.08)" },
   selSalida: { borderColor: "rgba(214,69,69,.45)", background: "rgba(214,69,69,.08)" },
   cuadreFila: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13.5, color: "var(--c-5c5648-t)", padding: "4px 0" },
