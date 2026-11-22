@@ -16,11 +16,6 @@ export class LimiteErrores extends React.Component {
         <div style={{ maxWidth: 360, width: "100%", display: "flex", flexDirection: "column", gap: 12, textAlign: "center" }}>
           <div style={{ fontFamily: "var(--font-display, inherit)", fontSize: 22, fontWeight: 700 }}>Algo salió mal en esta pantalla</div>
           <div style={{ fontSize: 14, color: "var(--c-8a8272-t, #9aa0a6)", lineHeight: 1.5 }}>Tus datos están a salvo. Puedes intentar de nuevo o recargar la app.</div>
-          {this.state.error && (
-            <div style={{ fontSize: 11.5, color: "var(--c-8a8272-t, #9aa0a6)", lineHeight: 1.45, opacity: .85, wordBreak: "break-word", fontFamily: "ui-monospace, Menlo, monospace" }}>
-              Detalle técnico: {String((this.state.error && this.state.error.message) || this.state.error).slice(0, 220)}
-            </div>
-          )}
           <button style={{ padding: "13px 14px", borderRadius: 12, border: "none", background: "var(--neon, var(--accent, #0e9f6e))", color: "var(--neon-text, #fff)", fontSize: 14.5, fontWeight: 700, cursor: "pointer" }} onClick={() => this.setState({ error: null })}>Intentar de nuevo</button>
           <button style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid var(--c-e4dfce-o, #333)", background: "transparent", color: "inherit", fontSize: 14.5, fontWeight: 600, cursor: "pointer" }} onClick={() => window.location.reload()}>Recargar la app</button>
         </div>

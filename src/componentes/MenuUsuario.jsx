@@ -6,6 +6,8 @@ import { enviarCorreoCambioClave } from "../firebase.js";
 import { rolesLabel } from "../utilidades.js";
 import { VERSION } from "../constantes.js";
 import { Hoja } from "./Hoja.jsx";
+import { Segmentado } from "./Comunes.jsx";
+import { Transicion } from "../movimiento.jsx";
 import { ImpresoraTermica } from "./ImpresoraTermica.jsx";
 
 /*
@@ -69,7 +71,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   if (verAyuda) return <AyudaRoles usuario={usuarioActual} config={config} onCerrar={() => setVerAyuda(false)} />;
   if (verImpresora) return <ImpresoraTermica onCerrar={() => setVerImpresora(false)} />;
   return (
-    <Hoja onCerrar={onCerrar} ancho={440} gap={10} label="Mi cuenta" z={300} centro vidrio>
+    <Hoja onCerrar={onCerrar} ancho={440} gap={10} label="Mi cuenta" z={300} centro bajoBarra>
       {({ cerrar }) => {
         const ir = (fn) => () => { fn(); cerrar(); };
         return (
@@ -89,17 +91,18 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
           </div>
         </div>
 
-        {/* Pastillas: cada una muestra solo su sección */}
-        {esAdmin && <div style={s.segmentado}>
-          {esAdmin && <button style={{ ...s.segBtn, ...(seccion === "admin" ? s.segBtnOn : {}) }} onClick={() => setSeccion("admin")}><Settings size={14} /> Administración</button>}
-          <button style={{ ...s.segBtn, ...(seccion === "cuenta" ? s.segBtnOn : {}) }} onClick={() => setSeccion("cuenta")}><UserRound size={14} /> Mi cuenta</button>
-        </div>}
+        {/* Pastillas: un solo indicador se desliza de una a otra; cada una muestra solo su sección */}
+        {esAdmin && <Segmentado className="seg--neutro" ariaLabel="Secciones de la cuenta" radio={9} style={s.segmentado}>
+          <button role="tab" aria-selected={seccion === "admin"} style={s.segBtn} onClick={() => setSeccion("admin")}><Settings size={14} /> Administración</button>
+          <button role="tab" aria-selected={seccion === "cuenta"} style={s.segBtn} onClick={() => setSeccion("cuenta")}><UserRound size={14} /> Mi cuenta</button>
+        </Segmentado>}
 
-        {/* Altura mínima fija: al cambiar de pestaña la ventana ya no se encoge ni "salta" */}
-        <div style={{ minHeight: esAdmin ? 322 : 0, display: "flex", flexDirection: "column", gap: 10 }}>
+        {/* La altura se anima al cambiar de pestaña: la ventana se acomoda despacio, sin saltos ni huecos */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
 
+        <Transicion clave={seccion} indice={seccion === "admin" ? 0 : 1}>
         {seccion === "admin" && esAdmin && (
-          <div className="despliega" style={s.grupo}>
+          <div style={s.grupo}>
             <Fila icon={UtensilsCrossed} titulo="Menú y precios" sub="Productos, categorías y agotados" onClick={ir(() => onIr("menu"))} />
             <Fila icon={LayoutGrid} titulo="Mesas y plano" sub="Mesas, espacios y su distribución" onClick={ir(() => onIr("mesas"))} />
             <Fila icon={Users} titulo="Equipo y usuarios" sub="Cuentas, roles y propiedad" onClick={ir(() => onIr("equipo"))} />
@@ -111,7 +114,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
         )}
 
         {seccion === "cuenta" && (
-          <div className="despliega" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={s.grupo}>
               <Fila icon={BookOpen} titulo="Cómo se usa la app" sub="Guía corta según tu rol" onClick={() => setVerAyuda(true)} />
               <Fila icon={Printer} titulo="Impresora de tickets" sub="Imprime cuentas y pedidos de cocina" onClick={() => setVerImpresora(true)} />
@@ -131,6 +134,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
             )}
           </div>
         )}
+        </Transicion>
 
         {aviso && <div style={s.aviso}><Check size={14} /> {aviso}</div>}
         {confirmSalir && (
@@ -161,7 +165,7 @@ const s = {
   rol: { display: "inline-block", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", padding: "3px 9px", borderRadius: 9, background: K.soft, color: K.sub },
   cerrarBtn: { alignSelf: "flex-start", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", background: K.surface, color: K.sub, border: `1px solid ${K.border}`, borderRadius: 16, cursor: "pointer", flexShrink: 0 },
   etiqueta: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1.3, color: K.faint, fontWeight: 700, margin: "6px 2px 0" },
-  segmentado: { display: "flex", background: K.soft, borderRadius: 12, padding: 3, gap: 2 },
+  segmentado: { display: "flex", background: K.soft, borderRadius: 12, padding: 3, gap: 2, flexShrink: 0 },
   segBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 6px", border: "none", borderRadius: 9, background: "transparent", color: K.sub, fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
   segBtnOn: { background: "var(--seg-thumb)", color: K.ink, boxShadow: "0 1px 3px rgba(0,0,0,.18)" },
   grupo: { background: K.surface, border: `1px solid ${K.border}`, borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column" },
@@ -174,7 +178,7 @@ const s = {
   confirmar: { background: K.surface, border: `1px solid ${K.border}`, borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 10 },
   btnGhost: { flex: 1, padding: "11px 12px", background: "transparent", color: K.sub, border: `1px solid ${K.border}`, borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
   btnSalir: { flex: 1, padding: "11px 12px", background: "var(--danger-solid)", color: K.cream, border: "none", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
-  temaCard: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 14, borderRadius: 16, border: `1.5px solid ${K.border}`, background: K.surface, color: K.ink, cursor: "pointer" },
+  temaCard: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 14, borderRadius: 16, borderWidth: 1.5, borderStyle: "solid", borderColor: K.border, background: K.surface, color: K.ink, cursor: "pointer" },
   temaCardOn: { borderColor: "var(--accent)" },
   temaMuestra: { width: "100%", height: 56, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${K.border}` },
   pie: { textAlign: "center", fontSize: 11, color: K.faint, letterSpacing: 0.5, marginTop: 4 },
