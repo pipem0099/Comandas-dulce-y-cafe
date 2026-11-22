@@ -26,6 +26,8 @@ import { perezoso } from "./cargaDiferida.js";
 import { turnosAbiertosDe, turnoDeEsteEquipo } from "./pisos.js";
 import { BannerConexion } from "./componentes/BannerConexion.jsx";
 import { AvisoVersion } from "./componentes/AvisoVersion.jsx";
+import { useDeslizarHorizontal, reducirMovimiento } from "./movimiento.jsx";
+import { vibrar } from "./theme.js";
 
 // Cada pantalla se descarga solo cuando se usa: un mesero no baja la caja, los reportes, el Excel ni la administración.
 const AsistenteInicio = perezoso(() => import("./componentes/AsistenteInicio.jsx"), "AsistenteInicio");
@@ -72,6 +74,22 @@ export default function App() {
   const [sesion, setSesion] = useState(undefined); // undefined = comprobando · null = sin iniciar sesión
   const [perfil, setPerfil] = useState(undefined); // undefined = cargando · null = esta cuenta no tiene perfil
   const [loaded, setLoaded] = useState(false);
+  // Movimiento: dirección con la que entra la pantalla (para que se deslice desde el lado correcto) y salida animada
+  const [dirVista, setDirVista] = useState(0);
+  const [saliendoVista, setSaliendoVista] = useState(false);
+  const salidaTimer = useRef(null);
+  const contenidoRef = useRef(null);
+  const navRef = useRef({});
+  // Deslizar de lado sobre las listas principales (mesas, pedidos) cambia de pestaña, como en iOS
+  useDeslizarHorizontal(contenidoRef, { activo: loaded, soloEn: "[data-swipe-pestanas]", onIzq: () => navRef.current.mover && navRef.current.mover(1), onDer: () => navRef.current.mover && navRef.current.mover(-1) });
+  // La barra superior gana una sombra suave cuando el contenido pasa por debajo
+  useEffect(() => {
+    const el = document.documentElement;
+    const f = (e) => { const t = e.target; const y = t && typeof t.scrollTop === "number" ? t.scrollTop : 0; if (y > 6) el.setAttribute("data-scrolled", ""); else el.removeAttribute("data-scrolled"); };
+    document.addEventListener("scroll", f, true);
+    return () => { document.removeEventListener("scroll", f, true); el.removeAttribute("data-scrolled"); clearTimeout(salidaTimer.current); };
+  }, []);
+  useEffect(() => { document.documentElement.removeAttribute("data-scrolled"); }, [role, vista]);
   const configRef = useRef(DEFAULT_CONFIG);
   const [, forceTick] = useState(0);
   // Si algo falla al guardar en Firebase (por ejemplo, se cortó el internet a
@@ -462,10 +480,29 @@ export default function App() {
   const items = itemsNavegacion(usuarioActual);
   // Cada pantalla solo se dibuja si la persona tiene el rol que la autoriza (no basta con "estar" en ella)
   const puede = (id) => items.some((i) => i.id === id);
-  const cambiarRol = (r) => { setVista(null); setRole(r); };
+  const cambiarRol = (r) => {
+    clearTimeout(salidaTimer.current); setSaliendoVista(false);
+    const i0 = items.findIndex((i) => i.id === role), i1 = items.findIndex((i) => i.id === r);
+    setDirVista(vista || i0 < 0 || i1 < 0 ? 0 : Math.sign(i1 - i0));
+    setVista(null); setRole(r);
+  };
+  // Pantallas de administración: entran desde la derecha y al cerrar salen hacia ella (en vez de desaparecer de golpe)
+  const abrirVista = (v) => { clearTimeout(salidaTimer.current); setSaliendoVista(false); setDirVista(1); setVista(v); };
+  const cerrarVista = () => {
+    if (saliendoVista) return;
+    if (reducirMovimiento()) { setVista(null); return; }
+    setDirVista(1); setSaliendoVista(true);
+    salidaTimer.current = setTimeout(() => { setSaliendoVista(false); setVista(null); }, 230);
+  };
+  navRef.current = { mover: (n) => {
+    if (!movil || vista || ocultarNav || items.length < 2) return;
+    const i = items.findIndex((x) => x.id === role), j = i + n;
+    if (i < 0 || j < 0 || j >= items.length) return;
+    vibrar(6); cambiarRol(items[j].id);
+  } };
   // Las alertas llevan a una pantalla principal (caja, mesero…) o a una de administración (respaldos…)
   const irDesdeAlerta = (v, alerta) => {
-    if (["menu", "mesas", "equipo", "respaldos", "ajustes", "analisis"].includes(v)) setVista(v);
+    if (["menu", "mesas", "equipo", "respaldos", "ajustes", "analisis"].includes(v)) abrirVista(v);
     else { if (v === "caja" && alerta && alerta.tab) setAbrirTabCaja({ tab: alerta.tab, n: Date.now() }); cambiarRol(v); }
   };
 
@@ -474,13 +511,13 @@ export default function App() {
       <React.Suspense fallback={null}>
       {verAsistente && (
         <AsistenteInicio config={config} menu={menu} menuDeFabrica={menu === DEFAULT_MENU} persistConfig={persistConfig} persistMenu={persistMenu} persistMesas={persistMesas}
-          onIrEquipo={() => setVista("equipo")} onCerrar={() => setVerAsistente(false)} />
+          onIrEquipo={() => abrirVista("equipo")} onCerrar={() => setVerAsistente(false)} />
       )}
       </React.Suspense>
-      {movil && !ocultarNav && <TopBar config={config} usuarioActual={usuarioActual} online={online && conexion.conectado} alertas={alertas} onIrAlerta={irDesdeAlerta} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
+      {movil && !ocultarNav && <TopBar config={config} usuarioActual={usuarioActual} online={online && conexion.conectado} alertas={alertas} onIrAlerta={irDesdeAlerta} onIr={abrirVista} onSalir={cerrarSesionYRecargar} />}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: movil ? "column" : "row" }}>
-        {!movil && !ocultarNav && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online && conexion.conectado} alertas={alertas} onIrAlerta={irDesdeAlerta} ancho={dispositivo === "escritorio"} onIr={setVista} onSalir={cerrarSesionYRecargar} />}
-        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        {!movil && !ocultarNav && <Lateral items={items} role={role} setRole={cambiarRol} config={config} usuarioActual={usuarioActual} online={online && conexion.conectado} alertas={alertas} onIrAlerta={irDesdeAlerta} ancho={dispositivo === "escritorio"} onIr={abrirVista} onSalir={cerrarSesionYRecargar} />}
+        <div ref={contenidoRef} style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <AvisoRelevo turno={(usuarioActual && turnosAbiertos.find((t) => t.relevo && t.relevo.aUid === usuarioActual.uid)) || turnoAbierto} usuarioActual={usuarioActual} />
       <BannerConexion conexion={conexion} esAdmin={esAdminApp} />
       <AvisoVersion />
@@ -497,19 +534,19 @@ export default function App() {
           <button aria-label="Cerrar aviso" style={styles.errorGuardadoCerrar} onClick={() => setErrorGuardado(null)}>✕</button>
         </div>
       )}
-      <div key={vista ? `v-${vista}` : `r-${role}`} className="vista-anim" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div key={vista ? `v-${vista}` : `r-${role}`} className={"vista-anim" + (saliendoVista ? " vista-sale" : "")} style={{ "--dir": dirVista, "--dirabs": Math.abs(dirVista), flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <React.Suspense fallback={<CargandoContenido tipo={vista ? "lista" : role === "mesero" ? "mesas" : role === "cocina" ? "comandas" : "lista"} />}>
       {vista && esAdminApp && (
         <>
-          {vista === "menu" && <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} insumos={insumos} onClose={() => setVista(null)} />}
-          {vista === "mesas" && <MesasEditor mesas={mesas} persistMesas={persistMesas} cuentas={cuentas} orders={orders} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} onClose={() => setVista(null)} />}
-          {vista === "ajustes" && <div style={styles.screen}><AjustesPanel turnosAbiertos={turnosAbiertos} config={config} persistConfig={persistConfig} menu={menu} onClose={() => setVista(null)} onAbrirAsistente={() => setVerAsistente(true)} /></div>}
-          {vista === "facturacion" && <div style={styles.screen}><PanelFacturacion usuarioActual={usuarioActual} onClose={() => setVista(null)} /></div>}
-          {vista === "equipo" && <div style={styles.screen}><Equipo config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} onClose={() => setVista(null)} /></div>}
+          {vista === "menu" && <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} insumos={insumos} onClose={cerrarVista} />}
+          {vista === "mesas" && <MesasEditor mesas={mesas} persistMesas={persistMesas} cuentas={cuentas} orders={orders} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} onClose={cerrarVista} />}
+          {vista === "ajustes" && <div style={styles.screen}><AjustesPanel turnosAbiertos={turnosAbiertos} config={config} persistConfig={persistConfig} menu={menu} onClose={cerrarVista} onAbrirAsistente={() => setVerAsistente(true)} /></div>}
+          {vista === "facturacion" && <div style={styles.screen}><PanelFacturacion usuarioActual={usuarioActual} onClose={cerrarVista} /></div>}
+          {vista === "equipo" && <div style={styles.screen}><Equipo config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} onClose={cerrarVista} /></div>}
           {vista === "analisis" && (
             <div style={styles.screen}>
               <Analisis
-                onClose={() => setVista(null)} menu={menu} persistMenu={persistMenu} insumos={insumos} config={config} persistConfig={persistConfig}
+                onClose={cerrarVista} menu={menu} persistMenu={persistMenu} insumos={insumos} config={config} persistConfig={persistConfig}
                 cuentasAnalisis={cuentasAnalisis} ordersAnalisis={ordersAnalisis}
                 cargarHistorialReciente={cargarHistorialReciente} historialListo={!!baseAnalisis} errorHistorial={!!(baseAnalisis && baseAnalisis.error)} cargandoHistorial={cargandoReciente}
               />
@@ -518,7 +555,7 @@ export default function App() {
           {vista === "respaldos" && (
             <div style={styles.screen}>
               <Respaldos
-                onClose={() => setVista(null)} menu={menu} orders={orders} cuentas={cuentas} deudas={deudas} config={config} turnos={turnos} mesas={mesas}
+                onClose={cerrarVista} menu={menu} orders={orders} cuentas={cuentas} deudas={deudas} config={config} turnos={turnos} mesas={mesas}
                 persistConfig={persistConfig} usuarioActual={usuarioActual} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial}
                 historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto}
                 errores={errores} limpiarErrores={limpiarErrores}
@@ -558,7 +595,7 @@ export default function App() {
             config={config} persistConfig={persistConfig} usuarioActual={usuarioActual}
             mesas={mesas} persistMesas={persistMesas}
             equipo={equipo} insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario}
-            ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial} onIr={setVista}
+            ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial} onIr={abrirVista}
             historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto}
           />
         )

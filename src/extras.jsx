@@ -1,4 +1,4 @@
-import { Plegable, GrupoSecciones, Seccion } from "./componentes/Comunes.jsx";
+import { Plegable, GrupoSecciones, Seccion, Segmentado } from "./componentes/Comunes.jsx";
 import React, { useState, useEffect, useRef } from "react";
 import { CabeceraAdmin } from "./componentes/CabeceraAdmin.jsx";
 import { Plus, Minus, Trash2, Check, X, Upload, Boxes, AlertTriangle, Pencil, ShoppingBag, Bike, Image as ImageIcon, ChevronDown } from "lucide-react";
@@ -299,10 +299,10 @@ export function ProductoConfig({ item, config, insumos, onSave, onClose }) {
             <button className="toque44" style={x.btnDanger} onClick={() => setGrupos((gs) => gs.filter((v) => v.id !== g.id))} aria-label="Quitar grupo"><Trash2 size={14} /></button>
           </div>
           <div style={{ ...x.row, flexWrap: "wrap" }}>
-            <div style={x.segmented}>
-              <button style={{ ...x.segBtn, ...(g.tipo === "uno" ? x.segBtnOn : {}) }} onClick={() => upG(g.id, { tipo: "uno" })}>Elige una</button>
-              <button style={{ ...x.segBtn, ...(g.tipo === "varios" ? x.segBtnOn : {}) }} onClick={() => upG(g.id, { tipo: "varios" })}>Elige varias</button>
-            </div>
+            <Segmentado ariaLabel="Cuántas se pueden elegir" radio={10} style={x.segmented}>
+              <button role="tab" aria-selected={g.tipo === "uno"} style={{ ...x.segBtn, ...(g.tipo === "uno" ? x.segBtnOn : {}) }} onClick={() => upG(g.id, { tipo: "uno" })}>Elige una</button>
+              <button role="tab" aria-selected={g.tipo === "varios"} style={{ ...x.segBtn, ...(g.tipo === "varios" ? x.segBtnOn : {}) }} onClick={() => upG(g.id, { tipo: "varios" })}>Elige varias</button>
+            </Segmentado>
             <Interruptor checked={!!g.requerido} onChange={(v) => upG(g.id, { requerido: v })}>Obligatorio</Interruptor>
           </div>
           {g.tipo === "varios" && (

@@ -6,7 +6,7 @@ import {
 import { uid, money, fmtNum, UNIDADES, estadoStock } from "./logica.js";
 import { vibrar } from "./theme.js";
 import { K, x, CampoNumero, CampoPesos, EmptyState } from "./extras.jsx";
-import { Chevron } from "./componentes/Comunes.jsx";
+import { Chevron, Segmentado } from "./componentes/Comunes.jsx";
 import { Selector, CampoFecha } from "./componentes/Campos.jsx";
 import { imprimir, Hoja, Seccion, Kpis, Tabla, Firmas } from "./impresion.jsx";
 import { tieneRol } from "./utilidades.js";
@@ -362,10 +362,10 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
             <input style={s.buscadorInput} placeholder="Buscar por nombre, categoría, proveedor…" value={busca} onChange={(e) => setBusca(e.target.value)} />
             {busca && <button className="toque44" style={s.buscadorX} onClick={() => setBusca("")} aria-label="Borrar búsqueda"><X size={14} /></button>}
           </div>
-          <div style={s.chips}>
-            {filtros.map(([id, label]) => <button key={id} style={{ ...s.chip, ...(filtro === id ? s.chipOn : {}) }} onClick={() => setFiltro(id)}>{label}</button>)}
-            {categoriasEnUso.map((c) => <button key={c} style={{ ...s.chip, ...(filtro === "categoria:" + c ? s.chipOn : {}) }} onClick={() => setFiltro(filtro === "categoria:" + c ? "todos" : "categoria:" + c)}>{c}</button>)}
-          </div>
+          <Segmentado ariaLabel="Filtro del inventario" style={s.chips}>
+            {filtros.map(([id, label]) => <button key={id} role="tab" aria-selected={filtro === id} style={{ ...s.chip, ...(filtro === id ? s.chipOn : {}) }} onClick={() => setFiltro(id)}>{label}</button>)}
+            {categoriasEnUso.map((c) => <button key={c} role="tab" aria-selected={filtro === "categoria:" + c} style={{ ...s.chip, ...(filtro === "categoria:" + c ? s.chipOn : {}) }} onClick={() => setFiltro(filtro === "categoria:" + c ? "todos" : "categoria:" + c)}>{c}</button>)}
+          </Segmentado>
           <div style={{ ...x.row, justifyContent: "space-between" }}>
             <span style={x.hint}>{lista.length} de {insumos.length}</span>
             <Selector compacto style={{ width: "auto", minWidth: 190 }} value={orden} onChange={setOrden} ariaLabel="Ordenar" titulo="Ordenar por"
@@ -453,10 +453,10 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
               <div style={s.panelAccion}>
                 <div style={x.hint}>¿Cuánto llegó? Se suma al stock.</div>
                 {ins.pres && ins.pres.c > 0 && (
-                  <div style={x.segmented}>
-                    <button style={{ ...x.segBtn, ...(!a.enPres ? s.segOn : {}) }} onClick={() => setAccion({ ...a, enPres: false })}>En {ins.unidad}</button>
-                    <button style={{ ...x.segBtn, ...(a.enPres ? s.segOn : {}) }} onClick={() => setAccion({ ...a, enPres: true })}>En {t(ins.pres.n).toLowerCase() || "cajas"} (×{fmtNum(ins.pres.c)})</button>
-                  </div>
+                  <Segmentado ariaLabel="Unidad de la cantidad" radio={10} style={x.segmented}>
+                    <button role="tab" aria-selected={!a.enPres} style={{ ...x.segBtn, ...(!a.enPres ? s.segOn : {}) }} onClick={() => setAccion({ ...a, enPres: false })}>En {ins.unidad}</button>
+                    <button role="tab" aria-selected={!!a.enPres} style={{ ...x.segBtn, ...(a.enPres ? s.segOn : {}) }} onClick={() => setAccion({ ...a, enPres: true })}>En {t(ins.pres.n).toLowerCase() || "cajas"} (×{fmtNum(ins.pres.c)})</button>
+                  </Segmentado>
                 )}
                 <CampoNumero style={x.input} placeholder={a.enPres ? `Cantidad de ${t(ins.pres.n).toLowerCase() || "cajas"}` : "Cantidad que llegó"} value={a.valor} onChange={(v) => setAccion({ ...a, valor: v })} />
                 {a.enPres && num(a.valor) > 0 && <div style={x.hint}>= {fmtNum(num(a.valor) * ins.pres.c)} {ins.unidad}</div>}
@@ -480,9 +480,9 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
               <div style={s.panelAccion}>
                 <div style={x.hint}>¿Cuánto sale del stock? (merma, daño, consumo interno…)</div>
                 <CampoNumero style={x.input} placeholder={`Cantidad en ${ins.unidad}`} value={a.valor} onChange={(v) => setAccion({ ...a, valor: v })} />
-                <div style={s.chips}>
-                  {MOTIVOS_SALIDA.map((m) => <button key={m} style={{ ...s.chip, ...(a.motivo === m ? s.chipOn : {}) }} onClick={() => setAccion({ ...a, motivo: m })}>{m}</button>)}
-                </div>
+                <Segmentado ariaLabel="Motivo de la salida" style={s.chips}>
+                  {MOTIVOS_SALIDA.map((m) => <button key={m} role="tab" aria-selected={a.motivo === m} style={{ ...s.chip, ...(a.motivo === m ? s.chipOn : {}) }} onClick={() => setAccion({ ...a, motivo: m })}>{m}</button>)}
+                </Segmentado>
                 <input style={x.input} placeholder="Nota (opcional)" value={a.nota} onChange={(e) => setAccion({ ...a, nota: e.target.value })} />
                 <div style={x.row}>
                   <button style={{ ...x.btnGhost, flex: 1 }} onClick={() => setAccion(null)}>Cancelar</button>
@@ -627,7 +627,7 @@ const s = {
   buscadorInput: { flex: 1, minWidth: 0, padding: "12px 0", border: "none", outline: "none", background: "transparent", color: K.ink, fontSize: 14, fontFamily: "var(--font-body)" },
   buscadorX: { width: 24, height: 24, borderRadius: 12, border: "none", background: K.soft, color: K.sub, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
   chips: { display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2, flexWrap: "wrap" },
-  chip: { padding: "6px 12px", borderRadius: 999, border: `1px solid ${K.border}`, background: "transparent", color: K.sub, fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
+  chip: { padding: "6px 12px", borderRadius: 999, borderWidth: 1, borderStyle: "solid", borderColor: K.border, background: "transparent", color: K.sub, fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
   chipOn: { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", borderColor: "var(--chip-on-line)" },
   catTag: { display: "inline-block", margin: "3px 0 2px", padding: "2px 8px", borderRadius: 8, background: K.soft, color: K.sub, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.3 },
   venceAviso: { display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 9, fontSize: 12.5, fontWeight: 600 },
