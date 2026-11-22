@@ -80,7 +80,7 @@ body {
 
 /* Tacto tipo iPhone: al tocar se hunde rápido y al soltar vuelve con suavidad (sin rebote). */
 button {
-  transition: transform .5s var(--resorte-vivo), background-color .2s ease, opacity .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+  transition: transform .22s cubic-bezier(.32, .72, 0, 1), background-color .2s ease, opacity .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
   touch-action: manipulation;
   -webkit-user-select: none; user-select: none;
   -webkit-touch-callout: none;
@@ -150,10 +150,8 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 [style*="overflow-x: auto"] { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
 
 /* Cambio de pantalla (Mesero / Cocina / Caja / ajustes): entrada suave con la curva de iOS. */
-@keyframes vistaIn { from { opacity: 0; transform: translate3d(calc(var(--dir, 0) * 22px), calc((1 - var(--dirabs, 0)) * 10px), 0) scale(.992); } to { opacity: 1; transform: none; } }
-.vista-anim { animation: vistaIn .46s var(--resorte-suave) both; }
-@keyframes vistaOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate3d(calc(var(--dir, 1) * 22px), 0, 0) scale(.992); } }
-.vista-anim.vista-sale { animation: vistaOut .24s cubic-bezier(.32, .72, 0, 1) both; pointer-events: none; }
+@keyframes vistaIn { from { opacity: 0; transform: translateY(10px) scale(.992); } to { opacity: 1; transform: none; } }
+.vista-anim { animation: vistaIn .34s cubic-bezier(.32, .72, 0, 1) both; }
 .anim-in { animation-duration: .34s; animation-timing-function: cubic-bezier(.32, .72, 0, 1); }
 
 /* Bloques que se despliegan (cuentas, turnos, meses): aparecen sin saltos. */
@@ -161,7 +159,7 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 .despliega { animation: despliega .28s cubic-bezier(.32, .72, 0, 1) both; }
 
 /* ───────── Hoja flotante (componente <Hoja>) ───────── */
-.hoja-v2 { position: fixed; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); box-sizing: border-box; }
+.hoja-v2 { position: fixed; inset: 0; display: flex; align-items: flex-end; justify-content: center; }
 .hoja-v2-scrim {
   position: absolute; inset: 0; background: var(--scrim); opacity: 0;
   -webkit-backdrop-filter: blur(6px) saturate(115%); backdrop-filter: blur(6px) saturate(115%);
@@ -172,7 +170,7 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
   max-height: calc(100dvh - 28px - env(safe-area-inset-top)); display: flex; flex-direction: column; overflow: hidden;
   background: var(--sheet); color: var(--c-242019-t); font-family: var(--font-body); border-radius: 30px; box-shadow: var(--shadow-float);
   transform: translate3d(0, calc(100% + 48px), 0); will-change: transform;
-  transition: transform .62s var(--resorte-suave);
+  transition: transform .5s cubic-bezier(.32, .72, 0, 1);
 }
 .hoja-v2-agarre { flex-shrink: 0; display: flex; justify-content: center; padding: 9px 0 3px; touch-action: none; cursor: grab; }
 .hoja-v2-agarre span { width: 38px; height: 5px; border-radius: 3px; background: var(--c-c7bfa0-o); opacity: .9; }
@@ -183,7 +181,7 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 .hoja-v2[data-fase="abierta"] .hoja-v2-scrim { opacity: 1; }
 .hoja-v2[data-fase="abierta"] .hoja-v2-panel { transform: none; }
 .hoja-v2[data-fase="saliendo"] .hoja-v2-scrim { opacity: 0; transition-duration: .3s; }
-.hoja-v2[data-fase="saliendo"] .hoja-v2-panel { transform: translate3d(0, calc(100% + 48px), 0); transition-duration: .32s; transition-timing-function: cubic-bezier(.32, .72, 0, 1); }
+.hoja-v2[data-fase="saliendo"] .hoja-v2-panel { transform: translate3d(0, calc(100% + 48px), 0); transition-duration: .32s; }
 @media (min-width: 700px) {
   .hoja-v2 { align-items: center; }
   .hoja-v2-panel { width: 100%; margin: 0 16px; max-height: 88dvh; border-radius: 26px; transform: scale(.965) translateY(8px); opacity: 0; transition: transform .42s cubic-bezier(.32, .72, 0, 1), opacity .26s ease; }
@@ -280,12 +278,7 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 .aviso-pila { position: fixed; left: 0; right: 0; bottom: calc(92px + env(safe-area-inset-bottom)); z-index: 90; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0 14px; pointer-events: none; }
 @media (min-width: 900px) { .aviso-pila { bottom: 26px; left: 232px; } }
 .aviso-toast { position: relative; overflow: hidden; pointer-events: auto; display: flex; align-items: center; gap: 10px; max-width: 520px; width: 100%; padding: 11px 12px 11px 12px; border-radius: 14px; background: var(--seg-on-bg); color: var(--seg-on-fg); box-shadow: 0 10px 30px rgba(0,0,0,.28); font-size: 13.5px; animation: avisoEntra .28s cubic-bezier(.32,.72,0,1); }
-@keyframes avisoEntra { from { transform: translateY(18px) scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes checkDibuja { to { stroke-dashoffset: 0; } }
-@keyframes iconoPop { 0% { transform: scale(.4); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
-.aviso-icono { animation: iconoPop .5s var(--resorte-vivo) both .08s; }
-.aviso-ok svg path, .aviso-ok svg polyline { stroke-dasharray: 26; stroke-dashoffset: 26; animation: checkDibuja .4s cubic-bezier(.32, .72, 0, 1) forwards .2s; }
-@media (prefers-reduced-motion: reduce) { .aviso-icono { animation: none; } .aviso-ok svg path, .aviso-ok svg polyline { stroke-dashoffset: 0; animation: none; } }
+@keyframes avisoEntra { from { transform: translateY(14px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
 .aviso-icono { flex-shrink: 0; width: 24px; height: 24px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: #fff; }
 .aviso-ok { background: var(--ok-solid); } .aviso-info { background: var(--info-solid); } .aviso-error { background: var(--danger-solid); }
 .aviso-texto { flex: 1; min-width: 0; line-height: 1.35; }
@@ -362,8 +355,8 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 @media (prefers-reduced-motion: reduce) { .tab-anim { animation: none; } }
 
 /* Despliegue animado de altura + opacidad (acordeones, propina y descuento, detalles de factura, historiales) */
-.despliegue { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .4s cubic-bezier(.32, .72, 0, 1), opacity .22s ease-out, visibility 0s linear .4s; }
-.despliegue[data-abierto="1"] { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows .4s cubic-bezier(.32, .72, 0, 1), opacity .3s ease-out .06s, visibility 0s; }
+.despliegue { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .46s cubic-bezier(.32, .72, 0, 1), opacity .34s cubic-bezier(.32, .72, 0, 1), visibility 0s linear .46s; }
+.despliegue[data-abierto="1"] { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-delay: 0s; }
 .despliegue-in { overflow: hidden; min-height: 0; }
 @media (prefers-reduced-motion: reduce) { .despliegue { transition: none; } }
 
@@ -398,7 +391,7 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 .seg { isolation: isolate; scrollbar-width: none; }
 .seg::-webkit-scrollbar { display: none; }
 .seg-ind { position: absolute; left: 0; z-index: 0; border-radius: 999px; pointer-events: none; background: var(--chip-on-bg); box-shadow: inset 0 0 0 1px var(--chip-on-line); will-change: transform, width; }
-.seg-ind--anima { transition: transform .38s cubic-bezier(.3, .85, .25, 1), width .38s cubic-bezier(.3, .85, .25, 1), height .3s cubic-bezier(.32, .72, 0, 1), opacity .2s ease; }
+.seg-ind--anima { transition: transform .46s cubic-bezier(.32, .72, 0, 1), width .46s cubic-bezier(.32, .72, 0, 1), height .3s cubic-bezier(.32, .72, 0, 1), opacity .2s ease; }
 .seg > :not(.seg-ind) { position: relative; z-index: 1; }
 .seg > [aria-selected="true"], .seg > [aria-current="true"], .seg > [aria-current="page"] { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
 .seg > :not(.seg-ind) { transition: color .3s cubic-bezier(.32, .72, 0, 1), transform .22s cubic-bezier(.32, .72, 0, 1), opacity .2s ease; }
@@ -410,33 +403,28 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 @supports not (background-color: color-mix(in srgb, red 50%, transparent)) { .vidrio { background-color: var(--c-f7f4ec-b) !important; } }
 .vidrio[style*="sticky"], .vidrio[style*="chrome-solid"] { z-index: 6; }
 
+/* ── Cascada (stagger): al abrir, los elementos entran uno tras otro empujando el contenido ── */
+@keyframes escalonIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.despliegue[data-abierto="1"] .despliegue-in > * > *,
+.seccion-cuerpo > * { animation: escalonIn .46s cubic-bezier(.32, .72, 0, 1) both; }
+.despliegue[data-abierto="1"] .despliegue-in > * > *:nth-child(1) { animation-delay: .02s; }
+.despliegue[data-abierto="1"] .despliegue-in > * > *:nth-child(2) { animation-delay: .06s; }
+.despliegue[data-abierto="1"] .despliegue-in > * > *:nth-child(3) { animation-delay: .10s; }
+.despliegue[data-abierto="1"] .despliegue-in > * > *:nth-child(4) { animation-delay: .14s; }
+.despliegue[data-abierto="1"] .despliegue-in > * > *:nth-child(5) { animation-delay: .18s; }
+.despliegue[data-abierto="1"] .despliegue-in > * > *:nth-child(6) { animation-delay: .22s; }
+.despliegue[data-abierto="1"] .despliegue-in > * > *:nth-child(n+7) { animation-delay: .26s; }
+.seccion-cuerpo > *:nth-child(2) { animation-delay: .05s; }
+.seccion-cuerpo > *:nth-child(3) { animation-delay: .09s; }
+.seccion-cuerpo > *:nth-child(4) { animation-delay: .13s; }
+.seccion-cuerpo > *:nth-child(5) { animation-delay: .17s; }
+.seccion-cuerpo > *:nth-child(n+6) { animation-delay: .21s; }
+@media (prefers-reduced-motion: reduce) { .despliegue[data-abierto="1"] .despliegue-in > * > *, .seccion-cuerpo > * { animation: none; } }
 
-/* ── Menú de perfil: panel 100 % opaco, anclado justo debajo de la barra superior y sobre un fondo oscuro ── */
-.hoja-v2--vidrio .hoja-v2-scrim, .hoja-v2--bajo-barra .hoja-v2-scrim { background: rgba(0, 0, 0, .62); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
-.hoja-v2--vidrio .hoja-v2-panel, .hoja-v2--bajo-barra .hoja-v2-panel { background: var(--sheet); border: 1px solid var(--btn2-line); box-shadow: 0 24px 60px -12px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .25); }
-.hoja-v2--bajo-barra { align-items: flex-start; padding-top: calc(var(--hoja-top, 0px) + 8px); }
-.hoja-v2--bajo-barra.hoja-v2--centro .hoja-v2-panel {
-  margin: 0 10px; width: 100%; transform-origin: top right; transform: translate3d(0, -14px, 0) scale(.97);
-  max-height: calc(100dvh - var(--hoja-top, 0px) - 8px - 10px - env(safe-area-inset-bottom));
-}
-.hoja-v2--bajo-barra.hoja-v2--centro[data-fase="abierta"] .hoja-v2-panel { transform: none; opacity: 1; }
-.hoja-v2--bajo-barra.hoja-v2--centro[data-fase="saliendo"] .hoja-v2-panel { transform: translate3d(0, -10px, 0) scale(.98); opacity: 0; }
-
-/* ── Selector de mesas (Nueva reserva): botón compacto + hoja inferior con casillas ── */
-.selector-mesas { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--c-e4dfce-o); background: var(--c-fffdf8-b); color: var(--c-242019-t); font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; }
-.selector-mesas > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.selector-mesas[data-vacio="1"] { color: var(--c-5c5648-t); }
-.selector-mesas[data-vacio="0"] { border-color: var(--chip-on-line); background: var(--chip-on-bg); color: var(--chip-on-fg); }
-.selector-mesas svg { flex-shrink: 0; transition: transform .3s cubic-bezier(.32, .72, 0, 1); }
-.selector-mesas[aria-expanded="true"] svg { transform: rotate(180deg); }
-.mesas-rejilla { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.mesa-op { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 12px; border-radius: 14px; border: 1px solid var(--c-e4dfce-o); background: var(--c-fffdf8-b); color: var(--c-242019-t); font-size: 14.5px; font-weight: 600; text-align: left; cursor: pointer; min-width: 0; }
-.mesa-op > span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
-.mesa-op small { font-size: 11px; font-weight: 500; color: var(--c-8a8272-t); }
-.mesa-op .caja { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--c-c7bfa0-o); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: transparent; }
-.mesa-op[aria-pressed="true"] { background: var(--chip-on-bg); color: var(--chip-on-fg); border-color: transparent; box-shadow: inset 0 0 0 1px var(--chip-on-line); }
-.mesa-op[aria-pressed="true"] .caja { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
-.mesa-op[aria-pressed="true"] small { color: inherit; opacity: .75; }
+/* ── Menú de perfil: ventana flotante de vidrio sobre un fondo atenuado y borroso ── */
+.hoja-v2--vidrio .hoja-v2-scrim { background: rgba(0, 0, 0, .5); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.hoja-v2--vidrio .hoja-v2-panel { background: color-mix(in srgb, var(--sheet) 85%, transparent); -webkit-backdrop-filter: blur(12px) saturate(150%); backdrop-filter: blur(12px) saturate(150%); border: 1px solid var(--btn2-line); box-shadow: 0 24px 60px -12px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .25); }
+@supports not (background: color-mix(in srgb, red 50%, transparent)) { .hoja-v2--vidrio .hoja-v2-panel { background: var(--sheet); } }
 
 /* ── Toque sin residuos: ningún contorno ni resaltado queda pegado después de tocar ── */
 html, body, button, a, input, select, textarea, [role="tab"], [role="button"], summary, label { -webkit-tap-highlight-color: transparent; }
@@ -447,68 +435,3 @@ html:not([data-teclado]) button:focus-visible, html:not([data-teclado]) [role="t
   /* una pastilla sin seleccionar no conserva borde de foco tras soltar el dedo */
   [aria-pressed="false"]:focus, [aria-selected="false"]:focus { box-shadow: none !important; }
 }
-
-
-/* ───────── Movimiento: resortes reales (linear()) con respaldo de curva clásica ───────── */
-:root { --resorte-suave: cubic-bezier(.32, .72, 0, 1); --resorte-vivo: cubic-bezier(.34, 1.3, .64, 1); }
-@supports (transition-timing-function: linear(0, 1)) {
-  :root {
-    --resorte-suave: linear(0, 0.081, 0.249, 0.431, 0.593, 0.724, 0.821, 0.89, 0.936, 0.966, 0.984, 0.994, 1, 1.002, 1.003, 1.003, 1.002, 1.002, 1.001, 1.001, 1.001, 1, 1, 1, 1, 1, 1);
-    --resorte-vivo: linear(0, 0.099, 0.309, 0.538, 0.737, 0.884, 0.979, 1.031, 1.052, 1.053, 1.044, 1.032, 1.02, 1.011, 1.004, 1, 0.998, 0.997, 0.997, 0.998, 0.999, 0.999, 1, 1, 1, 1, 1);
-  }
-}
-
-/* Transición entre contenidos (<Transicion>): el que entra se desliza y se funde; el que sale queda de "foto" y se desvanece */
-@keyframes transEntra { from { opacity: 0; transform: translate3d(calc(var(--dir, 0) * 18px), calc((1 - var(--dirabs, 0)) * 8px), 0); } to { opacity: 1; transform: none; } }
-@keyframes transSale { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate3d(calc(var(--dir, 0) * -14px), 0, 0); } }
-.trans-entra { animation: transEntra .5s var(--resorte-suave) backwards; }
-.trans-sale { position: absolute; left: 0; right: 0; top: 0; pointer-events: none; z-index: 0; animation: transSale .26s cubic-bezier(.32, .72, 0, 1) both; }
-.trans-activa { overflow-x: clip; }
-/* Cambio de pestaña (modo "fundido"): el contenido viejo y el nuevo se cruzan en el mismo lugar, sin deslizarse hacia el lado */
-@keyframes transFundeEntra { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
-@keyframes transFundeSale { from { opacity: 1; } to { opacity: 0; transform: scale(1.01); } }
-.trans--fundido > .trans-entra { animation: transFundeEntra .3s cubic-bezier(.3, .85, .25, 1) backwards; }
-.trans--fundido > .trans-sale { animation: transFundeSale .2s ease-out both; }
-@media (prefers-reduced-motion: reduce) { .trans-entra { animation: none; } .trans-sale { display: none; } }
-
-/* Barra superior: aparece una sombra suave cuando el contenido pasa por debajo (como la cabecera de iOS) */
-[data-barra-superior] { transition: box-shadow .3s ease; }
-html[data-scrolled] [data-barra-superior] { box-shadow: 0 1px 0 var(--chrome-line), 0 10px 28px -14px rgba(0, 0, 0, .5) !important; }
-
-/* Pastilla neutra del menú de perfil (mismo indicador deslizante, color de "pulgar" de iOS) */
-.seg--neutro > .seg-ind { background: var(--seg-thumb); box-shadow: 0 1px 3px rgba(0, 0, 0, .22); }
-.seg--neutro > [aria-selected="true"] { color: var(--c-242019-t) !important; }
-
-/* Fila deslizable: la tarjeta se mueve con el dedo y deja ver la acción de color detrás */
-.fila-desl { position: relative; overflow: hidden; }
-.fila-desl-cara { position: relative; z-index: 1; touch-action: pan-y; will-change: transform; -webkit-touch-callout: none; }
-.fila-desl-capa { position: absolute; inset: 0; z-index: 0; display: flex; align-items: center; padding: 0 22px; color: #fff; opacity: 0; transition: opacity .15s ease, filter .2s ease; }
-.fila-desl-capa[data-on="1"] { opacity: 1; filter: saturate(.8) brightness(.92); }
-.fila-desl-capa[data-on="1"][data-armado="1"] { filter: none; }
-.fila-desl-accion { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; transition: transform .4s var(--resorte-vivo); transform: scale(.9); }
-.fila-desl-capa[data-armado="1"] .fila-desl-accion { transform: scale(1.08); }
-
-/* Menú de acciones (mantener pulsado) */
-.acciones-lista { display: flex; flex-direction: column; background: var(--c-fffdf8-b); border: 1px solid var(--c-e4dfce-o); border-radius: 16px; overflow: hidden; }
-.accion-fila { display: flex; align-items: center; gap: 14px; min-height: 54px; padding: 0 16px; border: none; border-bottom: 1px solid var(--c-e4dfce-o); background: transparent; color: var(--c-242019-t); font-size: 16px; font-weight: 600; text-align: left; cursor: pointer; }
-.accion-fila:last-child { border-bottom: none; }
-.accion-fila[data-peligro="1"] { color: var(--c-c1442d-t); }
-
-/* Rueda con imán (hora, minutos…) */
-.rueda { position: relative; flex: 1; min-width: 0; }
-.rueda-scroll { height: 100%; overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; display: flex; flex-direction: column; outline: none;
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 32%, #000 68%, transparent); mask-image: linear-gradient(180deg, transparent, #000 32%, #000 68%, transparent); }
-.rueda-scroll::-webkit-scrollbar { display: none; }
-.rueda-op { flex: 0 0 44px; height: 44px; display: flex; align-items: center; justify-content: center; scroll-snap-align: center; scroll-snap-stop: always; font-size: 20px; font-weight: 500; color: var(--c-8a8272-t); font-variant-numeric: tabular-nums; cursor: pointer; transition: color .2s ease, transform .3s var(--resorte-suave), font-weight .2s; }
-.rueda-op[data-sel="1"] { color: var(--c-242019-t); font-weight: 700; transform: scale(1.12); }
-.rueda-banda { position: absolute; left: 0; right: 0; top: 50%; height: 44px; margin-top: -22px; border-radius: 12px; background: var(--btn2-bg, rgba(127, 127, 127, .14)); z-index: -1; pointer-events: none; }
-.ruedas { position: relative; display: flex; gap: 6px; isolation: isolate; padding: 0 4px; }
-.ruedas::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; margin-top: -22px; border-radius: 12px; background: var(--btn2-bg, rgba(127, 127, 127, .14)); z-index: -1; pointer-events: none; }
-.ruedas .rueda-banda { display: none; }
-@media (prefers-reduced-motion: reduce) { .rueda-op, .fila-desl-accion { transition: none; } }
-
-/* ── Cocina: comanda que pasó el tiempo límite (rojo) — latido suave, sin parpadeo agresivo ── */
-@keyframes ticket-latido { 0%, 100% { box-shadow: 0 0 0 0 rgba(193, 68, 45, 0); } 50% { box-shadow: 0 0 0 3px rgba(193, 68, 45, .28); } }
-.ticket-urgente { animation: ticket-latido 2.4s ease-in-out infinite; }
-.ticket-reloj--rojo { background: rgba(193, 68, 45, .14); border-radius: 999px; padding: 2px 8px; }
-@media (prefers-reduced-motion: reduce) { .ticket-urgente { animation: none; } }
