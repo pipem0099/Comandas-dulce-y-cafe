@@ -3,8 +3,8 @@ import { createPortal } from "react-dom";
 import { Check, ChevronLeft, ChevronRight, CalendarDays, Clock } from "lucide-react";
 import { Hoja } from "./Hoja.jsx";
 import { Chevron } from "./Comunes.jsx";
-import { Rueda } from "../movimiento.jsx";
-import { MESES, pad, aClave, deClave, fechaLegible, semanasDelMes, horaLegible } from "../fechas.js";
+import { Rueda, Transicion } from "../movimiento.jsx";
+import { MESES, pad, aClave, deClave, fechaLegible, fechaCorta, semanasDelMes, horaLegible } from "../fechas.js";
 
 /*
  * Campos propios de la app: reemplazan la lista, el calendario y el reloj del sistema (Android/iOS), que sacan a la persona de la
@@ -83,8 +83,8 @@ export function CampoFecha({ value, onChange, min, max, opcional = false, placeh
   return (
     <>
       <button type="button" aria-haspopup="dialog" aria-label={ariaLabel || tit} onClick={abrir} style={{ ...campo, ...style }}>
-        <span style={{ color: value ? undefined : "var(--btn2-mute)" }}>{value ? fechaLegible(value) : placeholder}</span>
-        <CalendarDays size={16} color="var(--btn2-mute)" />
+        <span style={{ color: value ? undefined : "var(--btn2-mute)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{value ? fechaCorta(value) : placeholder}</span>
+        <CalendarDays size={16} color="var(--btn2-mute)" style={{ flexShrink: 0 }} />
       </button>
       {abierto && createPortal(
         <Hoja onCerrar={() => setAbierto(false)} ancho={400} gap={10} label={tit} z={Z}>
@@ -92,11 +92,16 @@ export function CampoFecha({ value, onChange, min, max, opcional = false, placeh
             <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <button type="button" aria-label="Mes anterior" onClick={() => mover(-1)} style={{ ...botonSec, flex: "0 0 44px" }}><ChevronLeft size={18} /></button>
-                <div style={{ ...titulo, textTransform: "capitalize" }} aria-live="polite">{MESES[vista.m]} {vista.a}</div>
+                <Transicion modo="deslizar" clave={`${vista.a}-${vista.m}`} indice={vista.a * 12 + vista.m} altura={false} style={{ flex: 1, height: 28 }}>
+                  <div style={{ ...titulo, textTransform: "capitalize", textAlign: "center" }} aria-live="polite">{MESES[vista.m]} {vista.a}</div>
+                </Transicion>
                 <button type="button" aria-label="Mes siguiente" onClick={() => mover(1)} style={{ ...botonSec, flex: "0 0 44px" }}><ChevronRight size={18} /></button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, textAlign: "center" }} role="grid">
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, textAlign: "center" }}>
                 {SEMANA.map((d, i) => <div key={i} style={{ fontSize: 12, fontWeight: 600, color: "var(--btn2-mute)", padding: "4px 0" }}>{d}</div>)}
+              </div>
+              <Transicion modo="deslizar" clave={`${vista.a}-${vista.m}`} indice={vista.a * 12 + vista.m}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, textAlign: "center" }} role="grid">
                 {semanasDelMes(vista.a, vista.m).flat().map((dia, i) => {
                   if (!dia) return <div key={i} />;
                   const k = `${vista.a}-${pad(vista.m + 1)}-${pad(dia)}`;
@@ -110,6 +115,7 @@ export function CampoFecha({ value, onChange, min, max, opcional = false, placeh
                   );
                 })}
               </div>
+              </Transicion>
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" style={botonSec} onClick={() => { if (!fueraDeRango(hoy)) { onChange(hoy); cerrar(); } }} disabled={fueraDeRango(hoy)}>Hoy</button>
                 {opcional && value && <button type="button" style={botonSec} onClick={() => { onChange(""); cerrar(); }}>Quitar fecha</button>}
