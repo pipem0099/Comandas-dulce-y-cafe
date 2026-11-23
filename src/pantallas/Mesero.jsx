@@ -67,6 +67,9 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const meseroActual = usuarioActual.nombre;
 
   // ── Pisos: cada mesero ve un piso a la vez (el último que usó queda guardado en este dispositivo) ──
+  // OJO: los hooks van SIEMPRE arriba, antes del `if (selectedMesa) return` de más abajo (si no, al abrir una mesa React se rompe)
+  const ahoraServir = useAhora(30000);
+  const umbralesServir = getUmbrales(config);
   const pisos = getPisos(config);
   const variosPisos = pisos.length > 1;
   const [pisoVistaSel, setPisoVistaSel] = useState(() => { try { return localStorage.getItem("comandas_piso_vista") || ""; } catch (e) { return ""; } });
@@ -898,8 +901,6 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const mesasVisibles = variosPisos ? mesasDelPiso(mesas, pisoVista, config) : mesas;
 
   // Todo lo que ya salió de cocina y falta llevar, por mesa — mis cuentas abiertas + lo que sube/baja hacia el piso que atiendo.
-  const ahoraServir = useAhora(30000);
-  const umbralesServir = getUmbrales(config);
   const paraServirPorMesa = (() => {
     const grupos = [];
     cuentas
