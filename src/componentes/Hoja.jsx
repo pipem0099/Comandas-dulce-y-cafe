@@ -171,7 +171,7 @@ export function Hoja({ onCerrar, children, ancho = 460, gap = 12, label, z = 60,
   const hoja = (
     <div className={"hoja-v2 hoja-overlay-v2" + (centro ? " hoja-v2--centro" : "") + (vidrio ? " hoja-v2--vidrio" : "") + (yBarra != null ? " hoja-v2--bajo-barra" : "")} data-fase={fase} style={{ zIndex: z, ...(yBarra != null ? { "--hoja-top": yBarra + "px" } : null) }}>
       <div ref={scrimRef} className="hoja-v2-scrim" onClick={cerrarPublico} />
-      <div ref={panelRef} className="hoja-v2-panel" style={{ maxWidth: Math.min(ancho, 520) }} role="dialog" aria-modal="true" aria-label={label}>
+      <div ref={panelRef} className="hoja-v2-panel" style={{ maxWidth: ancho > 560 ? ancho : Math.min(ancho, 520) }} role="dialog" aria-modal="true" aria-label={label}>
         <div className="hoja-v2-agarre" data-agarre aria-hidden="true"><span /></div>
         <div ref={scrollRef} className="hoja-v2-scroll" style={{ gap, ...(padding ? { padding } : null) }}>
           {typeof children === "function" ? children({ cerrar: cerrarPublico }) : children}

@@ -38,8 +38,7 @@ function Pastilla({ visible, datos, onCerrar, onAbrirCerrar }) {
   const y0 = useRef(null);
   useEffect(() => {
     if (visible) { setSnap(datos); setMontada(true); return undefined; }
-    setAbierta(false);
-    const t = setTimeout(() => setMontada(false), 340);
+    const t = setTimeout(() => { setMontada(false); setAbierta(false); }, 340);
     return () => clearTimeout(t);
   }, [visible, datos]);
   useEffect(() => { if (onAbrirCerrar) onAbrirCerrar(abierta); }, [abierta]); // eslint-disable-line react-hooks/exhaustive-deps
