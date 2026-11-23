@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { createPortal } from "react-dom";
-import { WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
 import { styles } from "../estilos.js";
+import { IslaHost } from "./Isla.jsx";
 import { Hoja } from "./Hoja.jsx";
 import { describirConflicto } from "../sinConexion/textos.js";
 import { conflictosSinConexion, descartarConflictoSinConexion, reintentarConflictoSinConexion } from "../firebase.js";
@@ -15,39 +15,10 @@ import { conflictosSinConexion, descartarConflictoSinConexion, reintentarConflic
 export function BannerConexion({ conexion, esAdmin }) {
   const [abierto, setAbierto] = useState(false);
   const [, refrescar] = useState(0);
-  const { conectado, pendientes, conflictos, sincronizando } = conexion;
-  // El aviso de «sin internet» / «enviando» solo aparece si dura más de unos segundos: un parpadeo al abrir la app no es un problema para nadie.
-  // (Si el equipo mismo dice que no tiene red, se muestra de inmediato.)
-  const hayAlgo = !conectado || pendientes > 0;
-  const [dura, setDura] = useState(false);
-  useEffect(() => {
-    if (!hayAlgo) { setDura(false); return undefined; }
-    if (!conectado && typeof navigator !== "undefined" && navigator.onLine === false) { setDura(true); return undefined; }
-    const t = setTimeout(() => setDura(true), 3500);
-    return () => clearTimeout(t);
-  }, [hayAlgo, conectado]);
-  if (conectado && pendientes === 0 && conflictos === 0) return null;
-  if (conflictos === 0 && !dura) return null;
   const lista = abierto ? conflictosSinConexion() : [];
   return (
     <>
-      {conflictos > 0 ? (
-        <div style={{ ...styles.errorGuardadoBanner }} role="alert">
-          <AlertTriangle size={14} />
-          <span style={{ flex: 1 }}><b>{conflictos}</b> {conflictos === 1 ? "cambio hecho sin internet no se pudo aplicar" : "cambios hechos sin internet no se pudieron aplicar"}.</span>
-          <button className="toque44" style={{ ...styles.errorGuardadoCerrar, textDecoration: "underline", fontWeight: 700 }} onClick={() => setAbierto(true)}>Revisar</button>
-        </div>
-      ) : !conectado ? (
-        <div style={styles.pendientesBanner} role="status">
-          <WifiOff size={14} />
-          <span style={{ flex: 1 }}>Sin internet · trabajando con los últimos datos guardados.{pendientes > 0 ? <> <b>{pendientes}</b> {pendientes === 1 ? "cambio se enviará" : "cambios se enviarán"} solos al volver la conexión.</> : " Lo que hagas se guardará y se enviará solo."}</span>
-        </div>
-      ) : (
-        <div style={{ ...styles.pendientesBanner, background: "var(--btn2-bg)", color: "var(--btn2-fg)", borderBottom: "1px solid var(--btn2-line)" }} role="status">
-          <RefreshCw size={14} />
-          <span style={{ flex: 1 }}>{sincronizando ? "Enviando" : "Por enviar"} <b>{pendientes}</b> {pendientes === 1 ? "cambio" : "cambios"} guardado{pendientes === 1 ? "" : "s"} sin internet…</span>
-        </div>
-      )}
+      <IslaHost conexion={conexion} onRevisarConflictos={() => setAbierto(true)} />
       {abierto && createPortal(
         <Hoja onCerrar={() => setAbierto(false)} ancho={480} gap={10} label="Cambios que no se pudieron aplicar" z={85}>
           {({ cerrar }) => (

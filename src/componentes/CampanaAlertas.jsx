@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Bell, X, AlertTriangle, Info, ChevronRight } from "lucide-react";
 import { Hoja } from "./Hoja.jsx";
 
@@ -11,6 +11,7 @@ const META = {
 /** Campana con el número de alertas importantes; al tocarla abre la lista. Solo para administradores. */
 export function CampanaAlertas({ alertas, onIr, tamano = 36, compacto = false }) {
   const [abierta, setAbierta] = useState(false);
+  useEffect(() => { const f = () => setAbierta(true); window.addEventListener("abrir-alertas", f); return () => window.removeEventListener("abrir-alertas", f); }, []);
   const importantes = alertas.filter((a) => a.nivel !== "info").length;
   const hayAlta = alertas.some((a) => a.nivel === "alta");
   return (
