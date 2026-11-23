@@ -4,6 +4,7 @@ import { CabeceraAdmin } from "./componentes/CabeceraAdmin.jsx";
 import { Plus, Minus, Trash2, Check, X, Upload, Boxes, AlertTriangle, Pencil, ShoppingBag, Bike, Image as ImageIcon, ChevronDown } from "lucide-react";
 import { ACENTOS, FUENTES, MARCA_POR_DEFECTO, reducirLogo, vibrar } from "./theme.js";
 import { Hoja } from "./componentes/Hoja.jsx";
+import { EditorMensajes } from "./componentes/EditorMensajes.jsx";
 import { Selector } from "./componentes/Campos.jsx";
 import { getUmbrales, UMBRALES_DEFECTO, LIMITES_UMBRAL } from "./tiempos.js";
 import { getCajas, CAJA_BASE, turnosSinCaja } from "./pisos.js";
@@ -497,6 +498,10 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
           <input style={x.input} placeholder="Mensaje final (ej: ¡Gracias por tu visita!)" value={datosNeg.mensaje} onChange={(e) => setDatosNeg({ ...datosNeg, mensaje: e.target.value })} />
           <div style={x.hint}>Salen en la cuenta y en el comprobante de venta, que se imprimen en papel de 80 mm o se envían por WhatsApp. El comprobante dice que no es factura electrónica.</div>
           <button style={x.btnDark} onClick={guardarDatosNeg}>{datosGuardados ? <><Check size={15} /> Guardado</> : "Guardar datos"}</button>
+        </Seccion>
+
+        <Seccion titulo="Mensajes de WhatsApp" resumen="Reservas y resumen del día">
+          <EditorMensajes config={config} persistConfig={persistConfig} x={x} />
         </Seccion>
 
         {/* Marca */}

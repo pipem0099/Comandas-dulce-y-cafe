@@ -34,6 +34,7 @@ export function Transicion({ clave, indice, altura = true, modo = "fundido", chi
   const dir = useRef(0);
   const hubo = useRef(false);
   const timer = useRef(null);
+  const alturaFija = useRef(false); // true mientras la caja lleva un `height` puesto por una transición en curso
 
   // Durante el render el DOM todavía es el de la clave anterior: ahí se toma la "foto" del contenido que se va.
   if (claveAnt.current !== clave) {
@@ -70,19 +71,21 @@ export function Transicion({ clave, indice, altura = true, modo = "fundido", chi
       f.addEventListener("animationend", quitar, { once: true });
       setTimeout(quitar, 600);
     }
+    // Cambio rápido (otra transición todavía en curso): se suelta la altura que dejó puesta la anterior ANTES de medir el alto
+    // natural del contenido nuevo; si no, se medía la altura vieja y la caja quedaba cortada (bug al saltar rápido entre pisos).
+    if (alturaFija.current) { c.style.transition = "none"; c.style.height = ""; c.style.overflow = ""; alturaFija.current = false; }
     const h0 = altoAnt.current;
-    let animoAltura = false;
     if (altura && h0) {
       const h1 = c.offsetHeight; // alto natural de la caja (sin altura fija todavía)
       if (Math.abs(h1 - h0) > 2) {
         c.style.transition = "none"; c.style.height = h0 + "px"; c.style.overflow = "hidden";
         void c.offsetHeight; // fuerza el cálculo para que arranque desde la altura anterior
         c.style.transition = "height .44s cubic-bezier(.32,.72,0,1)"; c.style.height = h1 + "px";
-        animoAltura = true;
+        alturaFija.current = true;
       }
     }
     timer.current = setTimeout(() => {
-      if (animoAltura) { c.style.height = ""; c.style.overflow = ""; c.style.transition = ""; } // solo lo que esta transición puso (un `height` fijo del llamador se respeta)
+      if (alturaFija.current) { c.style.height = ""; c.style.overflow = ""; c.style.transition = ""; alturaFija.current = false; } // solo lo que puso una transición (un `height` fijo del llamador se respeta)
       c.classList.remove("trans-activa");
     }, 480);
     return undefined;
@@ -302,6 +305,26 @@ export function useDeslizarHorizontal(ref, { onIzq, onDer, activo = true, soloEn
     el.addEventListener("touchcancel", cancelar, { passive: true });
     return () => { el.removeEventListener("touchstart", inicio); el.removeEventListener("touchend", fin); el.removeEventListener("touchcancel", cancelar); };
   }, [ref, activo, soloEn]);
+}
+
+/* ───────────────────────── Mantener pulsado en cualquier botón ─────────────────────────
+ * Devuelve las propiedades a esparcir en el elemento: `{...mantener(() => abrirMenu())}`.
+ * Pulsación larga con el dedo (0,5 s sin moverse) o clic derecho con el mouse; el clic que sigue se ignora. */
+const estadoMantener = new WeakMap();   // un estado por botón: la pantalla se redibuja seguido y las funciones cambian
+export function mantener(alMantener, ms = 500) {
+  const de = (e) => { let st = estadoMantener.get(e.currentTarget); if (!st) { st = { timer: null, x0: 0, y0: 0, disparo: false }; estadoMantener.set(e.currentTarget, st); } return st; };
+  const limpiar = (st) => { if (st.timer) { clearTimeout(st.timer); st.timer = null; } };
+  return {
+    onPointerDown: (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      const st = de(e); limpiar(st); st.disparo = false; st.x0 = e.clientX; st.y0 = e.clientY;
+      st.timer = setTimeout(() => { st.timer = null; st.disparo = true; vibrar(18); alMantener(); }, ms);
+    },
+    onPointerMove: (e) => { const st = de(e); if (st.timer && Math.hypot(e.clientX - st.x0, e.clientY - st.y0) > 8) limpiar(st); },
+    onPointerUp: (e) => limpiar(de(e)), onPointerCancel: (e) => limpiar(de(e)), onPointerLeave: (e) => limpiar(de(e)),
+    onContextMenu: (e) => { const st = de(e); e.preventDefault(); limpiar(st); if (!st.disparo) { st.disparo = true; alMantener(); } },
+    onClickCapture: (e) => { const st = de(e); if (st.disparo) { e.preventDefault(); e.stopPropagation(); st.disparo = false; } },
+  };
 }
 
 /* ───────────────────────── Menú de acciones (mantener pulsado) ─────────────────────────

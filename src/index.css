@@ -362,7 +362,7 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 @media (prefers-reduced-motion: reduce) { .tab-anim { animation: none; } }
 
 /* Despliegue animado de altura + opacidad (acordeones, propina y descuento, detalles de factura, historiales) */
-.despliegue { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .4s cubic-bezier(.32, .72, 0, 1), opacity .22s ease-out, visibility 0s linear .4s; }
+.despliegue { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .4s cubic-bezier(.32, .72, 0, 1), opacity .34s cubic-bezier(.5, 0, 1, 1), visibility 0s linear .4s; }
 .despliegue[data-abierto="1"] { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows .4s cubic-bezier(.32, .72, 0, 1), opacity .3s ease-out .06s, visibility 0s; }
 .despliegue-in { overflow: hidden; min-height: 0; }
 @media (prefers-reduced-motion: reduce) { .despliegue { transition: none; } }
@@ -398,7 +398,7 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
 .seg { isolation: isolate; scrollbar-width: none; }
 .seg::-webkit-scrollbar { display: none; }
 /* Pastilla elegida RELLENA con el color de la marca (como las pestañas de iOS): se ve de lejos aunque haya poca luz */
-.seg-ind { position: absolute; left: 0; z-index: 0; border-radius: 999px; pointer-events: none; background: var(--accent); box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--accent) 65%, transparent); will-change: transform, width; }
+.seg-ind { position: absolute; left: 0; z-index: 0; border-radius: 999px; pointer-events: none; background: var(--accent); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), inset 0 -1px 0 rgba(0, 0, 0, .12); will-change: transform, width; }
 .seg:not(.seg--neutro) > [aria-selected="true"], .seg:not(.seg--neutro) > [aria-current="true"], .seg:not(.seg--neutro) > [aria-current="page"] { color: var(--accent-fg, #fff) !important; }
 .seg:not(.seg--neutro) > [aria-selected="true"] :is(span, svg, b), .seg:not(.seg--neutro) > [aria-current="page"] :is(span, svg, b), .seg:not(.seg--neutro) > [aria-current="true"] :is(span, svg, b) { color: inherit !important; }
 .seg:not(.seg--neutro) > [aria-selected="true"] [style*="background"], .seg:not(.seg--neutro) > [aria-current="page"] [style*="background"] { background: color-mix(in srgb, var(--accent-fg, #fff) 24%, transparent) !important; }
@@ -480,7 +480,7 @@ html:not([data-teclado]) button:focus-visible, html:not([data-teclado]) [role="t
 html[data-scrolled] [data-barra-superior] { box-shadow: 0 1px 0 var(--chrome-line), 0 10px 28px -14px rgba(0, 0, 0, .5) !important; }
 
 /* Pastilla neutra del menú de perfil (mismo indicador deslizante, color de "pulgar" de iOS) */
-.seg--neutro > .seg-ind { background: var(--seg-thumb); box-shadow: 0 1px 3px rgba(0, 0, 0, .22); }
+.seg--neutro > .seg-ind { background: var(--seg-thumb); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
 .seg--neutro > [aria-selected="true"] { color: var(--c-242019-t) !important; }
 
 /* Fila deslizable: la tarjeta se mueve con el dedo y deja ver la acción de color detrás */
