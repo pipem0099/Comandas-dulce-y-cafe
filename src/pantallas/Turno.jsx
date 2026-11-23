@@ -282,7 +282,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                 </div>
               ) : (
                 <>
-                  <ResumenDia turno={armarCierre(Date.now())} cuentas={cuentas} />
+                  <ResumenDia turno={armarCierre(Date.now())} cuentas={cuentas} config={config} />
                   {!todoCuadra ? (
                     <>
                       <button style={t.btnCorregir} onClick={() => setCalculado(false)}><RotateCcw size={15} /> Corregir conteo y volver a calcular</button>
@@ -358,7 +358,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                       </button>
                       {abierto && (
                         <div style={{ marginTop: 10 }} className="anim-in">
-                          <ResumenDia turno={tr} cuentas={cuentasParaHistorial || cuentas} />
+                          <ResumenDia turno={tr} cuentas={cuentasParaHistorial || cuentas} config={config} />
                           <button style={{ ...styles.exportLink, marginTop: 10 }} onClick={() => imprimir(<HojaTurno turno={tr} cuentas={cuentasParaHistorial || cuentas} config={config} usuario={usuarioActual} />)}>
                             <Printer size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Imprimir este cierre
                           </button>

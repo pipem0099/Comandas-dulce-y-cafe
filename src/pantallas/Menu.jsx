@@ -1,3 +1,4 @@
+import { InfoTip } from "../componentes/InfoTip.jsx";
 import React, { useState } from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import { Plus, Check, Trash2, Settings2, Search, X, Camera, Info } from "lucide-react";
@@ -94,11 +95,13 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
         </button>
 
         {sinCosto > 0 && (
-          <button style={m.avisoGlobal} onClick={() => setSoloSinCosto((v) => !v)} aria-pressed={soloSinCosto}>
-            <Info size={15} strokeWidth={1.8} />
+          <div style={m.avisoGlobal}>
+            <InfoTip titulo="Productos sin costo registrado" size={15}>
+              Sin el costo de un producto la app no puede calcular cuánto ganas con él, y los márgenes de Análisis salen incompletos. Abre el producto y escribe su costo, o usa «Ver cuáles» para encontrarlos rápido.
+            </InfoTip>
             <span style={{ flex: 1, textAlign: "left" }}>{sinCosto} {sinCosto === 1 ? "producto sin costo registrado" : "productos sin costo registrado"}</span>
-            <span style={{ color: "var(--link)", fontWeight: 500 }}>{soloSinCosto ? "Ver todos" : "Ver cuáles"}</span>
-          </button>
+            <button type="button" className="toque44" aria-pressed={soloSinCosto} onClick={() => setSoloSinCosto((v) => !v)} style={{ border: "none", background: "transparent", color: "var(--link)", fontWeight: 600, fontSize: 13.5, cursor: "pointer", padding: "0 4px", flexShrink: 0 }}>{soloSinCosto ? "Ver todos" : "Ver cuáles"}</button>
+          </div>
         )}
 
         {/* Barra fija de navegación: buscador + categorías en pastillas */}

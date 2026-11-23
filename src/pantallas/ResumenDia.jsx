@@ -1,5 +1,6 @@
 import React from "react";
-import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Share2 } from "lucide-react";
+import { plantillaDe, rellenar, linkWhatsApp } from "../mensajes.js";
 import { money } from "../logica.js";
 import { dateTimeLabel, timeLabel, movimientosDe, arqueosDe, ventasEnRango, propinasEnRango } from "../utilidades.js";
 import { tramosDe } from "../relevoCaja.js";
@@ -36,7 +37,7 @@ function L({ k, v, fuerte, color }) {
 }
 const ESTADO_RELEVO = { aceptado: "Recibida", forzado: "Asumida sin entrega", rechazado: "No coincidía (se deshizo)", cancelado: "Cancelada", pendiente: "Pendiente" };
 
-export function ResumenDia({ turno, cuentas }) {
+export function ResumenDia({ turno, cuentas, config }) {
   const tramos = tramosDe(turno);
   const fin = turno.cierreTs || Date.now();
   const relevos = turno.relevos ? Object.values(turno.relevos).sort((a, b) => a.ts - b.ts) : [];
@@ -54,6 +55,16 @@ export function ResumenDia({ turno, cuentas }) {
   const difTarjeta = turno.difTarjeta || 0, difTransf = turno.difTransferencia || 0;
   const todoCuadra = difEfectivo === 0 && difTarjeta === 0 && difTransf === 0 && tramos.every((t) => !t.diferencia);
   const tieneTarjeta = typeof turno.tarjetaContada === "number" || typeof turno.transferenciaContada === "number";
+
+  // El texto sale de la plantilla que se edita en Ajustes → Mensajes de WhatsApp; la persona revisa y toca "Enviar" en WhatsApp.
+  const enviarWhatsApp = () => {
+    const texto = rellenar(plantillaDe(config, "resumen"), {
+      negocio: (config && config.businessName) || "Resumen", fecha: new Date(turno.aperturaTs || Date.now()).toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "short" }),
+      vendido: money(totalVendido), efectivo: money(ventas.efectivo), tarjeta: money(ventas.tarjeta), transferencia: money(ventas.transferencia), propinas: money(propinas),
+      cuadre: todoCuadra ? "cuadró ✓" : "con diferencias",
+    });
+    window.open(linkWhatsApp("", texto), "_blank", "noopener");
+  };
 
   return (
     <div style={r.raiz}>
@@ -166,6 +177,10 @@ export function ResumenDia({ turno, cuentas }) {
         )}
         {propinas > 0 && <div style={r.meta}>Incluye {money(propinas)} de propinas.</div>}
       </div>
+      <button type="button" className="no-imprimir toque44" onClick={enviarWhatsApp}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "12px 14px", borderRadius: 12, border: `1px solid ${K.border}`, background: "var(--btn2-bg)", color: "var(--btn2-fg)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+        <Share2 size={16} /> Enviar resumen por WhatsApp
+      </button>
     </div>
   );
 }

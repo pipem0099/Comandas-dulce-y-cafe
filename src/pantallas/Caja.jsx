@@ -8,7 +8,8 @@ import { EmptyState } from "../extras.jsx";
 import { METODO_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { MesaCuentaCard } from "../pantallas/CuentaMesa.jsx";
-import { FilaTabs, Segmentado } from "../componentes/Comunes.jsx";
+import { FilaTabs, Segmentado, Despliegue } from "../componentes/Comunes.jsx";
+import { Hoja } from "../componentes/Hoja.jsx";
 import { TurnoView } from "../pantallas/Turno.jsx";
 import { PendientesView } from "../pantallas/Pendientes.jsx";
 import { diasDesde } from "../deudas.js";
@@ -33,27 +34,20 @@ const ReportesView = perezoso(() => import("../pantallas/Reportes.jsx"), "Report
 
 /* ---------------- CAJA ---------------- */
 
+// Cierra la hoja (con su animación) cuando la cuenta deja de estar abierta: ya se cobró por completo.
+function CierraAlCobrar({ abierta, cerrar }) {
+  useEffect(() => { if (!abierta) { const t = setTimeout(cerrar, 700); return () => clearTimeout(t); } return undefined; }, [abierta]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnosAbiertos = [], deudas = [], abrirTab = null, menu, orders, cuentas, saveCuenta, saveOrdersMap, turnos, turnoAbierto, saveTurno, config, persistConfig, usuarioActual, mesas, persistMesas, insumos, saveInsumo, updateInsumo, deleteInsumo, ajustarInventario, equipo, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, onIr }) {
   const cajas = getCajas(config);
   const variasCajas = hayVariasCajas(config);
   const cajaActual = variasCajas ? (cajas.find((c) => c.id === cajaElegida) || (turnoAbierto && cajas.find((c) => c.id === (turnoAbierto.cajaId || CAJA_BASE))) || cajas[0]) : null;
   const [tab, setTab] = useState(turnoAbierto ? "mesas" : "turno"); // sin caja abierta, lo primero es abrirla
   const [expandedId, setExpandedId] = useState(null);
-  // Altura que le queda al detalle de la cuenta: así el cobro (propina, total y botón) siempre se ve completo en pantalla.
-  const panelRef = useRef(null);
-  const [altoPanel, setAltoPanel] = useState(640);
-  useEffect(() => {
-    const medir = () => {
-      const el = panelRef.current; if (!el) return;
-      const top = Math.max(el.getBoundingClientRect().top, 12);
-      setAltoPanel(Math.max(380, Math.floor(window.innerHeight - top - 12)));
-    };
-    medir();
-    window.addEventListener("resize", medir); window.addEventListener("scroll", medir, true);
-    const t = setTimeout(medir, 60);
-    return () => { clearTimeout(t); window.removeEventListener("resize", medir); window.removeEventListener("scroll", medir, true); };
-  });
-  const ancha = useDispositivo() !== "movil";   // tablet / escritorio: lista + detalle lado a lado
+  const [cabCompacta, setCabCompacta] = useState(false);   // escritorio: al bajar, el título se recoge y deja más espacio
+  const ancha = useDispositivo() !== "movil";   // tablet / escritorio: tarjetas en rejilla y cobro en hoja de dos columnas
   const esAdmin = tieneRol(usuarioActual, "admin");
   const ajustesFiscales = useAjustesFiscales();
   const facturasEnCola = useFacturasEnCola();
@@ -77,7 +71,7 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
   const porCobrar = abiertas.reduce((a, c) => a + Math.max(0, cuentaGranTotal(orders, c) - pagosTotal(c)), 0);
   const mesasOcupadas = new Set([...abiertas, ...porLiberar].filter((c) => !esExterna(c)).map((c) => String(c.mesa))).size;
   const liberar = (c) => parcharCuenta(c.id, { liberada: true, liberadaTs: Date.now(), liberadaPor: usuarioActual.nombre });
-  const seleccionada = abiertas.find((c) => c.id === expandedId) || null;
+  const seleccionada = cuentas.find((c) => c.id === expandedId) || null;
 
   // Buscar cuentas por mesa, mesero, cliente o producto. Atajo: "/" lleva el cursor al buscador (en computador).
   const [busca, setBusca] = useState("");
@@ -104,7 +98,14 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
   pagadasHoy.forEach((c) => pagosDe(c).forEach((p) => { porMetodoHoy[p.metodoPago] = (porMetodoHoy[p.metodoPago] || 0) + p.monto; }));
 
   return (
-    <div style={styles.screen}>
+    <div style={styles.screen} onScrollCapture={ancha ? (e) => {
+      const el = e.target; if (!el || el.nodeType !== 1 || el.scrollHeight == null) return;
+      const st = el.scrollTop, sobra = el.scrollHeight - el.clientHeight;
+      if (sobra < 1) return;
+      if (!cabCompacta && st > 60 && sobra > 280) setCabCompacta(true);
+      else if (cabCompacta && st < 8) setCabCompacta(false);
+    } : undefined}>
+      <Despliegue abierto={!(ancha && cabCompacta)} siempre>
       <div className="no-imprimir ancho" style={styles.mesaGridHeader}>
         <div><div style={styles.pageEyebrow}>CAJA</div><div style={styles.pageTitle}>Caja</div></div>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 12px", margin: "0 2px", flexShrink: 0, borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: turnoAbierto ? "var(--c-e4eee1-b)" : "rgba(128,138,150,.16)", border: `1px solid ${turnoAbierto ? "var(--ok-border)" : "var(--c-e4dfce-o)"}`, color: turnoAbierto ? "var(--pago-ok)" : "var(--c-8a8272-t)" }}>
@@ -125,6 +126,7 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
           })}
         </Segmentado>
       )}
+      </Despliegue>
 
       {!bloqueado && (
         <FilaTabs className="no-imprimir ancho" style={styles.cajaTabSwitch}>
@@ -185,8 +187,8 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
           ) : abiertas.length === 0 && porLiberar.length === 0 ? (
             <EmptyState icon={Receipt} titulo="Sin cuentas abiertas" texto="Cuando un mesero tome un pedido, la cuenta aparece aquí lista para cobrar." />
           ) : (
-            <div style={ancha ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 380px", gap: 16, alignItems: "start" } : { display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={ancha ? { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 10, alignContent: "start" } : { display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={ancha ? { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 10, alignContent: "start" } : { display: "flex", flexDirection: "column", gap: 10 }}>
                 {abiertas.length >= 3 && (
                   <div className="campo-prefijo" style={{ ...cj.buscador, ...(ancha ? { gridColumn: "1 / -1" } : null) }}>
                     <Search size={16} color="var(--c-8a8272-t)" />
@@ -201,7 +203,7 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
                       <MesaCuentaCard
                         key={c.id} cuenta={c} orders={orders} saveCuenta={saveCuenta} saveOrdersMap={saveOrdersMap}
                         turnoAbierto={!!turnoAbierto} cajaId={(turnoAbierto && turnoAbierto.cajaId) || null} pisoNombre={hayVariosPisos(config) ? nombrePiso(config, pisoDeMesaId(mesas, c.mesa, config)) : null} usuarioActual={usuarioActual} mesas={mesas} ajustarInventario={ajustarInventario}
-                        expanded={expandedId === c.id} onToggle={() => setExpandedId(expandedId === c.id ? null : c.id)}
+                        expanded={false} onToggle={() => setExpandedId(c.id)}
                       />
                     );
                   }
@@ -237,25 +239,20 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
                 )}
               </div>
 
-              {ancha && (
-                seleccionada ? (
-                  <div ref={panelRef} style={{ alignSelf: "start", display: "flex", flexDirection: "column" }}>
-                  <MesaCuentaCard
-                    key={seleccionada.id} cuenta={seleccionada} orders={orders} saveCuenta={saveCuenta} saveOrdersMap={saveOrdersMap}
-                    turnoAbierto={!!turnoAbierto} cajaId={(turnoAbierto && turnoAbierto.cajaId) || null} pisoNombre={hayVariosPisos(config) ? nombrePiso(config, pisoDeMesaId(mesas, seleccionada.mesa, config)) : null} usuarioActual={usuarioActual} mesas={mesas} ajustarInventario={ajustarInventario}
-                    modoPanel expanded onToggle={() => setExpandedId(null)}
-                  />
-                  </div>
-                ) : (
-                  <div style={cj.elige}>
-                    <div style={cj.eligeIcono}><Receipt size={22} /></div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>Elige una mesa</div>
-                    <div style={{ fontSize: 12.5, color: "var(--c-8a8272-t)", textAlign: "center", maxWidth: 240 }}>Verás sus rondas, lo que falta por cobrar y los botones para cobrarla.</div>
-                  </div>
-                )
+              {seleccionada && (
+                <Hoja onCerrar={() => setExpandedId(null)} centro={ancha} ancho={ancha ? 980 : 520} label={`Cobrar ${mesaNombre(mesas, seleccionada.mesa)}`} padding="0" gap={0}>
+                  {({ cerrar }) => (
+                    <>
+                    <CierraAlCobrar abierta={seleccionada.estado === "abierta"} cerrar={cerrar} />
+                    <MesaCuentaCard
+                      key={seleccionada.id} cuenta={seleccionada} orders={orders} saveCuenta={saveCuenta} saveOrdersMap={saveOrdersMap}
+                      turnoAbierto={!!turnoAbierto} cajaId={(turnoAbierto && turnoAbierto.cajaId) || null} pisoNombre={hayVariosPisos(config) ? nombrePiso(config, pisoDeMesaId(mesas, seleccionada.mesa, config)) : null} usuarioActual={usuarioActual} mesas={mesas} ajustarInventario={ajustarInventario}
+                      modoPanel doble={ancha} expanded onToggle={cerrar}
+                    />
+                    </>
+                  )}
+                </Hoja>
               )}
-
-              {!ancha && porLiberar.length > 0 && null}
             </div>
           )}
         </div>

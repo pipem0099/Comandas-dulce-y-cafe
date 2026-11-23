@@ -1,3 +1,4 @@
+import { plantillaDe, rellenar, linkWhatsApp } from "../mensajes.js";
 import React, { useRef, useState } from "react";
 import { Plus, Phone, Users, X, Check, MessageCircle, Pencil, Minus, ChevronDown, UserCheck, UserX, RotateCcw } from "lucide-react";
 import { styles } from "../estilos.js";
@@ -25,9 +26,15 @@ const ESTADOS = {
   no_asistio: { label: "No llegó", color: "#8A94A0" },
   cancelada: { label: "Cancelada", color: "var(--c-c1442d-t)" },
 };
+const activa0 = (r) => r.estado === "pendiente" || r.estado === "confirmada";
 const ACTIVA = (r) => r.estado === "pendiente" || r.estado === "confirmada";
 const soloDigitos = (t) => String(t || "").replace(/\D/g, "");
-const waLink = (tel) => { const d = soloDigitos(tel); if (!d) return null; return `https://wa.me/${d.length === 10 ? "57" + d : d}`; };
+const waLink = (tel, texto) => { const d = soloDigitos(tel); if (!d) return null; return linkWhatsApp(tel, texto || ""); };
+// Texto del recordatorio, con la plantilla que se edita en Ajustes
+const textoRecordatorio = (r, config) => rellenar(plantillaDe(config, "reserva"), {
+  nombre: r.nombre, negocio: (config && config.businessName) || "nuestro local", hora: horaLabel(r), personas: `${r.personas} ${r.personas === 1 ? "persona" : "personas"}`,
+  fecha: new Date(r.ts).toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "short" }),
+});
 
 function diasSiguientes(n = 7) {
   const out = [];
@@ -40,10 +47,10 @@ function diasSiguientes(n = 7) {
   return out;
 }
 
-function TarjetaReserva({ r, mesas, cambiarEstado, onEditar }) {
+function TarjetaReserva({ r, mesas, cambiarEstado, onEditar, config }) {
   const [menu, setMenu] = useState(false);
   const e = ESTADOS[r.estado] || ESTADOS.pendiente;
-  const wa = waLink(r.telefono);
+  const wa = waLink(r.telefono, activa0(r) ? textoRecordatorio(r, config) : "");
   const activa = ACTIVA(r);
   // Desde un gesto (deslizar o mantener pulsado) el cambio avisa y se puede deshacer
   const cambiar = (estado, texto) => {
@@ -61,7 +68,7 @@ function TarjetaReserva({ r, mesas, cambiarEstado, onEditar }) {
     activa && { texto: "No llegó", icono: UserX, onClick: () => cambiar("no_asistio", "Marcada como no llegó") },
     !activa && { texto: "Reabrir", icono: RotateCcw, onClick: () => cambiar("pendiente", "Reserva reabierta") },
     r.telefono && { texto: "Llamar", icono: Phone, onClick: () => { window.location.href = `tel:${soloDigitos(r.telefono)}`; } },
-    wa && { texto: "WhatsApp", icono: MessageCircle, onClick: () => { window.open(wa, "_blank", "noreferrer"); } },
+    wa && { texto: activa ? "Recordar por WhatsApp" : "WhatsApp", icono: MessageCircle, onClick: () => { window.open(wa, "_blank", "noreferrer"); } },
     { texto: "Editar", icono: Pencil, abre: true, onClick: () => onEditar(r) },
     activa && { texto: "Cancelar reserva", icono: X, peligro: true, onClick: () => cambiar("cancelada", "Reserva cancelada") },
   ];
@@ -81,7 +88,7 @@ function TarjetaReserva({ r, mesas, cambiarEstado, onEditar }) {
       {r.telefono && (
         <div style={rv.contacto}>
           <a href={`tel:${soloDigitos(r.telefono)}`} style={rv.link}><Phone size={13} /> {r.telefono}</a>
-          {wa && <a href={wa} target="_blank" rel="noreferrer" style={rv.link}><MessageCircle size={13} /> WhatsApp</a>}
+          {wa && <a href={wa} target="_blank" rel="noreferrer" style={rv.link}><MessageCircle size={13} /> {activa ? "Recordar" : "WhatsApp"}</a>}
         </div>
       )}
       <div style={rv.acciones}>
@@ -149,13 +156,13 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
             <div style={{ fontSize: 13, color: "var(--c-8a8272-t)" }}>Toca "Nueva reserva" para anotar la primera.</div>
           </div>
         ) : (
-          <div ref={rejillaRef} style={rv.rejilla}>{vigentes.map((r) => <TarjetaReserva key={r.id} r={r} mesas={mesas} cambiarEstado={cambiarEstado} onEditar={setForm} />)}</div>
+          <div ref={rejillaRef} style={rv.rejilla}>{vigentes.map((r) => <TarjetaReserva key={r.id} r={r} mesas={mesas} cambiarEstado={cambiarEstado} onEditar={setForm} config={config} />)}</div>
         )}
 
         {cerradas.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <Acordeon titulo={`Canceladas y no llegaron (${cerradas.length})`}>
-              <div style={{ ...rv.rejilla, padding: "12px 0 6px" }}>{cerradas.map((r) => <TarjetaReserva key={r.id} r={r} mesas={mesas} cambiarEstado={cambiarEstado} onEditar={setForm} />)}</div>
+              <div style={{ ...rv.rejilla, padding: "12px 0 6px" }}>{cerradas.map((r) => <TarjetaReserva key={r.id} r={r} mesas={mesas} cambiarEstado={cambiarEstado} onEditar={setForm} config={config} />)}</div>
             </Acordeon>
           </div>
         )}

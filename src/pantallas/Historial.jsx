@@ -47,19 +47,18 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
   const canceladasAntiguas = todasCanceladas.filter((c) => c.canceladaTs < cortoCanceladasRecientes);
   const canceladas = verTodasCanceladas ? todasCanceladas : canceladasRecientes;
 
-  const AvisoCargando = !historialCompleto && (
-    <div style={styles.cargandoHistBox}>
-      <span>{cargandoHistorial ? "Cargando historial completo…" : "Mostrando solo los últimos días — cargando el resto…"}</span>
-    </div>
+  const AvisoCargando = (
+    <Despliegue abierto={!historialCompleto} siempre>
+      <div style={{ overflow: "hidden" }}>
+        <div style={styles.cargandoHistBox}>
+          <span>Cargando el resto del historial…</span>
+        </div>
+      </div>
+    </Despliegue>
   );
 
-  // Si no hubo cancelaciones en los últimos 30 días, no se muestra el aviso rojo: solo una línea discreta
-  // (por si se quieren revisar las antiguas). El rojo aparece únicamente cuando hay algo reciente que mirar.
-  const PanelCanceladas = esAdmin && todasCanceladas.length > 0 && (canceladasRecientes.length === 0 && !verCanceladas ? (
-    <button style={styles.canceladasDiscreto} onClick={() => { setVerTodasCanceladas(true); setVerCanceladas(true); }}>
-      <Ban size={12} /> {todasCanceladas.length} {todasCanceladas.length === 1 ? "cancelación antigua" : "cancelaciones antiguas"} · ninguna en {CANCELADAS_RECIENTES_DIAS} días
-    </button>
-  ) : (
+  // El aviso solo aparece cuando hay cancelaciones recientes; las antiguas se ven dentro de cada día.
+  const PanelCanceladas = esAdmin && canceladasRecientes.length > 0 && (
     <div className="despliega" style={styles.canceladasBox}>
       <button style={styles.canceladasToggle} onClick={() => setVerCanceladas((v) => !v)}>
         <Ban size={13} color="var(--c-c1442d-t)" />
@@ -94,7 +93,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
         </div>
       )}
     </div>
-  ));
+  );
 
   if (Object.keys(days).length === 0) {
     return (

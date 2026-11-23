@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Printer, Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, PencilLine, ShoppingBag, Bike, Phone, MapPin, Search, X, Trash2, Repeat, MoreHorizontal, RotateCcw } from "lucide-react";
+import { Printer, Plus, Minus, Send, Check, Pencil, Ban, AlertTriangle, Users, ArrowRightLeft, Volume2, MessageSquarePlus, PencilLine, ShoppingBag, Bike, Phone, MapPin, Search, X, Trash2, Repeat, MoreHorizontal, RotateCcw, Utensils, Link2, CheckCircle2 } from "lucide-react";
 import { avisar } from "../avisos.jsx";
 import { actualizarCuenta, registrarAuditoria } from "../firebase.js";
 import { parcharCuenta, avisarFalloGuardado } from "../cuentasOps.js";
@@ -11,7 +11,7 @@ import { estacionDeLinea, claveLinea, precioUnitario, modsTexto, itemNombre, tie
 import { ModalOpciones, NuevoPedidoExterno } from "../extras.jsx";
 import { mostrarNotificacionSistema, playBeep } from "../avisos.js";
 import { AvisoActivarNotificaciones, Chevron, Segmentado } from "../componentes/Comunes.jsx";
-import { Transicion } from "../movimiento.jsx";
+import { Transicion, HojaAcciones, mantener } from "../movimiento.jsx";
 import { STATE_META } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { PlanoSalon } from "../pantallas/Mesas.jsx";
@@ -180,11 +180,22 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
   const [nuevoExterno, setNuevoExterno] = useState(null); // 'llevar' | 'domicilio'
 
   const [liberarCuenta, setLiberarCuenta] = useState(null); // mesa ya pagada que se está por liberar
+  const [menuMesa, setMenuMesa] = useState(null); // mesa a la que se le mantuvo pulsado: abre sus acciones rápidas
   const tocarMesa = (id) => {
     const c = cuentaDeMesa(cuentas, id);
     if (c && esPorLiberar(c)) setLiberarCuenta(c); else enterMesa(id);
   };
   const liberarMesa = async (c) => { await parcharCuenta(c.id, { liberada: true, liberadaTs: Date.now(), liberadaPor: meseroActual }); setLiberarCuenta(null); };
+  const accionesMesa = (id) => {
+    const c = cuentaDeMesa(cuentas, id);
+    const abierta = c && c.estado === "abierta";
+    return [
+      { texto: c && !esPorLiberar(c) ? "Abrir cuenta" : "Abrir mesa", icono: Utensils, abre: true, onClick: () => tocarMesa(id) },
+      abierta && { texto: "Trasladar a otra mesa", icono: ArrowRightLeft, abre: true, onClick: () => { enterMesa(id); setMesaAction("trasladar"); } },
+      abierta && { texto: "Unir con otra mesa", icono: Link2, abre: true, onClick: () => { enterMesa(id); setMesaAction("unir"); } },
+      c && esPorLiberar(c) && { texto: "Liberar mesa", icono: CheckCircle2, onClick: () => liberarMesa(c) },
+    ];
+  };
   const cuentaAbiertaDe = (mesaId) => cuentas.find((c) => cuentaCubre(c, mesaId) && c.estado === "abierta");
 
   const totalItems = Object.values(draft).reduce((a, b) => a + b.qty, 0);
@@ -930,6 +941,10 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
         </button>
       )}
       <AvisoActivarNotificaciones />
+      {menuMesa != null && (() => {
+        const c = cuentaDeMesa(cuentas, menuMesa);
+        return <HojaAcciones titulo={mesaNombre(mesas, menuMesa)} subtitulo={c ? (esPorLiberar(c) ? "Ya pagó · por liberar" : `Con cuenta desde ${timeLabel(c.ts)}`) : "Libre"} acciones={accionesMesa(menuMesa)} onCerrar={() => setMenuMesa(null)} />;
+      })()}
       {liberarCuenta && (
         <Hoja onCerrar={() => setLiberarCuenta(null)} ancho={440} gap={12} label="Liberar mesa">
 {({ cerrar: cerrarHoja }) => (
@@ -937,10 +952,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
             <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: "var(--c-242019-t)" }}>{mesaNombre(mesas, liberarCuenta.mesa)} ya pagó</div>
             <div style={{ fontSize: 13.5, color: "var(--c-5c5648-t)", lineHeight: 1.5 }}>La cuenta está cobrada y la mesa sigue ocupada hasta que se libere. Libérala cuando el cliente ya se haya ido.</div>
             <button style={styles.sendBtn} onClick={() => liberarMesa(liberarCuenta)}>Liberar mesa</button>
-            <button style={{ ...styles.cancelEditBtn, width: "100%", flexDirection: "column", gap: 2 }} onClick={() => { const m = liberarCuenta.mesa; setLiberarCuenta(null); enterMesa(m); }}>
-              <span style={{ fontWeight: 700, color: "var(--c-242019-t)" }}>Siguen aquí · quieren pedir más</span>
-              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-8a8272-t)" }}>Se abre una cuenta nueva; la que ya pagaron se libera sola.</span>
-            </button>
+            <button style={styles.cancelEditBtn} onClick={() => { const m = liberarCuenta.mesa; setLiberarCuenta(null); enterMesa(m); }}>Siguen aquí · pedir más</button>
             <button style={styles.cancelEditBtn} onClick={cerrarHoja}>Cancelar</button>
           </>
 )}
@@ -1016,7 +1028,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
                 <div key={"fus-" + cuenta.id} className="anim-in" style={{ ...styles.mesaFusion, borderColor: visual.bg }}>
                   <div style={{ ...styles.mesaFusionGrid, gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
                     {miembros.map((x) => (
-                      <button key={x.id} style={styles.mesaFusionTile} onClick={() => tocarMesa(x.id)}>
+                      <button key={x.id} style={styles.mesaFusionTile} onClick={() => tocarMesa(x.id)} {...mantener(() => setMenuMesa(x.id))}>
                         <span style={styles.mesaCardNum}>{x.nombre}</span>
                       </button>
                     ))}
@@ -1029,7 +1041,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
               );
             }
             return (
-              <button key={m.id} className="anim-in" style={styles.mesaCard} onClick={() => tocarMesa(m.id)}>
+              <button key={m.id} className="anim-in" style={styles.mesaCard} onClick={() => tocarMesa(m.id)} {...mantener(() => setMenuMesa(m.id))}>
                 <span style={styles.mesaCardNum}>{m.nombre}</span>
                 <span style={{ ...styles.mesaCardTag, background: visual.bg, color: visual.color }}>{visual.tag}</span>
                 {visual.extra && <span style={styles.mesaCardExtra}>{visual.extra}</span>}

@@ -30,13 +30,22 @@ import { conProgreso, cuentaGranTotal, cuentaItemCount, cuentaOrders, cuentaSubt
 // Detalle de la cuenta junto a la lista (tablet/escritorio): angosto como un recibo. Arriba se desplaza lo que se consumió;
 // abajo queda fijo todo lo del cobro (subtotal, propina, total y botones), así nunca hay que bajar para cobrar.
 const panelCobro = {
-  card: { display: "flex", flexDirection: "column", flex: "0 0 auto", marginBottom: 0, overflow: "visible" },
+  card: { display: "flex", flexDirection: "column", flex: "0 0 auto", marginBottom: 0, overflow: "visible", border: "none", borderRadius: 0, background: "transparent" },
   cuerpo: { display: "flex", flexDirection: "column", flex: "0 0 auto", padding: 0, gap: 0 },
   scroll: { flex: "0 0 auto", overflow: "visible", padding: "14px 14px 10px", display: "flex", flexDirection: "column", gap: 8 },
   pie: { flex: "0 0 auto", overflow: "visible", padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", boxShadow: "0 -10px 18px -14px rgba(0,0,0,.45)", overscrollBehavior: "contain" },
 };
 
-export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turnoAbierto, cajaId = null, pisoNombre = null, usuarioActual, mesas, ajustarInventario, expanded, onToggle, modoPanel }) {
+// Hoja ancha (tablet / escritorio): lo que se cuenta a la izquierda, lo que se cobra a la derecha; cada lado se
+// desplaza solo si no cabe, así la hoja no necesita desplazarse completa.
+const ALTO_COLUMNA = "calc(88dvh - 96px)";
+const panelDoble = {
+  cuerpo: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", padding: 0, gap: 0, alignItems: "stretch" },
+  scroll: { overflowY: "auto", maxHeight: ALTO_COLUMNA, padding: "16px 16px 16px", display: "flex", flexDirection: "column", gap: 8, overscrollBehavior: "contain" },
+  pie: { overflowY: "auto", maxHeight: ALTO_COLUMNA, padding: "16px 16px 16px", display: "flex", flexDirection: "column", gap: 8, borderLeft: "1px solid var(--c-e4dfce-o)", borderTop: "none", boxShadow: "none", background: "var(--c-fffdf8-b)", overscrollBehavior: "contain" },
+};
+
+export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turnoAbierto, cajaId = null, pisoNombre = null, usuarioActual, mesas, ajustarInventario, expanded, onToggle, modoPanel, doble = false }) {
   const subtotal = cuentaSubtotal(orders, cuenta.id);
   const total = cuentaGranTotal(orders, cuenta);
   const items = cuentaItemCount(orders, cuenta.id);
@@ -450,8 +459,8 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
       )}
 
       {(expanded || modoPanel) && (
-        <div style={modoPanel ? { ...styles.mesaCuentaBody, ...panelCobro.cuerpo } : styles.mesaCuentaBody}>
-          <div style={modoPanel ? panelCobro.scroll : { display: "contents" }}>
+        <div style={modoPanel ? { ...styles.mesaCuentaBody, ...panelCobro.cuerpo, ...(doble ? panelDoble.cuerpo : null) } : styles.mesaCuentaBody}>
+          <div style={modoPanel ? (doble ? panelDoble.scroll : panelCobro.scroll) : { display: "contents" }}>
           {/* Saldo pendiente: lo primero que se ve al cobrar */}
           <div style={styles.saldoCard}>
             <span style={styles.saldoEt}>SALDO PENDIENTE</span>
@@ -520,7 +529,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
           )}
 
           </div>
-          <div style={modoPanel ? panelCobro.pie : { display: "contents" }}>
+          <div style={modoPanel ? (doble ? panelDoble.pie : panelCobro.pie) : { display: "contents" }}>
           <div style={styles.subtotalRow}>
             <span>Subtotal</span><span>{money(subtotal)}</span>
           </div>

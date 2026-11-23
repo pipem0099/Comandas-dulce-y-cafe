@@ -164,8 +164,8 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
           </Segmentado>
         )}
         <GrupoSecciones>
-        <Seccion titulo="Pisos" resumen={varios ? pisos.map((p) => p.nombre).join(" · ") : "Un solo piso"}>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -6 }}><InfoTip titulo="Pisos">{varios ? "Cada piso tiene sus propias mesas y su propio plano." : "¿Tu negocio tiene más de un piso? Agrega los demás y cada uno tendrá sus mesas y su plano."}</InfoTip></div>
+        <Seccion titulo="Pisos" info={<InfoTip titulo="Pisos">{varios ? "Cada piso tiene sus propias mesas y su propio plano." : "¿Tu negocio tiene más de un piso? Agrega los demás y cada uno tendrá sus mesas y su plano."}</InfoTip>} resumen={varios ? pisos.map((p) => p.nombre).join(" · ") : "Un solo piso"}>
+          
           {varios && pisos.map((p, i) => (
             <div key={p.id} style={{ display: "flex", flexDirection: "column", gap: 6, minHeight: 44, justifyContent: "center" }}>
               {editPisoId === p.id ? (
@@ -187,7 +187,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
               ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ ...styles.menuItemName, flex: 1 }}>{p.nombre}{i === 0 ? " · base" : ""}</span>
-                  <button aria-label={`Editar ${p.nombre}`} className="toque44" style={styles.deleteBtn} onClick={() => { setEditPisoId(p.id); setEditPisoNombre(p.nombre); setBorrarPisoId(null); }}><Pencil size={14} /></button>
+                  <button aria-label={`Editar ${p.nombre}`} className="toque44" style={styles.lapizBtn} onClick={() => { setEditPisoId(p.id); setEditPisoNombre(p.nombre); setBorrarPisoId(null); }}><Pencil size={14} /></button>
                 </div>
               )}
             </div>
@@ -204,8 +204,8 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
             </>
           )}
         </Seccion>
-        <Seccion titulo="Agregar mesa o espacio">
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -6 }}><InfoTip titulo="Mesas y espacios">Puedes ponerle cualquier nombre: «Mesa 5», «Barra», «Mesa gris», «Terraza»…</InfoTip></div>
+        <Seccion titulo="Agregar mesa o espacio" info={<InfoTip titulo="Mesas y espacios">Puedes ponerle cualquier nombre: «Mesa 5», «Barra», «Mesa gris», «Terraza»…</InfoTip>}>
+          
           {!abrirMesa ? (
             <button style={styles.addItemBtn} aria-expanded="false" onClick={() => setAbrirMesa(true)}><Plus size={15} style={{ flexShrink: 0 }} /> Agregar mesa o espacio</button>
           ) : (
@@ -320,7 +320,7 @@ export function MesasEditor({ mesas, persistMesas, cuentas, orders, config, pers
                 {varios && (
                   <Selector compacto titulo={`Piso de ${m.nombre}`} ariaLabel={`Piso de ${m.nombre}`} value={pisoIdDeMesa(m, config)} onChange={(v) => moverMesaDePiso(m, v)} opciones={pisos.map((p) => ({ valor: p.id, etiqueta: p.nombre }))} style={{ width: "auto", maxWidth: 140 }} />
                 )}
-                <button aria-label={`Editar ${m.nombre || "mesa"}`} className="toque44" style={styles.deleteBtn} onClick={() => { empezarEdicion(m); setConfirmDeleteId(null); }}><Pencil size={14} /></button>
+                <button aria-label={`Editar ${m.nombre || "mesa"}`} className="toque44" style={styles.lapizBtn} onClick={() => { empezarEdicion(m); setConfirmDeleteId(null); }}><Pencil size={14} /></button>
               </>
             )}
           </div>

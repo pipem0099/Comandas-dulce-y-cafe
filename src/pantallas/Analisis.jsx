@@ -5,7 +5,7 @@ import { InfoTip } from "../componentes/InfoTip.jsx";
 import { Interruptor } from "../componentes/FilasIos.jsx";
 import { Plegable } from "../componentes/Comunes.jsx";
 import { Minus, Plus } from "lucide-react";
-import { Transicion } from "../movimiento.jsx";
+import { Transicion, NumeroAnimado } from "../movimiento.jsx";
 import { horaReloj, rangoHoras, horasDesdeApertura } from "../horas.js";
 import { styles } from "../estilos.js";
 import { money } from "../logica.js";
@@ -74,7 +74,7 @@ function Resumen({ ventas, ahora }) {
       <Tabs valor={rango} onChange={setRango} opciones={[["hoy", "Hoy"], ["semana", "7 días"], ["mes", "Este mes"]]} />
       <div style={styles.cajaTotalCard}>
         <span style={styles.cajaTotalLabel}>Venta neta (sin propinas)</span>
-        <span style={styles.cajaTotalValue}>{money(A.venta)}</span>
+        <span style={styles.cajaTotalValue}><NumeroAnimado valor={A.venta} formato={money} /></span>
         <span style={{ fontSize: 14, fontWeight: 800, color: colorMarca }}>{marca}</span>
         <span style={styles.turnoEsperadoLabel}>{A.cuentas} {A.cuentas === 1 ? "cuenta" : "cuentas"} · antes: {money(B.venta)} ({B.cuentas})</span>
       </div>
@@ -99,18 +99,18 @@ function Resumen({ ventas, ahora }) {
 
       <div style={titulo}>Ticket y personas</div>
       <div style={caja}>
-        <Linea a="Ticket promedio por cuenta" b={money(A.ticket)} sub={`antes ${money(B.ticket)}`} />
+        <Linea a="Ticket promedio por cuenta" b={<NumeroAnimado valor={A.ticket} formato={money} />} sub={`antes ${money(B.ticket)}`} />
         <Linea a="Cuentas atendidas" b={String(A.cuentas)} sub={`antes ${B.cuentas}`} />
         {A.ticketPersona !== null
-          ? <Linea a="Ticket por persona" b={money(A.ticketPersona)} />
+          ? <Linea a="Ticket por persona" b={<NumeroAnimado valor={A.ticketPersona} formato={money} />} />
           : <Vacio>Anota cuántas personas había en cada mesa (en la cuenta) para ver el ticket por persona.</Vacio>}
         {A.ticketPersona !== null && A.cuentasConPersonas < A.cuentas && (
           <div style={{ ...nota, color: C.suave }}>Calculado con {A.cuentasConPersonas} de {A.cuentas} cuentas que tienen personas anotadas.</div>
         )}
       </div>
       <div style={caja}>
-        <Linea a="Descuentos y cortesías" b={money(A.descuento)} color={A.descuento > 0 ? C.rojo : C.suave} />
-        <Linea a="Propinas (no son venta)" b={money(A.propinas)} />
+        <Linea a="Descuentos y cortesías" b={<NumeroAnimado valor={A.descuento} formato={money} />} color={A.descuento > 0 ? C.rojo : C.suave} />
+        <Linea a="Propinas (no son venta)" b={<NumeroAnimado valor={A.propinas} formato={money} />} />
       </div>
     </>
   );
@@ -135,7 +135,7 @@ function Productos({ ventas, menu, insumos, plantilla, ahora, onCostos }) {
       <Tabs valor={dias} onChange={setDias} opciones={[[7, "7 días"], [30, "30 días"], [90, "90 días"]]} />
       <div style={styles.cajaTotalCard}>
         <span style={styles.cajaTotalLabel}>Ganancia bruta de los productos</span>
-        <span style={styles.cajaTotalValue}>{rent.ventaConCosto > 0 ? `${rent.hayEstimado ? "~" : ""}${money(rent.margenTotal)}` : "—"}</span>
+        <span style={styles.cajaTotalValue}>{rent.ventaConCosto > 0 ? <>{rent.hayEstimado ? "~" : ""}<NumeroAnimado valor={rent.margenTotal} formato={money} /></> : "—"}</span>
         <span style={styles.turnoEsperadoLabel}>
           {rent.margenPct !== null ? `Margen ${Math.round(rent.margenPct)}% · ` : ""}costos conocidos en el {Math.round(rent.cobertura * 100)}% de la venta
         </span>
@@ -275,7 +275,7 @@ function Semana({ ventas, menu, insumos, config, persistConfig, ahora }) {
       {hoy && hoy.n > 0 && (
         <div style={styles.cajaTotalCard}>
           <span style={styles.cajaTotalLabel}>Un {hoy.nombre.toLowerCase()} normal</span>
-          <span style={styles.cajaTotalValue}>{money(hoy.mediana)}</span>
+          <span style={styles.cajaTotalValue}><NumeroAnimado valor={hoy.mediana} formato={money} /></span>
           <span style={styles.turnoEsperadoLabel}>Suele estar entre {money(hoy.p25)} y {money(hoy.p75)} · {hoy.n} {hoy.n === 1 ? "semana" : "semanas"} de datos</span>
         </div>
       )}
