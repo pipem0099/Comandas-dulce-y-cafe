@@ -346,7 +346,7 @@ export const styles = {
   saldoMonto: { fontFamily: "var(--font-display)", fontSize: 42, fontWeight: 700, color: "var(--c-242019-t)", lineHeight: 1.1 },
   saldoFila: { display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--c-5c5648-t)", paddingTop: 4 },
   ajustesWrap: { display: "flex", flexDirection: "column", border: "none", borderRadius: 14, background: "var(--c-f1ecdd-b)", overflow: "hidden" },
-  propinaToggleAbierto: { borderBottom: "1px solid var(--c-e4dfce-o)", borderRadius: 0 },
+  propinaToggleAbierto: { borderRadius: 0 }, // la línea separadora vive en ajustesBox (dentro del desplegable) para que aparezca y se desvanezca con el contenido
   propinaCustomWrap: { display: "inline-flex", alignItems: "center", gap: 4, minHeight: 44, padding: "0 6px 0 14px", borderRadius: 999, border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)" },
   propinaToggle: { ...botonBase, justifyContent: "space-between", minHeight: 46, fontSize: 14, fontWeight: 600, border: "none", background: "transparent", borderRadius: 0 },
   cerrarPanelBtn: { width: 34, height: 34, borderRadius: 17, border: "none", background: "rgba(128,138,150,.18)", color: "var(--c-5c5648-t)", fontSize: 14, cursor: "pointer", flexShrink: 0 },
@@ -360,7 +360,7 @@ export const styles = {
   rondaQty: { fontWeight: 800, color: "var(--accent-t)", minWidth: 26 },
   rondaPrecio: { fontSize: 13, color: "var(--c-5c5648-t)", flexShrink: 0 },
   rondaNota: { fontSize: 12, color: "var(--btn2-mute)", fontStyle: "italic" },
-  ajustesBox: { display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px 14px" },
+  ajustesBox: { display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px 14px", borderTop: "1px solid var(--c-e4dfce-o)" },
   modoGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
   notaBtn: { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 999, border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", color: "var(--btn2-mute)", fontSize: 12.5, fontWeight: 500, cursor: "pointer" },
   notaBtnOn: { background: "var(--btn2-bg-hi)", color: "var(--btn2-fg)" },

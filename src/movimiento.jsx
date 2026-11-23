@@ -61,6 +61,9 @@ export function Transicion({ clave, indice, altura = true, modo = "fundido", chi
       try { f.setAttribute("inert", ""); } catch (e) { /* sin inert */ }
       f.classList.add("trans-sale");
       f.style.setProperty("--dir", String(dir.current));
+      // La posición se fija en línea (no depende de la hoja de estilos): la copia que se va NUNCA debe ocupar sitio en el flujo.
+      f.style.position = "absolute"; f.style.left = "0"; f.style.right = "0"; f.style.top = "0";
+      f.style.pointerEvents = "none"; f.style.zIndex = "0";
       if (!altura) f.style.bottom = "0";
       c.appendChild(f);
       const quitar = () => { if (f.parentNode) f.parentNode.removeChild(f); };
@@ -68,16 +71,19 @@ export function Transicion({ clave, indice, altura = true, modo = "fundido", chi
       setTimeout(quitar, 600);
     }
     const h0 = altoAnt.current;
+    let animoAltura = false;
     if (altura && h0) {
       const h1 = c.offsetHeight; // alto natural de la caja (sin altura fija todavía)
       if (Math.abs(h1 - h0) > 2) {
         c.style.transition = "none"; c.style.height = h0 + "px"; c.style.overflow = "hidden";
         void c.offsetHeight; // fuerza el cálculo para que arranque desde la altura anterior
         c.style.transition = "height .44s cubic-bezier(.32,.72,0,1)"; c.style.height = h1 + "px";
+        animoAltura = true;
       }
     }
     timer.current = setTimeout(() => {
-      c.style.height = ""; c.style.overflow = ""; c.style.transition = ""; c.classList.remove("trans-activa");
+      if (animoAltura) { c.style.height = ""; c.style.overflow = ""; c.style.transition = ""; } // solo lo que esta transición puso (un `height` fijo del llamador se respeta)
+      c.classList.remove("trans-activa");
     }, 480);
     return undefined;
   }, [clave]); // eslint-disable-line react-hooks/exhaustive-deps

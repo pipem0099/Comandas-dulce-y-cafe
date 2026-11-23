@@ -25,6 +25,7 @@ import { NOMBRES_EXTERNOS, dayKey, rolesDe, tieneRol } from "./utilidades.js";
 import { perezoso } from "./cargaDiferida.js";
 import { turnosAbiertosDe, turnoDeEsteEquipo } from "./pisos.js";
 import { BannerConexion } from "./componentes/BannerConexion.jsx";
+import { islaCritica } from "./componentes/Isla.jsx";
 import { AvisoVersion } from "./componentes/AvisoVersion.jsx";
 import { useDeslizarHorizontal, reducirMovimiento } from "./movimiento.jsx";
 import { vibrar } from "./theme.js";
@@ -424,7 +425,7 @@ export default function App() {
   useEffect(() => {
     if (!esAdminActual) return;
     const ids = new Set(alertas.map((a) => a.id));
-    if (alertasVistas.current) alertas.filter((a) => a.nivel === "alta" && !alertasVistas.current.has(a.id)).forEach((a) => avisar({ texto: a.titulo, detalle: "mira la campana de alertas", tipo: "error", duracion: 7000 }));
+    if (alertasVistas.current) alertas.filter((a) => a.nivel === "alta" && !alertasVistas.current.has(a.id)).forEach((a) => islaCritica({ id: a.id, texto: a.titulo, detalle: a.detalle }));
     alertasVistas.current = ids;
   }, [alertas, esAdminActual]);
 
