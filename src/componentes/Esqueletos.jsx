@@ -63,11 +63,64 @@ export function EsqueletoComandas() {
   );
 }
 
+/** Historial: filas con el nombre a la izquierda y el monto a la derecha, igual que las filas reales (ancho máx. 1050). */
+export function EsqueletoHistorial({ filas = 8 }) {
+  return (
+    <div role="status" aria-label="Cargando" style={{ padding: "8px 16px", maxWidth: 1050 }}>
+      <Barra w={64} h={12} />
+      <div style={{ height: 12 }} />
+      {Array.from({ length: filas }).map((_, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 0", borderBottom: "1px solid var(--c-ede7d8-o)" }}>
+          <Barra w={`${28 + ((i * 13) % 22)}%`} h={14} />
+          <span style={{ flex: 1 }} />
+          <Barra w={92} h={11} />
+          <Barra w={64} h={14} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Inventario: tres cifras arriba, buscador, chips y tarjetas en la misma cuadrícula que la lista real. */
+export function EsqueletoInventario() {
+  return (
+    <div role="status" aria-label="Cargando" style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        {[0, 1, 2].map((i) => <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}><Barra w={48} h={24} /><Barra w={72} h={11} /></div>)}
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><Barra w={140} h={40} r={12} /><Barra w={96} h={40} r={12} /></div>
+      <Barra h={44} r={12} />
+      <div style={{ display: "flex", gap: 8 }}><Barra w={64} h={34} r={17} /><Barra w={72} h={34} r={17} /><Barra w={88} h={34} r={17} /></div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="esq-tarjeta" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}><Barra w="50%" h={15} /><Barra w="35%" h={11} /></div>
+            <Barra w={80} h={22} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Reportes: selector de rango, tarjetas de cifras y listas. */
+export function EsqueletoReportes() {
+  return (
+    <div role="status" aria-label="Cargando" style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: 14, maxWidth: 1050 }}>
+      <div style={{ display: "flex", gap: 8 }}>{[0, 1, 2, 3].map((i) => <Barra key={i} w={84} h={34} r={17} />)}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+        {[0, 1, 2].map((i) => <div key={i} className="esq-tarjeta"><Barra w="40%" h={11} /><Barra w="60%" h={26} /></div>)}
+      </div>
+      <div className="esq-tarjeta">{Array.from({ length: 5 }).map((_, i) => <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><Barra w={`${30 + ((i * 9) % 25)}%`} h={13} /><Barra w={60} h={13} /></div>)}</div>
+    </div>
+  );
+}
+
 /** Para <Suspense fallback=…>: no muestra nada los primeros 200 ms y luego el esqueleto (sin tapar toda la pantalla con la marca). */
 export function CargandoContenido({ tipo = "lista", retraso = 200 }) {
   const ver = useTranscurrido(retraso);
   if (!ver) return <div style={{ flex: 1 }} />;
-  return <div className="esq-aparece" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>{tipo === "mesas" ? <EsqueletoMesas /> : tipo === "comandas" ? <EsqueletoComandas /> : <EsqueletoLista />}</div>;
+  return <div className="esq-aparece" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>{tipo === "mesas" ? <EsqueletoMesas /> : tipo === "comandas" ? <EsqueletoComandas /> : tipo === "historial" ? <EsqueletoHistorial /> : tipo === "inventario" ? <EsqueletoInventario /> : tipo === "reportes" ? <EsqueletoReportes /> : <EsqueletoLista />}</div>;
 }
 
 /** Aviso cuando la carga se alarga: dice qué pasa y deja reintentar. */

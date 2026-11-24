@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { X, Sun, Moon, Palette, UserRound, Settings, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup, BookOpen, BarChart3, Printer, FileCheck2 } from "lucide-react";
+import { X, Sun, Moon, Palette, UserRound, Settings, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup, BookOpen, Keyboard, BarChart3, Printer, FileCheck2 } from "lucide-react";
 import { AyudaRoles } from "./AyudaRoles.jsx";
+import { HojaAtajos } from "./HojaAtajos.jsx";
 import { guardarTema, temaGuardado, vibrar } from "../theme.js";
 import { enviarCorreoCambioClave } from "../firebase.js";
 import { rolesLabel } from "../utilidades.js";
@@ -30,6 +31,8 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   const esAdminU = usuarioActual.roles.includes("admin");
   const [seccion, setSeccion] = useState(esAdminU ? "admin" : "cuenta"); // pastilla activa
   const [verAyuda, setVerAyuda] = useState(false);
+  const [verAtajos, setVerAtajos] = useState(false);
+  const tieneTeclado = typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   const [verImpresora, setVerImpresora] = useState(false);
   const [confirmClave, setConfirmClave] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -68,6 +71,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
     </button>
   );
 
+  if (verAtajos) return <HojaAtajos onCerrar={() => setVerAtajos(false)} />;
   if (verAyuda) return <AyudaRoles usuario={usuarioActual} config={config} onCerrar={() => setVerAyuda(false)} />;
   if (verImpresora) return <ImpresoraTermica onCerrar={() => setVerImpresora(false)} />;
   return (
@@ -117,6 +121,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={s.grupo}>
               <Fila icon={BookOpen} titulo="Cómo se usa la app" sub="Guía corta según tu rol" onClick={() => setVerAyuda(true)} />
+              {tieneTeclado && <Fila icon={Keyboard} titulo="Atajos de teclado" sub="Moverte más rápido desde un computador" onClick={() => setVerAtajos(true)} />}
               <Fila icon={Printer} titulo="Impresora de tickets" sub="Imprime cuentas y pedidos de cocina" onClick={() => setVerImpresora(true)} />
               <Fila icon={KeyRound} titulo="Cambiar mi clave" sub="Te enviamos un enlace a tu correo" onClick={() => { setConfirmClave(true); setAviso(""); setConfirmSalir(false); }} />
               {puedeInstalar && <Fila icon={Download} titulo="Instalar la app" sub="Ábrela desde tu pantalla de inicio" onClick={instalar} />}
