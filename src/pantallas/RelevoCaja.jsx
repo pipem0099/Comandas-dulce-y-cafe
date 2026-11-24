@@ -10,6 +10,7 @@ import { vibrar } from "../theme.js";
 import { useDocumentosFiscales } from "../useFacturacion.js";
 
 import { Hoja } from "../componentes/Hoja.jsx";
+import { useDispositivo } from "../useAncho.js";
 /* Entregar la caja a otra persona (o asumirla si quien la tenía se fue), y recibirla. */
 
 const K = {
@@ -34,6 +35,7 @@ const x = {
 const L = ({ k, v, fuerte }) => <div style={{ ...x.linea, fontWeight: fuerte ? 700 : 500 }}><span>{k}</span><span>{v}</span></div>;
 
 export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCerrar }) {
+  const ancha = useDispositivo() !== "movil";
   const asumir = modo === "asumir";
   const responsable = responsableDe(turno);
   const candidatos = (equipo || []).filter((p) => p.activo === true && p.roles && (p.roles.cajero || p.roles.admin) && p.uid !== usuarioActual.uid);
@@ -69,7 +71,7 @@ export function FlujoEntrega({ modo, turno, cuentas, usuarioActual, equipo, onCe
   };
 
   return (
-    <Hoja onCerrar={onCerrar} ancho={520} gap={12} label={asumir ? "Asumir la caja" : "Entregar la caja"}>
+    <Hoja onCerrar={onCerrar} centro={ancha} ancho={520} gap={12} label={asumir ? "Asumir la caja" : "Entregar la caja"}>
 {({ cerrar: cerrarHoja }) => (
 <>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>

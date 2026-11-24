@@ -46,7 +46,7 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
   const cajaActual = variasCajas ? (cajas.find((c) => c.id === cajaElegida) || (turnoAbierto && cajas.find((c) => c.id === (turnoAbierto.cajaId || CAJA_BASE))) || cajas[0]) : null;
   const [tab, setTab] = useState(turnoAbierto ? "mesas" : "turno"); // sin caja abierta, lo primero es abrirla
   const [expandedId, setExpandedId] = useState(null);
-  const [cabCompacta, setCabCompacta] = useState(false);   // escritorio: al bajar, el título se recoge y deja más espacio
+  const [cabCompacta, setCabCompacta] = useState(false);   // escritorio: al bajar, el título se recoge; el selector de caja y el estado siguen a la vista
   const ancha = useDispositivo() !== "movil";   // tablet / escritorio: tarjetas en rejilla y cobro en hoja de dos columnas
   const esAdmin = tieneRol(usuarioActual, "admin");
   const ajustesFiscales = useAjustesFiscales();
@@ -63,6 +63,21 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
   const bloqueado = !turnoAbierto && !esAdmin;
   const tabActual = bloqueado ? "turno" : tab;
   // Una alerta (ej. "cuentas pendientes con más de 7 días") puede pedir abrir una pestaña concreta de la caja
+  // Alt + 1…6 cambian de pestaña (solo las que esta persona puede ver)
+  useEffect(() => {
+    if (bloqueado) return undefined;
+    const orden = ["turno", "mesas", "pendientes", ...(esAdmin ? ["historial", "reportes", "inventario"] : [])];
+    const onKey = (e) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey) return;
+      const m = /^Digit([1-9])$/.exec(e.code || "");
+      const destino = m && orden[Number(m[1]) - 1];
+      if (!destino) return;
+      e.preventDefault(); setTab(destino);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [bloqueado, esAdmin]);
+
   useEffect(() => { if (abrirTab && abrirTab.tab && !bloqueado) setTab(abrirTab.tab); }, [abrirTab]); // eslint-disable-line react-hooks/exhaustive-deps
   const hayDeudaVieja = deudas.some((d) => d.estado === "pendiente" && diasDesde(d.ts) >= DIAS_DEUDA_VIEJA);
 
@@ -105,9 +120,8 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
       if (!cabCompacta && st > 60 && sobra > 280) setCabCompacta(true);
       else if (cabCompacta && st < 8) setCabCompacta(false);
     } : undefined}>
-      <Despliegue abierto={!(ancha && cabCompacta)} siempre>
       <div className="no-imprimir ancho" style={styles.mesaGridHeader}>
-        <div><div style={styles.pageEyebrow}>CAJA</div><div style={styles.pageTitle}>Caja</div></div>
+        <Despliegue abierto={!(ancha && cabCompacta)} siempre><div><div style={styles.pageEyebrow}>CAJA</div><div style={styles.pageTitle}>Caja</div></div></Despliegue>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 12px", margin: "0 2px", flexShrink: 0, borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: turnoAbierto ? "var(--c-e4eee1-b)" : "rgba(128,138,150,.16)", border: `1px solid ${turnoAbierto ? "var(--ok-border)" : "var(--c-e4dfce-o)"}`, color: turnoAbierto ? "var(--pago-ok)" : "var(--c-8a8272-t)" }}>
           <span style={{ width: 8, height: 8, borderRadius: 4, background: turnoAbierto ? "var(--pago-ok)" : "#9BA4B0" }} /> {turnoAbierto ? "Abierta" : "Cerrada"}
         </span>
@@ -126,7 +140,6 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
           })}
         </Segmentado>
       )}
-      </Despliegue>
 
       {!bloqueado && (
         <FilaTabs className="no-imprimir ancho" style={styles.cajaTabSwitch}>
@@ -222,8 +235,9 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
                 {porLiberar.length > 0 && (
                   <>
                     <div style={{ ...styles.catLabel, gridColumn: "1 / -1" }}>POR LIBERAR</div>
+                    <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: ancha ? "repeat(auto-fill, minmax(320px, 1fr))" : "1fr", gap: 10, alignItems: "start" }}>
                     {porLiberar.map((c) => (
-                      <div key={c.id} style={{ ...cj.filaLiberar, ...(ancha ? { gridColumn: "1 / -1" } : null) }}>
+                      <div key={c.id} style={cj.filaLiberar}>
                         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, width: "100%" }}>
                           <div style={{ minWidth: 0 }}>
                             <div style={cj.filaNombre}>{mesaNombre(mesas, c.mesa)}</div>
@@ -235,6 +249,7 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
                         <button style={cj.btnLiberar} onClick={() => liberar(c)}>Liberar mesa</button>
                       </div>
                     ))}
+                    </div>
                   </>
                 )}
               </div>
@@ -259,9 +274,9 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
       )}
 
       {tabActual === "pendientes" && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><PendientesView deudas={deudas} usuarioActual={usuarioActual} turnoAbierto={turnoAbierto} config={config} /></div>}
-      {tabActual === "historial" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido />}><HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} /></React.Suspense></div>}
-      {tabActual === "inventario" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido />}><InventarioView insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} /></React.Suspense></div>}
-      {tabActual === "reportes" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido />}><ReportesView cuentas={cuentas} orders={orders} menu={menu} insumos={insumos} usuarioActual={usuarioActual} onIr={onIr} config={config} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} /></React.Suspense></div>}
+      {tabActual === "historial" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido tipo="historial" />}><HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} /></React.Suspense></div>}
+      {tabActual === "inventario" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido tipo="inventario" />}><InventarioView insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} /></React.Suspense></div>}
+      {tabActual === "reportes" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido tipo="reportes" />}><ReportesView cuentas={cuentas} orders={orders} menu={menu} insumos={insumos} usuarioActual={usuarioActual} onIr={onIr} config={config} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} /></React.Suspense></div>}
       </Transicion>
     </div>
   );

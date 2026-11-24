@@ -1,6 +1,6 @@
 import React from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
-import { RespaldoBox } from "./Turno.jsx";
+import { RespaldoBox } from "./RespaldoBox.jsx";
 import { styles } from "../estilos.js";
 import { PanelErrores } from "../componentes/PanelErrores.jsx";
 

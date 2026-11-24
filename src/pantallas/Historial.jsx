@@ -23,7 +23,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
   const [day, setDay] = useState(null);
   const [expandedCuentaId, setExpandedCuentaId] = useState(null);
   const [verCanceladas, setVerCanceladas] = useState(false);
-  const [cuentasAbiertas, setCuentasAbiertas] = useState(false);   // «Cuentas cobradas ese día» plegado por defecto (la impresión siempre lo muestra todo)
+  const [cuentasAbiertas, setCuentasAbiertas] = useState(true);   // «Cuentas cobradas ese día» viene abierto: así el detalle no deja media pantalla vacía (la impresión siempre muestra todo)
   const [productosAbiertos, setProductosAbiertos] = useState(false);
   const ajustesFiscales = useAjustesFiscales();
   const facturasEnCola = useFacturasEnCola();
@@ -134,7 +134,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
           </div>
         )}
         {list.map((y) => (
-          <button key={y.key} style={styles.histRow} onClick={() => { setYear(y.key); setView("months"); }}>
+          <button key={y.key} className="hist-fila" style={styles.histRow} onClick={() => { setYear(y.key); setView("months"); }}>
             <span style={styles.histRowTitle}>{y.key}</span>
             <span style={styles.histRowSub}>{y.monthKeys.length} {y.monthKeys.length === 1 ? "mes" : "meses"} con ventas</span>
             <span style={styles.histRowTotal}>{money(y.total)}</span>
@@ -155,7 +155,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
           const mesAñoAnterior = months[claveAñoAnterior];
           const delta = mesAñoAnterior && mesAñoAnterior.total > 0 ? Math.round(((m.total - mesAñoAnterior.total) / mesAñoAnterior.total) * 100) : null;
           return (
-            <button key={m.key} style={styles.histRow} onClick={() => { setMonth(m.key); setView("days"); }}>
+            <button key={m.key} className="hist-fila" style={styles.histRow} onClick={() => { setMonth(m.key); setView("days"); }}>
               <span style={styles.histRowTitle}>{monthLabel(m.ts)}</span>
               <span style={styles.histRowSub}>
                 {m.dayKeys.length} {m.dayKeys.length === 1 ? "día" : "días"} con ventas
@@ -177,7 +177,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
         <button style={styles.backBtn} onClick={() => setView("months")}>← Meses</button>
         <div style={{ ...styles.catLabel, marginTop: 12 }}>{list[0] ? monthLabel(list[0].ts) : ""}</div>
         {list.map((d) => (
-          <button key={d.key} style={styles.histRow} onClick={() => { setDay(d.key); setView("day"); }}>
+          <button key={d.key} className="hist-fila" style={styles.histRow} onClick={() => { setDay(d.key); setView("day"); }}>
             <span style={styles.histRowTitle}>{dayLabel(d.ts)}</span>
             <span style={styles.histRowSub}>{d.cuentasCount} {d.cuentasCount === 1 ? "cuenta cobrada" : "cuentas cobradas"}</span>
             <span style={styles.histRowTotal}>{money(d.total)}</span>

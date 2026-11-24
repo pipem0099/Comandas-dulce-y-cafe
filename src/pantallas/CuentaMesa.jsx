@@ -74,6 +74,8 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
   const [propinaCustom, setPropinaCustom] = useState("");
   const [mostrarDescuento, setMostrarDescuento] = useState(false);
   const [descMonto, setDescMonto] = useState("");
+  const [descModo, setDescModo] = useState("monto"); // "monto" ($) o "pct" (porcentaje del subtotal)
+  const [descPct, setDescPct] = useState("");
   const [descMotivo, setDescMotivo] = useState("");
   const [confirmCancelarCuenta, setConfirmCancelarCuenta] = useState(false);
   const [motivoCancelacion, setMotivoCancelacion] = useState("");
@@ -203,12 +205,13 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
   });
   const aplicarDescuento = async () => {
     if (!esAdmin) return;
-    const monto = Math.round(parseFloat(descMonto) || 0);
+    const pct = descModo === "pct" ? Math.min(100, Math.max(0, parseFloat(String(descPct).replace(",", ".")) || 0)) : null;
+    const monto = Math.min(subtotal, pct != null ? Math.round((subtotal * pct) / 100) : Math.round(parseFloat(descMonto) || 0));
     if (monto <= 0) return;
     const motivoDesc = descMotivo.trim() || "Sin motivo especificado";
-    await patchCuenta({ descuento: { monto, motivo: motivoDesc, aplicadoPor: usuarioActual.nombre } });
+    await patchCuenta({ descuento: { monto, ...(pct != null ? { pct } : null), motivo: motivoDesc, aplicadoPor: usuarioActual.nombre } });
     auditar("descuento", monto, motivoDesc);
-    setMostrarDescuento(false); setDescMonto(""); setDescMotivo("");
+    setMostrarDescuento(false); setDescMonto(""); setDescPct(""); setDescMotivo("");
   };
   const quitarDescuento = async () => { if (esAdmin) { auditar("quitar_descuento", cuenta.descuento && cuenta.descuento.monto, cuenta.descuento && cuenta.descuento.motivo); patchCuenta({ descuento: null }); } };
   const cambiarPersonas = (n) => { const v = Math.max(1, Math.min(50, n)); if (v !== cuenta.personas) patchCuenta({ personas: v }); };
@@ -460,7 +463,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
 
       {(expanded || modoPanel) && (
         <div style={modoPanel ? { ...styles.mesaCuentaBody, ...panelCobro.cuerpo, ...(doble ? panelDoble.cuerpo : null) } : styles.mesaCuentaBody}>
-          <div style={modoPanel ? (doble ? panelDoble.scroll : panelCobro.scroll) : { display: "contents" }}>
+          <div className={modoPanel ? "cobro-col" : undefined} style={modoPanel ? (doble ? panelDoble.scroll : panelCobro.scroll) : { display: "contents" }}>
           {/* Saldo pendiente: lo primero que se ve al cobrar */}
           <div style={styles.saldoCard}>
             <span style={styles.saldoEt}>SALDO PENDIENTE</span>
@@ -529,7 +532,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
           )}
 
           </div>
-          <div style={modoPanel ? (doble ? panelDoble.pie : panelCobro.pie) : { display: "contents" }}>
+          <div className={modoPanel ? "cobro-col" : undefined} style={modoPanel ? (doble ? panelDoble.pie : panelCobro.pie) : { display: "contents" }}>
           <div style={styles.subtotalRow}>
             <span>Subtotal</span><span>{money(subtotal)}</span>
           </div>
@@ -539,7 +542,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
           {cuenta.descuento && (
             <div style={styles.subtotalRow}>
               <span>
-                Descuento ({cuenta.descuento.motivo}{cuenta.descuento.aplicadoPor ? ` · ${cuenta.descuento.aplicadoPor}` : ""})
+                Descuento {cuenta.descuento.pct != null ? `${cuenta.descuento.pct}% ` : ""}({cuenta.descuento.motivo}{cuenta.descuento.aplicadoPor ? ` · ${cuenta.descuento.aplicadoPor}` : ""})
                 {esAdmin && <button style={styles.inlineLink} onClick={quitarDescuento}>quitar</button>}
               </span>
               <span style={{ color: "var(--c-c1442d-t)" }}>−{money(cuenta.descuento.monto)}</span>
@@ -569,7 +572,25 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                     <button style={{ ...styles.btnRestringido, opacity: 0.55, cursor: "not-allowed" }} disabled title="Solo un administrador puede aplicar descuentos o cortesías"><Gift size={16} /> <span style={{ flex: 1, textAlign: "left" }}>Aplicar descuento o cortesía</span><Lock size={13} color="var(--btn2-mute)" aria-label="Solo administrador" /></button>
                   ) : mostrarDescuento ? (
                     <div style={styles.descuentoBox}>
-                      <CampoMonto placeholder="Monto del descuento" value={descMonto} onChange={setDescMonto} />
+                      <Segmentado ariaLabel="Tipo de descuento" style={{ marginBottom: 8 }}>
+                        <button role="tab" aria-selected={descModo === "monto"} style={styles.cajaTabBtn} onClick={() => setDescModo("monto")}>En pesos</button>
+                        <button role="tab" aria-selected={descModo === "pct"} style={styles.cajaTabBtn} onClick={() => setDescModo("pct")}>En porcentaje</button>
+                      </Segmentado>
+                      {descModo === "pct" ? (
+                        <>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                            {[5, 10, 15, 20, 50, 100].map((v) => (
+                              <button key={v} type="button" className="toque44" style={{ ...styles.cancelEditBtn, flex: "0 0 auto", padding: "0 12px", ...(String(descPct) === String(v) ? { background: "var(--chip-on-bg)", color: "var(--chip-on-fg)" } : null) }} onClick={() => setDescPct(String(v))}>{v}%</button>
+                            ))}
+                          </div>
+                          <input style={styles.editInput} inputMode="decimal" placeholder="Otro porcentaje (ej: 12,5)" value={descPct} onChange={(e) => setDescPct(e.target.value.replace(/[^\d.,]/g, "").slice(0, 5))} />
+                          {parseFloat(String(descPct).replace(",", ".")) > 0 && (
+                            <div style={{ fontSize: 12.5, color: "var(--c-5c5648-t)", marginTop: 6 }}>Descuenta {money(Math.min(subtotal, Math.round((subtotal * Math.min(100, parseFloat(String(descPct).replace(",", ".")))) / 100)))} de {money(subtotal)}</div>
+                          )}
+                        </>
+                      ) : (
+                        <CampoMonto placeholder="Monto del descuento" value={descMonto} onChange={setDescMonto} />
+                      )}
                       <input style={{ ...styles.editInput, marginTop: 6 }} placeholder="Motivo (ej: cortesía, cliente frecuente)" value={descMotivo} onChange={(e) => setDescMotivo(e.target.value)} />
                       <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                         <button style={styles.cancelEditBtn} onClick={() => setMostrarDescuento(false)}>Cancelar</button>

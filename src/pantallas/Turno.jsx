@@ -1,25 +1,23 @@
-import React, { useState, useEffect, useRef } from "react";
-import {
-  AlertTriangle, Lock, Download, PlayCircle, DoorClosed, ArrowDownToLine, ArrowUpFromLine, RotateCcw, ChevronDown, ChevronUp, ArrowRightLeft, HandHelping, Printer, Upload, CalendarDays,
-} from "lucide-react";
+import { useState, useRef } from "react";
+import { AlertTriangle, Lock, PlayCircle, DoorClosed, RotateCcw, ChevronDown, ChevronUp, ArrowRightLeft, HandHelping, Printer } from "lucide-react";
 import { uid, money } from "../logica.js";
-import { saveShared, getRecord, saveCollectionArray, mergeCollectionArray, updateRecord } from "../firebase.js";
+import { updateRecord } from "../firebase.js";
 import { FormularioMovimiento, ListaMovimientos, RegistrarMovimiento } from "./MovimientosCaja.jsx";
 import { FlujoEntrega, TarjetaRelevoPendiente } from "./RelevoCaja.jsx";
 import { ResumenDia } from "./ResumenDia.jsx";
+import { HojaCierreTurno } from "./CierreTurno.jsx";
+import { useDispositivo } from "../useAncho.js";
 import { imprimir } from "../impresion.jsx";
 import { avisar } from "../avisos.jsx";
 import { HojaTurno, HojaMes } from "../hojas.jsx";
 import { responsableDe, statsTramo, tramoVigente, tramosDe } from "../relevoCaja.js";
 import { CampoMonto, Acordeon, Chevron } from "../componentes/Comunes.jsx";
-import { InfoTip } from "../componentes/InfoTip.jsx";
-import { MontoSigno, GrupoSecciones, Seccion, Segmentado } from "../componentes/Comunes.jsx";
+import { MontoSigno, Segmentado } from "../componentes/Comunes.jsx";
 import { styles } from "../estilos.js";
-import { descargarRespaldo } from "../exportar.js";
 import { hayVariasCajas, getCajas, nombreCaja, CAJA_BASE } from "../pisos.js";
 import { reversosEnRango } from "../facturacion/reversos.js";
 import { useDocumentosFiscales } from "../useFacturacion.js";
-import { agruparPorMes, arqueosDe, dateTimeLabel, dayKey, duracionLabel, mesaNombre, movimientosDe, propinasEnRango, tieneRol, timeLabel, totalesMovimientos, ventasDelTurno } from "../utilidades.js";
+import { agruparPorMes, arqueosDe, dateTimeLabel, duracionLabel, mesaNombre, movimientosDe, propinasEnRango, tieneRol, timeLabel, totalesMovimientos, ventasDelTurno } from "../utilidades.js";
 
 /* ---------------- Turno / arqueo de caja ---------------- */
 
@@ -38,7 +36,10 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
   const [movForm, setMovForm] = useState(null); // 'entrada' | 'salida' | null
   const [errorMov, setErrorMov] = useState("");
   const [detalleAbierto, setDetalleAbierto] = useState(null);
+  const [soloDif, setSoloDif] = useState(false);      // turnos anteriores: ver solo los que tuvieron diferencia
   const [filtroCaja, setFiltroCaja] = useState("todas");   // con varias cajas: ver los cierres de todas o de una sola
+  const ancha = useDispositivo() !== "movil";
+  const confirmarCierreRef = useRef(false);   // el cierre se guarda cuando la hoja ya terminó de cerrarse
   const [flujoEntrega, setFlujoEntrega] = useState(null); // 'entregar' | 'asumir' | null
 
   const mesasAbiertas = cuentas.filter((c) => c.estado === "abierta");
@@ -134,7 +135,9 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
   const todosCerrados = turnos.filter((t) => t.estado === "cerrado").sort((a, b) => b.cierreTs - a.cierreTs);
   const idCajaDe = (tr) => tr.cajaId || CAJA_BASE;
   const nombreCajaDe = (tr) => tr.cajaNombre || nombreCaja(config, idCajaDe(tr));
-  const cerrados = variasCajas && filtroCaja !== "todas" ? todosCerrados.filter((tr) => idCajaDe(tr) === filtroCaja) : todosCerrados;
+  const conDiferencia = (tr) => tr.diferencia !== 0 || (tr.difTarjeta || 0) !== 0 || (tr.difTransferencia || 0) !== 0;
+  const porCaja = variasCajas && filtroCaja !== "todas" ? todosCerrados.filter((tr) => idCajaDe(tr) === filtroCaja) : todosCerrados;
+  const cerrados = soloDif ? porCaja.filter(conDiferencia) : porCaja;
 
   return (
     <div className="ancho" style={styles.menuScroll}>
@@ -174,7 +177,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
           <div style={t.rejilla}>
             {/* Columna 1: registrar movimiento + lista */}
             <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-              <div style={t.tarjeta}>
+              <div style={t.tarjeta} id="registrar-movimiento">
                 <div style={t.tarjetaTitulo}>Registrar movimiento</div>
                 <div style={t.meta}>Dinero que entra o sale del cajón <b>fuera de las ventas</b>.</div>
                 {!calculado ? <RegistrarMovimiento onGuardar={registrarMovimiento} /> : <div style={t.vacio}>Ya calculaste el cierre: no se pueden registrar más movimientos.</div>}
@@ -194,7 +197,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                     </div>
                     <ListaMovimientos movimientos={movimientos} onAnular={calculado ? null : anularMovimiento} puedeAnular={(m) => !tramo || m.ts >= tramo.inicioTs} />
                   </div>
-                ) : <div style={t.vacio}>Todavía no hay movimientos en este turno.</div>}
+                ) : <div style={t.vacio}>Todavía no hay movimientos en este turno.{!calculado && <button type="button" className="toque44" style={{ display: "block", marginTop: 6, padding: 0, border: "none", background: "transparent", color: "var(--link)", fontWeight: 600, fontSize: 13.5, cursor: "pointer" }} onClick={() => document.getElementById("registrar-movimiento")?.scrollIntoView({ behavior: "smooth", block: "center" })}>+ Registrar movimiento</button>}</div>}
               </div>
             </div>
 
@@ -223,9 +226,9 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
             )}
             <div style={t.tarjeta}>
               <div style={t.tarjetaTitulo}>Entrega y cierre</div>
-          <div style={styles.closeConfirmText}>El total esperado en caja, tarjeta y transferencia se muestra al cerrar el turno, después de que registres lo que contaste.</div>
+          {!esAdmin && <div style={styles.closeConfirmText}>El total esperado en caja, tarjeta y transferencia se muestra al cerrar el turno, después de que registres lo que contaste.</div>}
 
-          {!confirmandoCierre ? (
+          {(
             <>
               {mesasAbiertas.length > 0 && (
                 <div style={styles.warnBanner}>
@@ -251,57 +254,6 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                 </>
               )}
             </>
-          ) : (
-            <div style={styles.closeConfirmBox}>
-              {mesasAbiertas.length > 0 && (
-                <div style={styles.closeConfirmText}>
-                  <b>Ojo:</b> {mesasAbiertas.length} {mesasAbiertas.length === 1 ? "mesa sigue" : "mesas siguen"} sin cobrar ({mesasAbiertas.map((c) => mesaNombre(mesas, c.mesa)).join(", ")}). Si cierras ahora, ese dinero no queda
-                </div>
-              )}
-              <div style={styles.closeConfirmText}>
-                {calculado ? "Resultado del arqueo. Si algo no cuadra, puedes corregir el conteo y volver a calcular." : "Registra lo que contaste. El sistema no te muestra lo esperado hasta que calcules."}
-                {arqueos.length > 0 && <span style={t.meta}> · {arqueos.length} {arqueos.length === 1 ? "cálculo" : "cálculos"} en este cierre (todos quedan registrados)</span>}
-              </div>
-              <div style={styles.closeConfirmText}><b>Efectivo físico en caja</b></div>
-              <CampoMonto placeholder="Efectivo contado" value={contado} onChange={(v) => !calculado && setContado(v)} />
-              <div style={styles.closeConfirmText}><b>Tarjeta</b> — total del cierre de lote del datáfono</div>
-              <CampoMonto placeholder="Total tarjeta (datáfono)" value={contadoTarjeta} onChange={(v) => !calculado && setContadoTarjeta(v)} />
-              <div style={styles.closeConfirmText}><b>Transferencia</b> — total recibido según tu banco</div>
-              <CampoMonto placeholder="Total transferencias (banco)" value={contadoTransf} onChange={(v) => !calculado && setContadoTransf(v)} />
-
-              {!calculado ? (
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button style={styles.cancelEditBtn} onClick={reiniciarCierre}>Cancelar</button>
-                  <button
-                    style={{ ...styles.sendBtn, flex: 1, opacity: camposCompletos ? 1 : 0.4 }}
-                    disabled={!camposCompletos}
-                    onClick={calcular}
-                  >
-                    Calcular resultado
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <ResumenDia turno={armarCierre(Date.now())} cuentas={cuentas} config={config} />
-                  {!todoCuadra ? (
-                    <>
-                      <button style={t.btnCorregir} onClick={() => setCalculado(false)}><RotateCcw size={15} /> Corregir conteo y volver a calcular</button>
-                      <div style={styles.closeConfirmText}>¿No hay nada que corregir? Para cerrar con la diferencia, <b>cuéntanos por qué (obligatorio):</b></div>
-                      <input style={styles.editInput} placeholder="Ej: se dio mal un vuelto, faltó registrar un pago…" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
-                    </>
-                  ) : (
-                    <input style={styles.editInput} placeholder="Observaciones (opcional)" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
-                  )}
-                  <button
-                    style={{ ...styles.sendBtn, opacity: todoCuadra || observaciones.trim() ? 1 : 0.4 }}
-                    disabled={!todoCuadra && !observaciones.trim()}
-                    onClick={cerrarTurno}
-                  >
-                    <Lock size={15} /> Confirmar cierre
-                  </button>
-                </>
-              )}
-            </div>
           )}
             </div>
             </div>
@@ -309,6 +261,17 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
         </div>
       )}
 
+      {confirmandoCierre && turnoAbierto && tramo && (
+        <HojaCierreTurno
+          turno={turnoAbierto} nombreCaja={variasCajas ? turnoAbierto.cajaNombre : null} mesasAbiertas={mesasAbiertas} mesas={mesas}
+          calculado={calculado} arqueos={arqueos}
+          contado={contado} setContado={setContado} contadoTarjeta={contadoTarjeta} setContadoTarjeta={setContadoTarjeta} contadoTransf={contadoTransf} setContadoTransf={setContadoTransf}
+          observaciones={observaciones} setObservaciones={setObservaciones} todoCuadra={todoCuadra}
+          calcular={calcular} corregir={() => setCalculado(false)} armarCierre={armarCierre} cuentas={cuentas} config={config} ancha={ancha} esAdmin={esAdmin}
+          alConfirmar={() => { confirmarCierreRef.current = true; }}
+          onCerrar={() => { setConfirmandoCierre(false); if (confirmarCierreRef.current) { confirmarCierreRef.current = false; cerrarTurno(); } }}
+        />
+      )}
       {flujoEntrega && turnoAbierto && <FlujoEntrega modo={flujoEntrega} turno={turnoAbierto} cuentas={cuentas} usuarioActual={usuarioActual} equipo={equipo || []} onCerrar={() => setFlujoEntrega(null)} />}
       {movForm && <FormularioMovimiento tipoInicial={movForm} onCancelar={() => setMovForm(null)} onGuardar={registrarMovimiento} />}
 
@@ -329,7 +292,11 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
               })}
             </Segmentado>
           )}
-          {cerrados.length === 0 && <div style={styles.cajaEmptyText}>Esta caja todavía no tiene turnos cerrados.</div>}
+          <button type="button" className="toque44" aria-pressed={soloDif} onClick={() => { setSoloDif((v) => !v); setDetalleAbierto(null); }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, minHeight: 40, padding: "0 14px", margin: "0 0 12px", borderRadius: 999, border: soloDif ? "1px solid transparent" : "1px solid var(--btn2-line)", background: soloDif ? "var(--warn-solid, var(--accent))" : "var(--btn2-bg)", color: soloDif ? "#fff" : "var(--btn2-fg)", fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>
+            <AlertTriangle size={14} /> Solo con diferencia
+          </button>
+          {cerrados.length === 0 && <div style={styles.cajaEmptyText}>{soloDif ? "Ningún turno tuvo diferencia." : "Esta caja todavía no tiene turnos cerrados."}</div>}
           {agruparPorMes(cerrados, (tr) => tr.cierreTs).map((mes, i) => {
             const conDif = mes.items.filter((tr) => tr.diferencia !== 0).length;
             return (
@@ -418,184 +385,6 @@ const t = {
   detalle: { display: "flex", flexDirection: "column", gap: 2, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--c-e4dfce-o)", fontSize: 12.5, color: "var(--c-5c5648-t)" },
 };
 
-export function RespaldoBox({ menu, orders, cuentas, config, turnos, mesas, deudas, persistConfig, usuarioActual, ordersParaHistorial, cuentasParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto }) {
-  const [restaurando, setRestaurando] = useState(false);
-  const [confirmando, setConfirmando] = useState(false);
-  const [archivo, setArchivo] = useState(null);
-  const [error, setError] = useState("");
-  const fileInputRef = useRef(null);
-
-  const onArchivoElegido = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 50_000_000) { setError("Ese archivo es demasiado grande para ser un respaldo."); e.target.value = ""; return; }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (!data || typeof data !== "object" || !data.menu || !Array.isArray(data.orders) || !Array.isArray(data.cuentas) || !data.config || typeof data.config !== "object") throw new Error("Archivo incompleto");
-        if (!data.orders.every((o) => o && typeof o === "object" && typeof o.id === "string" && typeof o.estado === "string" && typeof o.ts === "number")) throw new Error("Pedidos no válidos");
-        if (!data.cuentas.every((c) => c && typeof c === "object" && typeof c.id === "string" && typeof c.estado === "string" && typeof c.ts === "number")) throw new Error("Cuentas no válidas");
-        setArchivo(data);
-        setConfirmando(true);
-        setError("");
-      } catch (err) {
-        setError("Ese archivo no parece un respaldo válido.");
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const confirmarRestauracion = async () => {
-    if (!archivo) return;
-    await saveShared("menu", archivo.menu);
-    await saveCollectionArray("orders", archivo.orders);
-    await saveCollectionArray("cuentas", archivo.cuentas);
-    await saveCollectionArray("turnos", archivo.turnos || []);
-    if (Array.isArray(archivo.deudas) && archivo.deudas.length > 0) await mergeCollectionArray("deudas", archivo.deudas);
-    if (archivo.mesas && archivo.mesas.length > 0) await saveShared("mesas", archivo.mesas);
-    const nuevoConfig = {
-      ...archivo.config,
-      auditLog: [{ ts: Date.now(), accion: "Restauró un respaldo desde archivo", actor: usuarioActual.nombre }, ...(archivo.config.auditLog || [])].slice(0, 500),
-    };
-    await saveShared("config", nuevoConfig);
-    window.location.reload();
-  };
-
-  const descargarPendiente = useRef(false);
-  // Una vez que el historial completo termina de cargar, dispara la descarga.
-  useEffect(() => {
-    if (descargarPendiente.current && historialCompleto) {
-      descargarPendiente.current = false;
-      descargarRespaldo({ menu, orders: ordersParaHistorial, cuentas: cuentasParaHistorial, config, turnos, mesas, deudas });
-      persistConfig({ ...config, ultimaCopiaTs: Date.now() }); // para recordarte la próxima copia
-    }
-  }, [historialCompleto]);
-  const onClickDescargar = () => {
-    if (historialCompleto) {
-      descargarRespaldo({ menu, orders: ordersParaHistorial, cuentas: cuentasParaHistorial, config, turnos, mesas, deudas });
-      persistConfig({ ...config, ultimaCopiaTs: Date.now() }); // para recordarte la próxima copia
-    } else {
-      descargarPendiente.current = true;
-      cargarHistorialCompleto();
-    }
-  };
-
-  return (
-    <div style={{ marginTop: 8 }}>
-      <GrupoSecciones>
-
-        <Seccion titulo="Copia de seguridad completa" resumen="Descargar todo el historial" info={<InfoTip titulo="Copia de seguridad completa">
-            Guarda un archivo en este dispositivo con todo el historial del negocio:
-            <ul style={styles.respaldoLista}>
-              <li>Menú, productos y precios</li>
-              <li>Pedidos y cuentas, con sus pagos, propinas, descuentos y cancelaciones</li>
-              <li>Turnos, arqueos y movimientos de caja</li>
-              <li>Mesas y su ubicación en el plano</li>
-              <li>Ajustes del negocio: nombre, marca y registro de seguridad</li>
-            </ul>
-            No cambia nada en la app. <b>No incluye</b> el inventario ni las cuentas de usuario del equipo.
-          </InfoTip>}>
-          <button style={styles.modoChoiceBtn} onClick={onClickDescargar} disabled={cargandoHistorial}>
-            <Download size={15} /> {cargandoHistorial ? "Preparando respaldo completo…" : "Descargar copia de seguridad completa"}
-          </button>
-        </Seccion>
-
-        <Seccion titulo="Restaurar desde un archivo" resumen="Volver a un respaldo anterior" info={<InfoTip titulo="Restaurar desde un archivo">
-            Vuelve la app al estado de un archivo de respaldo. <b>Reemplaza</b> lo que hay ahora de: menú, pedidos, cuentas, turnos, mesas y ajustes.
-            Todo lo registrado después de la fecha del archivo se pierde. No toca el inventario ni los usuarios. Recomendado: descarga una copia de lo actual antes de restaurar.
-          </InfoTip>}>
-          {!restaurando ? (
-            <button style={styles.modoChoiceBtn} onClick={() => setRestaurando(true)}><Upload size={15} /> Elegir archivo de respaldo</button>
-          ) : (
-            <div className="despliega" style={styles.turnoBox}>
-              <div style={styles.closeConfirmText}><b>Cuidado:</b> esto no se puede deshacer. Elige el archivo .json del respaldo.</div>
-              <input ref={fileInputRef} type="file" accept="application/json" onChange={onArchivoElegido} />
-              {error && <div style={styles.pinError}>{error}</div>}
-              {confirmando && archivo && (
-                <div style={styles.closeConfirmBox}>
-                  <div style={styles.closeConfirmText}>
-                    Este archivo es de "{archivo.config.businessName}", exportado el {dateTimeLabel(archivo.exportadoTs)}. ¿Restaurar y reemplazar todo lo actual?
-                  </div>
-                  {archivo.automatica && (
-                    <div style={styles.pinError}>
-                      Es una copia automática de un solo día ({archivo.dia}). Si la restauras, el historial completo se reemplaza por las ventas de ese único día y los turnos quedan vacíos.
-                    </div>
-                  )}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button style={styles.cancelEditBtn} onClick={() => { setConfirmando(false); setArchivo(null); }}>Cancelar</button>
-                    <button style={{ ...styles.sendBtn, flex: 1 }} onClick={confirmarRestauracion}><Lock size={15} /> Sí, restaurar</button>
-                  </div>
-                </div>
-              )}
-              <button style={styles.cancelEditBtn} onClick={() => { setRestaurando(false); setArchivo(null); setConfirmando(false); setError(""); }}>Cerrar</button>
-            </div>
-          )}
-        </Seccion>
-
-        <RespaldosAutomaticosBox />
-      </GrupoSecciones>
-    </div>
-  );
-}
-
-export function RespaldosAutomaticosBox(propsSeccion) {
-  const [dias, setDias] = useState(null); // null = sin cargar todavía
-  const [cargando, setCargando] = useState(false);
-
-  const cargarLista = async () => {
-    setCargando(true);
-    const hoy = new Date();
-    const candidatos = [];
-    for (let i = 1; i <= 14; i++) {
-      const d = new Date(hoy.getTime() - i * 24 * 60 * 60 * 1000);
-      candidatos.push(dayKey(d.getTime()));
-    }
-    const resultados = await Promise.all(candidatos.map((dk) => getRecord(`respaldos/${dk}`)));
-    setDias(resultados.filter((r) => r && r.dia).sort((a, b) => b.dia.localeCompare(a.dia)));
-    setCargando(false);
-  };
-
-  const descargarDia = (r) => {
-    const data = { version: 2, exportadoTs: Date.now(), automatica: true, dia: r.dia, menu: r.menu || [], orders: r.orders || [], cuentas: r.cuentas || [], config: r.config || {}, turnos: [], mesas: r.mesas || [] };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `respaldo_automatico_${r.dia}.json`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <Seccion {...propsSeccion} titulo="Copias automáticas" resumen="Los últimos 14 días" info={<InfoTip titulo="Copias automáticas">
-        Cada día, la primera vez que un administrador abre la app, se guarda sola una copia del <b>día anterior</b>: sus cuentas y pedidos, más el menú, las mesas y los ajustes.
-        Aquí puedes ver y descargar las de los últimos 14 días, útiles para consultar o recuperar lo de un día puntual.
-        Cada una trae <b>un solo día</b> de ventas y no incluye turnos, así que no sirven para restaurar todo el negocio (para eso usa la copia completa).
-      </InfoTip>}>
-      {dias === null ? (
-        <button style={styles.modoChoiceBtn} onClick={cargarLista} disabled={cargando}>
-          <CalendarDays size={15} /> {cargando ? "Buscando…" : "Ver copias de los últimos 14 días"}
-        </button>
-      ) : dias.length === 0 ? (
-        <div style={styles.cajaEmptyText}>Todavía no hay copias automáticas (se generan solas cada día que un admin abre la app — la de hoy se hace mañana).</div>
-      ) : (
-        <div className="despliega">
-          {dias.map((r) => (
-            <div key={r.dia} style={styles.turnoRow}>
-              <span style={styles.cierreDate}>{r.dia} · {(r.cuentas || []).length} {(r.cuentas || []).length === 1 ? "cuenta" : "cuentas"}</span>
-              <button style={{ display: "inline-flex", alignItems: "center", gap: 6, minHeight: 34, padding: "0 12px", borderRadius: 999, borderWidth: 1, borderStyle: "solid", borderColor: "var(--btn2-line)", background: "var(--btn2-bg)", color: "var(--btn2-fg)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", flexShrink: 0 }} onClick={() => descargarDia(r)}><Download size={13} /> Descargar</button>
-            </div>
-          ))}
-        </div>
-      )}
-    </Seccion>
-  );
-}
-
-/** Junta en un solo lugar las señales que ya existían regadas por la app
- * (cancelaciones, descuentos, descuadres de turno) para que el admin no
- * tenga que ir a buscarlas una por una — no es una acusación, es solo un
- * resumen para que decidas tú si algo amerita una conversación. */
 export function PanelSenalesAlerta({ cuentas, turnos }) {
   const [expandido, setExpandido] = useState(false);
 
