@@ -386,7 +386,7 @@ export const styles = {
 
   rowBetween: { display: "flex", alignItems: "center", justifyContent: "space-between" },
   exportLink: { display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", color: "var(--c-8a8272-t)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: "8px 6px", marginLeft: "auto" },
-  histRow: { width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "13px 0", borderBottom: "1px solid var(--c-ede7d8-o)", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" },
+  histRow: { width: "100%", maxWidth: 1050, display: "flex", alignItems: "center", gap: 8, padding: "13px 0", borderBottom: "1px solid var(--c-ede7d8-o)", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" },
   histRowTitle: { fontSize: 14, fontWeight: 700, color: "var(--c-242019-t)", flex: 1 },
   histRowSub: { fontSize: 11.5, color: "#9BA4B0" },
   histRowTotal: { fontSize: 14, fontWeight: 700, color: "var(--c-242019-t)" },

@@ -1,3 +1,4 @@
+import { useAtajoBuscador } from "./atajos.js";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { calcularAlertas } from "./alertas.js";
 import { contextoErrores } from "./errores.js";
@@ -102,6 +103,7 @@ export default function App() {
   const [pendientes, setPendientes] = useState(0);
   const [pendientesLentos, setPendientesLentos] = useState(false);
   useEffect(() => observarPendientes(setPendientes), []);
+  useAtajoBuscador();
   useEffect(() => {
     if (pendientes === 0) { setPendientesLentos(false); return undefined; }
     const t = setTimeout(() => setPendientesLentos(true), 5000);

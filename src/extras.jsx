@@ -474,6 +474,7 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
 
       <div className="ancho ancho-admin" style={{ flex: 1, overflowY: "auto", padding: "14px 16px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Nombre del negocio */}
+        <div style={{ ...x.label, padding: "14px 4px 2px", letterSpacing: ".04em", textTransform: "uppercase", fontSize: 11.5 }}>Mi negocio</div>
         <GrupoSecciones>
         <Seccion titulo="Nombre del negocio" resumen={config.businessName || "Sin nombre"}>
           <input style={x.input} placeholder="Ej: Dulce & Café" value={nombreNegocio} onChange={(e) => setNombreNegocio(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") guardarNombre(); }} />
@@ -500,10 +501,9 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
           <button style={x.btnDark} onClick={guardarDatosNeg}>{datosGuardados ? <><Check size={15} /> Guardado</> : "Guardar datos"}</button>
         </Seccion>
 
-        <Seccion titulo="Mensajes de WhatsApp" resumen="Reservas y resumen del día">
-          <EditorMensajes config={config} persistConfig={persistConfig} x={x} />
-        </Seccion>
-
+        </GrupoSecciones>
+        <div style={{ ...x.label, padding: "14px 4px 2px", letterSpacing: ".04em", textTransform: "uppercase", fontSize: 11.5 }}>Imagen y mensajes</div>
+        <GrupoSecciones>
         {/* Marca */}
         <Seccion titulo="Marca">
           <div style={x.row}>
@@ -541,6 +541,13 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
           </div>
         </Seccion>
 
+        <Seccion titulo="Mensajes de WhatsApp" resumen="Reservas y resumen del día">
+          <EditorMensajes config={config} persistConfig={persistConfig} x={x} />
+        </Seccion>
+
+        </GrupoSecciones>
+        <div style={{ ...x.label, padding: "14px 4px 2px", letterSpacing: ".04em", textTransform: "uppercase", fontSize: 11.5 }}>Operación</div>
+        <GrupoSecciones>
         {/* Estaciones */}
         <Seccion titulo="Estaciones de preparación" resumen={`${estaciones.length} ${estaciones.length === 1 ? "estación" : "estaciones"}`}>
           <div style={x.hint}>Crea una estación por cada lugar donde se prepara algo (cocina, barra, postres…). Al enviar un pedido, el mesero elige a qué estación y a qué piso va; cada pantalla de preparación ve solo lo suyo. Con una sola estación y un solo piso todo funciona como siempre.</div>

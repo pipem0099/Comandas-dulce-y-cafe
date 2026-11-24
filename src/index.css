@@ -535,3 +535,9 @@ html[data-scrolled] [data-barra-superior] { box-shadow: 0 1px 0 var(--chrome-lin
 @keyframes islaSale { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-12px) scale(.92); } }
 @keyframes islaGira { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .isla, .isla[data-salir="1"] { animation: none; } .isla-gira svg { animation: none; } }
+
+/* Columnas del cobro en hoja: los bloques no se encogen (si no caben, la columna se desplaza) */
+.cobro-col > * { flex-shrink: 0; }
+
+/* Filas del Historial: se resaltan al pasar el mouse para seguir la fila de izquierda a derecha */
+@media (hover: hover) { .hist-fila { transition: background-color .15s ease-out; border-radius: 8px; } .hist-fila:hover { background-color: color-mix(in srgb, var(--accent) 7%, transparent) !important; } }
