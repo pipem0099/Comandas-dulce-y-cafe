@@ -147,7 +147,9 @@ const BASE = normalizar({
   sistema: { inicializado: true, marca: { nombre: "Dulce" } },
   menu: [{ id: "m1", name: "Limonada", price: 9000 }],
   config: { businessName: "Dulce", auditLog: [{ ts: 1, accion: "x", actor: "Dueño" }] },
-  auditoria: { a0: { ts: 1000, uid: "cajero", nombre: "Pedro", accion: "descuento", monto: 1000 } },
+  auditoria: { a0: { ts: 1000, uid: "cajero", nombre: "Pedro", accion: "descuento", monto: 1000 }, b0: { ts: 1000, uid: "admin2", nombre: "Admin", accion: "borrar_registros", motivo: "Borró 2 registros" } },
+  propinasPagadas: { c1: "r1" },
+  repartosPropinas: { r1: { ts: 1000, uid: "admin2", total: 1000, desde: 1, hasta: 2 } },
   orders: { o1: { id: "o1", cuentaId: "c1", mesa: "1", ts: 1000, estado: "pendiente", items: [{ id: "m1", name: "Limonada", qty: 1, price: 9000 }] } },
   cuentas: {
     c1: { id: "c1", mesa: "1", ts: 1000, estado: "abierta", mesero: "Ana" },
@@ -337,7 +339,25 @@ caso("Auditoría", "cajero", "NO puede inventar un tipo de acción", "set", "aud
 caso("Auditoría", "cajero", "NO puede poner una fecha de otro día", "set", "auditoria/a5", ev({ uid: "cajero", ts: Date.now() - 86400000 }), NO);
 caso("Auditoría", "cajero", "NO puede guardar un monto negativo", "set", "auditoria/a6", ev({ uid: "cajero", monto: -1 }), NO);
 caso("Auditoría", "cajero", "NO puede meter datos extra", "set", "auditoria/a7", ev({ uid: "cajero", truco: 1 }), NO);
-caso("Auditoría", "admin2", "NO puede borrar un evento ya registrado (ni el administrador)", "set", "auditoria/a0", null, NO);
+caso("Propinas", "admin2", "SÍ puede marcar una cuenta como repartida", "set", "propinasPagadas/c9", "r9", SI);
+caso("Propinas", "cajero", "NO puede marcar una cuenta como repartida", "set", "propinasPagadas/c9", "r9", NO);
+caso("Propinas", "mesero", "NO puede marcar una cuenta como repartida", "set", "propinasPagadas/c9", "r9", NO);
+caso("Propinas", "admin2", "NO puede repartir DOS VECES la misma cuenta", "set", "propinasPagadas/c1", "r2", NO);
+caso("Propinas", "admin2", "SÍ puede quitar la marca (al anular un reparto)", "set", "propinasPagadas/c1", null, SI);
+caso("Propinas", "cajero", "NO puede quitar la marca", "set", "propinasPagadas/c1", null, NO);
+caso("Propinas", "admin2", "SÍ puede guardar un reparto", "set", "repartosPropinas/r9", { ts: 1000, uid: "admin2", total: 5000, desde: 1, hasta: 2 }, SI);
+caso("Propinas", "admin2", "NO puede firmar un reparto con el nombre de otro", "set", "repartosPropinas/r9", { ts: 1000, uid: "dueno", total: 5000, desde: 1, hasta: 2 }, NO);
+caso("Propinas", "cajero", "NO puede guardar un reparto", "set", "repartosPropinas/r9", { ts: 1000, uid: "cajero", total: 5000, desde: 1, hasta: 2 }, NO);
+caso("Propinas", "admin2", "NO puede borrar un reparto (se anula, no se borra)", "set", "repartosPropinas/r1", null, NO);
+caso("Propinas", "dueno", "SÍ: otro administrador puede anular un reparto ajeno", "set", "repartosPropinas/r1/anulado", true, SI);
+caso("Propinas", "admin2", "SÍ puede darle a un mesero lo que le tocó", "set", "propinasPersona/mesero/r9", { ts: 1000, monto: 4000 }, SI);
+caso("Propinas", "mesero", "NO puede darse propinas a sí mismo", "set", "propinasPersona/mesero/r9", { ts: 1000, monto: 4000 }, NO);
+caso("Auditoría", "admin2", "SÍ puede borrar un evento ya registrado (el administrador limpia el registro)", "set", "auditoria/a0", null, SI);
+caso("Auditoría", "cajero", "NO puede borrar un evento ya registrado", "set", "auditoria/a0", null, NO);
+caso("Auditoría", "mesero", "NO puede borrar un evento ya registrado", "set", "auditoria/a0", null, NO);
+caso("Auditoría", "admin2", "SÍ puede dejar constancia de que borró registros", "set", "auditoria/b1", ev({ uid: "admin2", accion: "borrar_registros", motivo: "Borró 3 registros de octubre de 2026" }), SI);
+caso("Auditoría", "cajero", "NO puede dejar constancia de borrar registros sin ser quien lo firma", "set", "auditoria/b2", ev({ uid: "admin2", accion: "borrar_registros" }), NO);
+caso("Auditoría", "admin2", "NO puede borrar el aviso de una limpieza anterior", "set", "auditoria/b0", null, NO);
 caso("Auditoría", "admin2", "NO puede editar un evento ya registrado (ni el administrador)", "set", "auditoria/a0", ev({ uid: "admin2", monto: 1 }), NO);
 /* ── Facturación electrónica: credenciales y documentos ── */
 const ajF = (extra = {}) => ({ activa: true, modo: "pruebas", proveedor: "alegra", tipoDocumento: "factura", impuesto: "iva", precios: "suman", propina: "incluir", emisionAutomatica: true, resolucion: { prefijo: "SETT", numero: "123" }, ...extra });
@@ -423,6 +443,14 @@ const lecturas = [
   ["admin2", "facturacion", NO, "ni siquiera el administrador lee la rama raíz"],
   ["cajero", "auditoria", NO, "la bitácora no la ve la caja"],
   ["mesero", "auditoria", NO, "ni el mesero"],
+  ["mesero", "propinasPersona/mesero", SI, "cada mesero ve sus propias propinas"],
+  ["mesero", "propinasPersona/cajero", NO, "pero no las de otro"],
+  ["cajero", "propinasPersona/mesero", NO, "ni la caja ve las de un mesero"],
+  ["admin2", "propinasPersona/mesero", SI, "el administrador ve las de cualquiera"],
+  ["mesero", "repartosPropinas", NO, "el detalle de los repartos es del administrador"],
+  ["admin2", "repartosPropinas", SI, "el administrador ve los repartos"],
+  ["mesero", "propinasPagadas", SI, "todos pueden saber qué cuentas ya se repartieron (para calcular lo pendiente)"],
+  ["anon", "propinasPagadas", NO, "sin sesión no se ve nada"],
 ];
 
 /* ───────── ejecutar ───────── */

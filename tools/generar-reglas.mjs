@@ -169,6 +169,39 @@ const reglas = {
     reservas: { ".read": ACTIVO, ".write": SALON },
     respaldos: { ".read": ADMIN, ".write": ADMIN },
     equipo: { ".read": ACTIVO, ".write": ADMIN },
+    // Propinas. Tres ramas:
+    //  · propinasPagadas/{cuentaId}   «candado» de cada cuenta ya repartida (valor = id del reparto). Solo el administrador lo CREA, y solo si no existía:
+    //                                 así una propina no se puede repartir dos veces ni por error ni con dos administradores a la vez. Lo borra solo al anular el reparto.
+    //  · repartosPropinas/{id}        el reparto completo (quién, cuándo, período, total, líneas). Solo el administrador lo lee y lo escribe (no se borra: se anula).
+    //  · propinasPersona/{uid}/{id}   lo que le tocó a cada persona: la ve ella (y el administrador); solo el administrador lo escribe.
+    propinasPagadas: {
+      ".read": ACTIVO,
+      $id: {
+        ".write": `${ADMIN} && ((!data.exists() && newData.exists()) || (data.exists() && !newData.exists()))`,
+        ".validate": "newData.isString() && newData.val().length <= 40",
+      },
+    },
+    repartosPropinas: {
+      ".read": ADMIN,
+      ".indexOn": ["ts"],
+      $id: {
+        ".write": `${ADMIN} && newData.exists()`,
+        ".validate": "newData.hasChildren(['ts','uid','total','desde','hasta'])",
+        ts: { ".validate": "newData.isNumber() && newData.val() <= now + 600000" },
+        uid: { ".validate": "newData.val() === auth.uid" },
+        total: { ".validate": "newData.isNumber() && newData.val() >= 0" },
+      },
+    },
+    propinasPersona: {
+      $uid: {
+        ".read": `${ACTIVO} && (auth.uid === $uid || ${rol("admin")})`,
+        $id: {
+          ".write": `${ADMIN} && newData.exists()`,
+          ".validate": "newData.hasChildren(['ts','monto'])",
+          monto: { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        },
+      },
+    },
     // Facturación electrónica (DIAN). TRES ramas con permisos distintos:
     //  · facturacion/ajustes    configuración NO secreta: el equipo la lee (Caja necesita saber si está activa); solo el administrador la escribe.
     //  · facturacion/credencial/{modo}, catalogo/{modo}, mapeo/{modo}: solo el admin lee; solo el servidor escribe. Credencial: solo «proveedor + ••••1234»: la escribe ÚNICAMENTE la función del servidor (cuenta de servicio).
@@ -215,18 +248,18 @@ const reglas = {
     },
     facturacionSecretos: { ".read": false, ".write": false },
     // Bitácora de control: cada cancelación, descuento o anulación queda escrita con QUIÉN (su uid de verdad), CUÁNDO y CUÁNTO.
-    // Solo se puede CREAR (nadie la edita ni la borra, ni siquiera el administrador) y solo el administrador la lee.
+    // Se puede CREAR (nadie la edita). Borrar: solo el administrador, y los avisos «borrar_registros» (que dejan constancia de cada limpieza) no se pueden borrar. Solo el administrador la lee.
     auditoria: {
       ".read": ADMIN,
       ".indexOn": ["ts"],
       $id: {
-        ".write": `${ACTIVO} && !data.exists() && newData.exists() && newData.child('uid').val() === auth.uid`,
+        ".write": `(${ACTIVO} && !data.exists() && newData.exists() && newData.child('uid').val() === auth.uid) || (${ADMIN} && data.exists() && !newData.exists() && data.child('accion').val() !== 'borrar_registros')`,
         ".validate": "newData.hasChildren(['ts','uid','accion'])",
         ts: { ".validate": "newData.isNumber() && newData.val() <= now + 600000 && newData.val() >= now - 600000" },
         uid: { ".validate": "newData.isString() && newData.val().length <= 80" },
         nombre: { ".validate": "newData.isString() && newData.val().length <= 120" },
         rol: { ".validate": "newData.isString() && newData.val().length <= 80" },
-        accion: { ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'deshacer_cancelacion' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago' || newData.val() === 'dejar_pendiente' || newData.val() === 'cobrar_pendiente' || newData.val() === 'condonar_deuda' || newData.val() === 'emitir_factura' || newData.val() === 'anular_factura' || newData.val() === 'guardar_credenciales_fiscales' || newData.val() === 'guardar_mapeo_fiscal' || newData.val() === 'prueba_emision_fiscal')" },
+        accion: { ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'deshacer_cancelacion' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago' || newData.val() === 'dejar_pendiente' || newData.val() === 'cobrar_pendiente' || newData.val() === 'condonar_deuda' || newData.val() === 'emitir_factura' || newData.val() === 'anular_factura' || newData.val() === 'guardar_credenciales_fiscales' || newData.val() === 'guardar_mapeo_fiscal' || newData.val() === 'prueba_emision_fiscal' || newData.val() === 'borrar_registros')" },
         cuentaId: { ".validate": "newData.isString() && newData.val().length <= 80" },
         mesa: { ".validate": "(newData.isString() && newData.val().length <= 80) || newData.isNumber()" },
         monto: { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000" },
