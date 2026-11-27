@@ -202,6 +202,44 @@
       ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
       ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true"
     },
+    "propinasPagadas": {
+      ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
+      "$id": {
+        ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true && ((!data.exists() && newData.exists()) || (data.exists() && !newData.exists()))",
+        ".validate": "newData.isString() && newData.val().length <= 40"
+      }
+    },
+    "repartosPropinas": {
+      ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true",
+      ".indexOn": [
+        "ts"
+      ],
+      "$id": {
+        ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true && newData.exists()",
+        ".validate": "newData.hasChildren(['ts','uid','total','desde','hasta'])",
+        "ts": {
+          ".validate": "newData.isNumber() && newData.val() <= now + 600000"
+        },
+        "uid": {
+          ".validate": "newData.val() === auth.uid"
+        },
+        "total": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      }
+    },
+    "propinasPersona": {
+      "$uid": {
+        ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && (auth.uid === $uid || root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true)",
+        "$id": {
+          ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true && newData.exists()",
+          ".validate": "newData.hasChildren(['ts','monto'])",
+          "monto": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          }
+        }
+      }
+    },
     "facturacion": {
       "ajustes": {
         ".read": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true",
@@ -317,7 +355,7 @@
         "ts"
       ],
       "$id": {
-        ".write": "auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && !data.exists() && newData.exists() && newData.child('uid').val() === auth.uid",
+        ".write": "(auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && !data.exists() && newData.exists() && newData.child('uid').val() === auth.uid) || (auth != null && root.child('perfiles').child(auth.uid).child('activo').val() === true && root.child('perfiles').child(auth.uid).child('roles').child('admin').val() === true && data.exists() && !newData.exists() && data.child('accion').val() !== 'borrar_registros')",
         ".validate": "newData.hasChildren(['ts','uid','accion'])",
         "ts": {
           ".validate": "newData.isNumber() && newData.val() <= now + 600000 && newData.val() >= now - 600000"
@@ -332,7 +370,7 @@
           ".validate": "newData.isString() && newData.val().length <= 80"
         },
         "accion": {
-          ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'deshacer_cancelacion' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago' || newData.val() === 'dejar_pendiente' || newData.val() === 'cobrar_pendiente' || newData.val() === 'condonar_deuda' || newData.val() === 'emitir_factura' || newData.val() === 'anular_factura' || newData.val() === 'guardar_credenciales_fiscales' || newData.val() === 'guardar_mapeo_fiscal' || newData.val() === 'prueba_emision_fiscal')"
+          ".validate": "newData.isString() && (newData.val() === 'cancelar_cuenta' || newData.val() === 'cancelar_pedido' || newData.val() === 'descuento' || newData.val() === 'deshacer_cancelacion' || newData.val() === 'quitar_descuento' || newData.val() === 'anular_pago' || newData.val() === 'dejar_pendiente' || newData.val() === 'cobrar_pendiente' || newData.val() === 'condonar_deuda' || newData.val() === 'emitir_factura' || newData.val() === 'anular_factura' || newData.val() === 'guardar_credenciales_fiscales' || newData.val() === 'guardar_mapeo_fiscal' || newData.val() === 'prueba_emision_fiscal' || newData.val() === 'borrar_registros')"
         },
         "cuentaId": {
           ".validate": "newData.isString() && newData.val().length <= 80"
