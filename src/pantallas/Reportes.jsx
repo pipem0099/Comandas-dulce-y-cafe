@@ -102,7 +102,7 @@ export function ReportesView({ turnos, equipo, onVerDia, onVerProducto, onVerCat
   const imprimirReporte = () => imprimir(
     <HojaReporte etiqueta={etiquetaRango} rangoTxt={rangoTexto} pagadas={pagadasRango} orders={orders} canceladas={canceladasRango} costoPorId={costoPorId} rentab={rentab}
       tiempoCocina={tiempoPromedioMin !== null ? { min: tiempoPromedioMin, n: ordenesConTiempo.length } : null} config={config} usuario={usuarioActual}
-      comparativa={!necesitaHistorial || historialCompleto ? comparativaPeriodo(rango, cuentas, orders) : null} propinas={esAdmin ? propinasRef.current : null} />
+      comparativa={!necesitaHistorial || historialCompleto ? comparativaPeriodo(rango, cuentas, orders) : null} propinasReparto={esAdmin ? propinasRef.current : null} />
   );
 
   return (
