@@ -103,22 +103,22 @@ export function HojaDia({ d, orders, mesas, canceladas = [], config, usuario }) 
         </Seccion>
       )}
 
-      {propinas && propinas.datos && (propinas.datos.totalPendiente + propinas.datos.totalRepartido + propinas.datos.totalEnCurso) > 0 && (
-        <Seccion titulo={`Propinas · ${propinas.etiqueta}`} nota="Las propinas de cualquier método de pago se entregan en efectivo. Solo se reparten las de turnos cerrados.">
+      {propinasReparto && propinasReparto.datos && (propinasReparto.datos.totalPendiente + propinasReparto.datos.totalRepartido + propinasReparto.datos.totalEnCurso) > 0 && (
+        <Seccion titulo={`Propinas · ${propinasReparto.etiqueta}`} nota="Las propinas de cualquier método de pago se entregan en efectivo. Solo se reparten las de turnos cerrados.">
           <Datos filas={[
-            ["YA REPARTIDAS", money(propinas.datos.totalRepartido)],
-            ["PENDIENTES POR REPARTIR", money(propinas.datos.totalPendiente)],
-            ...(propinas.datos.totalEnCurso > 0 ? [["En turno abierto (aún no se reparte)", money(propinas.datos.totalEnCurso)]] : []),
+            ["YA REPARTIDAS", money(propinasReparto.datos.totalRepartido)],
+            ["PENDIENTES POR REPARTIR", money(propinasReparto.datos.totalPendiente)],
+            ...(propinasReparto.datos.totalEnCurso > 0 ? [["En turno abierto (aún no se reparte)", money(propinasReparto.datos.totalEnCurso)]] : []),
           ]} />
-          {propinas.repartos.length > 0 && (
+          {propinasReparto.repartos.length > 0 && (
             <Tabla
               cols={[{ t: "Entregada el", w: "24%", v: (r) => dateTimeLabel(r.ts) }, { t: "La entregó", w: "18%", v: (r) => r.nombre || "—" }, { t: "A quién", v: (r) => (r.lineas || []).map((l) => `${l.nombre} ${money(l.monto)}`).join(" · ") }, { t: "Total", d: true, w: "16%", v: (r) => money(r.total) }]}
-              filas={propinas.repartos}
+              filas={propinasReparto.repartos}
             />
           )}
           <Tabla
             cols={[{ t: "Día", w: "26%", v: (d) => dayLabel(new Date(`${d.dia}T12:00:00`).getTime()) }, { t: "Repartido", d: true, v: (d) => (d.repartido > 0 ? money(d.repartido) : "—") }, { t: "Pendiente por repartir", d: true, v: (d) => (d.pendiente > 0 ? money(d.pendiente) : "—") }, { t: "Turno abierto", d: true, v: (d) => (d.enCurso > 0 ? money(d.enCurso) : "—") }]}
-            filas={propinas.datos.porDia}
+            filas={propinasReparto.datos.porDia}
           />
         </Seccion>
       )}
@@ -176,7 +176,7 @@ export function HojaDia({ d, orders, mesas, canceladas = [], config, usuario }) 
 }
 
 /* ═════════════════════════ 2) Reporte de un período (Reportes) ═════════════════════════ */
-export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = [], costoPorId = {}, tiempoCocina, config, usuario, rentab = null, comparativa = null, propinas = null }) {
+export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = [], costoPorId = {}, tiempoCocina, config, usuario, rentab = null, comparativa = null, propinasReparto = null }) {
   const total = pagadas.reduce((s, c) => s + cuentaGranTotal(orders, c), 0);
   const propinas = pagadas.reduce((s, c) => s + n0(c.propina && c.propina.monto), 0);
   const descuentos = pagadas.reduce((s, c) => s + n0(c.descuento && c.descuento.monto), 0);
