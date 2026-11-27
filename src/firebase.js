@@ -286,6 +286,51 @@ export async function registrarAuditoria(evento) {
     return ok;
   } catch (e) { console.error("Auditoría:", e); return false; } // la bitácora nunca debe impedir cobrar
 }
+/* ───────── Propinas ─────────
+   El reparto, lo de cada persona y los «candados» de las cuentas se guardan en UNA sola escritura: o queda todo o no queda nada.
+   Si alguna cuenta ya tenía candado (otro administrador la repartió un segundo antes), las reglas rechazan TODO y no se paga dos veces. */
+export async function guardarReparto({ repartoId, reparto, personas, candados }) {
+  if (!conectado) return { ok: false, motivo: "sin-conexion" };
+  try {
+    const cambios = { [`repartosPropinas/${repartoId}`]: sanitizeForFirebase(reparto) };
+    personas.forEach((p) => { cambios[`propinasPersona/${p.uid}/${repartoId}`] = sanitizeForFirebase(p.valor); });
+    candados.forEach((id) => { cambios[`propinasPagadas/${id}`] = repartoId; });
+    await rastreado(() => update(ref(db), cambios));
+    return { ok: true };
+  } catch (e) { ultimoErrorEscritura = (e && e.code) || ""; console.error("No se pudo guardar el reparto de propinas:", e); return { ok: false, motivo: "rechazado" }; }
+}
+/** Anula un reparto: libera los candados (esas propinas vuelven a quedar pendientes) y lo marca como anulado donde lo ve cada persona. */
+export async function anularRepartoPropinas({ repartoId, reparto, quien }) {
+  if (!conectado) return { ok: false, motivo: "sin-conexion" };
+  try {
+    const ahora = Date.now();
+    const cambios = {
+      [`repartosPropinas/${repartoId}/anulado`]: true, [`repartosPropinas/${repartoId}/anuladoTs`]: ahora, [`repartosPropinas/${repartoId}/anuladoPor`]: quien || "",
+    };
+    Object.keys(reparto.cuentas || {}).forEach((id) => { cambios[`propinasPagadas/${id}`] = null; });
+    (reparto.lineas || []).forEach((l) => { cambios[`propinasPersona/${l.uid}/${repartoId}/anulado`] = true; });
+    await rastreado(() => update(ref(db), cambios));
+    return { ok: true };
+  } catch (e) { ultimoErrorEscritura = (e && e.code) || ""; console.error("No se pudo anular el reparto:", e); return { ok: false, motivo: "rechazado" }; }
+}
+
+/** Lee la bitácora de control CON el id de cada registro (hace falta para poder borrar uno en concreto). Solo administradores. */
+export async function leerBitacora() {
+  try {
+    const val = (await get(ref(db, "auditoria"))).val() || {};
+    return { ok: true, lista: Object.entries(val).map(([id, v]) => ({ ...v, id })).filter((x) => x && x.ts).sort((a, b) => b.ts - a.ts) };
+  } catch (e) { return { ok: false, lista: [] }; }
+}
+/** Borra registros de la bitácora (solo administradores; las reglas lo exigen). Necesita internet: no se encola. */
+export async function borrarBitacora(ids) {
+  if (!conectado) return false;
+  try {
+    const cambios = {};
+    ids.forEach((id) => { cambios[id] = null; });
+    await rastreado(() => update(ref(db, "auditoria"), cambios));
+    return true;
+  } catch (e) { ultimoErrorEscritura = (e && e.code) || ""; console.error("No se pudo borrar de la bitácora:", e); return false; }
+}
 /** Reenvía el correo para confirmar que la dirección es de quien inició sesión. */
 export async function reenviarVerificacion() {
   try { if (!auth.currentUser) return { ok: false, code: "auth/no-user" }; await sendEmailVerification(auth.currentUser); return { ok: true }; }

@@ -245,7 +245,7 @@ export const styles = {
   avisoNotifBtn: { minHeight: 40, padding: "0 16px", borderRadius: 10, border: "none", background: "var(--chip-on-bg)", color: "var(--chip-on-fg)", boxShadow: "inset 0 0 0 1px var(--chip-on-line)", fontSize: 13, fontWeight: 700, cursor: "pointer" },
   avisoNotifCerrar: { width: 40, height: 40, borderRadius: 10, border: "none", background: "transparent", color: "var(--btn2-mute)", fontSize: 16, cursor: "pointer" },
   errorGuardadoCerrar: { background: "transparent", border: "none", color: "#F4F6F8", fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "0 4px" },
-  goHistLink: { textAlign: "center", padding: "12px 0", color: "var(--link)", fontSize: 12.5, fontWeight: 500, cursor: "pointer" },
+  goHistLink: { textAlign: "center", margin: "8px auto", display: "block", background: "var(--btn2-bg)", border: "1px solid var(--btn2-line)", borderRadius: 999, color: "var(--btn2-fg)", fontWeight: 600, cursor: "pointer", minHeight: 32, padding: "0 14px", fontSize: 12.5 },
 
   turnoBox: { display: "flex", flexDirection: "column", gap: 8, padding: 16, background: "var(--c-fffdf8-b)", border: "1px solid var(--c-e4dfce-o)", borderRadius: 14, marginBottom: 14 },
   turnoEsperadoLabel: { fontSize: 11, fontWeight: 500, color: "var(--c-8a8272-t)", textTransform: "none" },
@@ -279,8 +279,8 @@ export const styles = {
   usuarioRowLeft: { display: "flex", alignItems: "center", gap: 6 },
   usuarioRowActions: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
   btnRestringido: { ...botonBase, justifyContent: "flex-start", gap: 10, background: "var(--btn2-bg)", color: "var(--btn2-fg)", border: "1px solid var(--btn2-line)", borderRadius: 12, fontSize: 14, fontWeight: 600 },
-  enlaceSistema: { background: "transparent", border: "none", color: "var(--link)", fontSize: 13.5, fontWeight: 500, cursor: "pointer", padding: "6px 0", textAlign: "left", display: "inline-flex", alignItems: "center", gap: 6 },
-  inlineLink: { background: "transparent", border: "none", color: "var(--link)", fontSize: 12, fontWeight: 500, cursor: "pointer", padding: "4px 0" },
+  enlaceSistema: { background: "var(--btn2-bg)", border: "1px solid var(--btn2-line)", borderRadius: 999, color: "var(--btn2-fg)", fontWeight: 600, cursor: "pointer", minHeight: 32, padding: "0 14px", fontSize: 13.5, textAlign: "left", display: "inline-flex", alignItems: "center", gap: 6 },
+  inlineLink: { background: "var(--btn2-bg)", border: "1px solid var(--btn2-line)", borderRadius: 999, color: "var(--btn2-fg)", fontWeight: 600, cursor: "pointer", minHeight: 32, padding: "0 14px", fontSize: 12.5, display: "inline-flex", alignItems: "center" },
   inlineAddLink: { ...botonBase, background: "var(--btn2-bg)", color: "var(--btn2-fg)", border: "1px solid var(--btn2-line)", borderRadius: 12, fontSize: 14, fontWeight: 600 },
   resetPinRow: { display: "flex", gap: 8, marginTop: 4 },
   rolPillsRow: { display: "flex", gap: 6 },
@@ -386,7 +386,7 @@ export const styles = {
 
   rowBetween: { display: "flex", alignItems: "center", justifyContent: "space-between" },
   exportLink: { display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", color: "var(--c-8a8272-t)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: "8px 6px", marginLeft: "auto" },
-  histRow: { width: "100%", maxWidth: 1050, display: "flex", alignItems: "center", gap: 8, padding: "13px 0", borderBottom: "1px solid var(--c-ede7d8-o)", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" },
+  histRow: { width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "13px 0", borderBottom: "1px solid var(--c-ede7d8-o)", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" },
   histRowTitle: { fontSize: 14, fontWeight: 700, color: "var(--c-242019-t)", flex: 1 },
   histRowSub: { fontSize: 11.5, color: "#9BA4B0" },
   histRowTotal: { fontSize: 14, fontWeight: 700, color: "var(--c-242019-t)" },

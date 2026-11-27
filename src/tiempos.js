@@ -7,8 +7,11 @@ import { useEffect, useState } from "react";
 export const UMBRALES_DEFECTO = { ambar: 5, rojo: 10 };
 export const LIMITES_UMBRAL = { min: 1, max: 60 };
 
-export function getUmbrales(config) {
-  const t = (config && config.tiempos) || {};
+export function getUmbrales(config, estacionId) {
+  const base = (config && config.tiempos) || {};
+  // Cada estación (Cocina, Barra…) puede tener sus propios tiempos; si no los tiene usa los generales.
+  const propios = estacionId && base.porEstacion && base.porEstacion[estacionId];
+  const t = propios && (propios.ambar || propios.rojo) ? { ...base, ...propios } : base;
   const ok = (v) => Number.isFinite(v) && v >= LIMITES_UMBRAL.min && v <= LIMITES_UMBRAL.max;
   let ambar = ok(t.ambar) ? Math.round(t.ambar) : UMBRALES_DEFECTO.ambar;
   let rojo = ok(t.rojo) ? Math.round(t.rojo) : UMBRALES_DEFECTO.rojo;

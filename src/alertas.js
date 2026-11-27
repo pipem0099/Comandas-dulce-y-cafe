@@ -30,7 +30,7 @@ export function calcularAlertas({ turnoAbierto, cuentas = [], orders = [], menu 
         id: "turno-largo", nivel: horas >= HORAS_TURNO_ALTA ? "alta" : "media",
         titulo: `La caja lleva ${Math.floor(horas)} h abierta`,
         detalle: "Un turno muy largo dificulta el cuadre. Conviene cerrar y abrir uno nuevo con quien siga.",
-        vista: "caja", donde: "Caja › Resumen",
+        vista: "caja", tab: "turno", donde: "Caja › Resumen",
       });
     }
   }
@@ -39,11 +39,12 @@ export function calcularAlertas({ turnoAbierto, cuentas = [], orders = [], menu 
   const deudasViejas = deudas.filter((d) => d && d.estado === "pendiente" && diasDesde(d.ts, ahora) >= DIAS_DEUDA_VIEJA);
   if (deudasViejas.length > 0) {
     const masVieja = Math.max(...deudasViejas.map((d) => diasDesde(d.ts, ahora)));
+    const deudaMasVieja = deudasViejas.slice().sort((a, b) => a.ts - b.ts)[0];
     alertas.push({
       id: "deudas-viejas", nivel: masVieja >= DIAS_DEUDA_ALTA ? "alta" : "media",
       titulo: `${deudasViejas.length} ${deudasViejas.length === 1 ? "cuenta pendiente lleva" : "cuentas pendientes llevan"} ${DIAS_DEUDA_VIEJA}+ días sin cobrar`,
       detalle: `Suman ${money(totalPendiente(deudasViejas))}; la más antigua tiene ${masVieja} días. Conviene contactar al cliente o condonarla con motivo.`,
-      vista: "caja", tab: "pendientes", donde: "Caja  Pendientes",
+      vista: "caja", tab: "pendientes", foco: { tipo: "deuda", id: deudaMasVieja.id }, donde: "Caja  Pendientes",
     });
   }
 
@@ -55,7 +56,7 @@ export function calcularAlertas({ turnoAbierto, cuentas = [], orders = [], menu 
       id: "cancelaciones", nivel: canceladas.length >= 5 ? "alta" : "media",
       titulo: `${canceladas.length} cuentas canceladas hoy`,
       detalle: `Suman ${money(total)} sin cobrar. Revisa quién las canceló y los motivos.`,
-      vista: "caja", donde: "Caja › Historial",
+      vista: "caja", tab: "historial", foco: { tipo: "cancelaciones" }, donde: "Caja › Historial",
     });
   }
 
@@ -72,18 +73,19 @@ export function calcularAlertas({ turnoAbierto, cuentas = [], orders = [], menu 
         id: "descuentos", nivel: proporcion >= 0.1 && totalDesc >= 10000 ? "alta" : "media",
         titulo: `${conDescuento.length} ${conDescuento.length === 1 ? "cuenta con descuento" : "cuentas con descuento"} hoy`,
         detalle: `${money(totalDesc)} en descuentos y cortesías (${Math.round(proporcion * 100)}% de lo que se habría vendido).`,
-        vista: "caja", donde: "Caja › Historial",
+        vista: "caja", tab: "historial", foco: { tipo: "descuentos" }, donde: "Caja › Historial",
       });
     }
   }
 
   /* 4) Productos del menú marcados como agotados */
-  const agotadosMenu = menu.filter((m) => m.agotado).map((m) => m.name);
+  const agotadosItems = menu.filter((m) => m.agotado);
+  const agotadosMenu = agotadosItems.map((m) => m.name);
   if (agotadosMenu.length > 0) {
     alertas.push({
       id: "menu-agotado", nivel: "info",
       titulo: `${agotadosMenu.length} ${agotadosMenu.length === 1 ? "producto agotado" : "productos agotados"} en el menú`,
-      detalle: listaCorta(agotadosMenu), vista: "mesero", donde: "Ajustes › Menú y precios",
+      detalle: listaCorta(agotadosMenu), vista: "menu", productoId: agotadosItems[0].id, donde: "Ajustes › Menú y precios",
     });
   }
 
@@ -94,10 +96,10 @@ export function calcularAlertas({ turnoAbierto, cuentas = [], orders = [], menu 
   const porVencer = insumos.filter((i) => dias(i.vence) !== null && dias(i.vence) >= 0 && dias(i.vence) <= DIAS_AVISO_VENCE);
   const agotadosInv = insumos.filter((i) => estadoStock(i) === "agotado");
   const bajosInv = insumos.filter((i) => estadoStock(i) === "bajo");
-  if (vencidos.length > 0) alertas.push({ id: "inv-vencidos", nivel: "alta", titulo: `${vencidos.length} ${vencidos.length === 1 ? "artículo vencido" : "artículos vencidos"}`, detalle: listaCorta(vencidos.map((i) => i.nombre)), vista: "caja", donde: "Caja › Inventario" });
-  if (porVencer.length > 0) alertas.push({ id: "inv-por-vencer", nivel: "media", titulo: `${porVencer.length} por vencer en ${DIAS_AVISO_VENCE} días`, detalle: listaCorta(porVencer.map((i) => i.nombre)), vista: "caja", donde: "Caja › Inventario" });
-  if (agotadosInv.length > 0) alertas.push({ id: "inv-agotados", nivel: "media", titulo: `${agotadosInv.length} ${agotadosInv.length === 1 ? "artículo agotado" : "artículos agotados"} en inventario`, detalle: listaCorta(agotadosInv.map((i) => i.nombre)), vista: "caja", donde: "Caja › Inventario › Compras" });
-  if (bajosInv.length > 0) alertas.push({ id: "inv-bajos", nivel: "info", titulo: `${bajosInv.length} por agotarse`, detalle: listaCorta(bajosInv.map((i) => i.nombre)), vista: "caja", donde: "Caja › Inventario › Compras" });
+  if (vencidos.length > 0) alertas.push({ id: "inv-vencidos", nivel: "alta", titulo: `${vencidos.length} ${vencidos.length === 1 ? "artículo vencido" : "artículos vencidos"}`, detalle: listaCorta(vencidos.map((i) => i.nombre)), vista: "caja", tab: "inventario", donde: "Caja › Inventario" });
+  if (porVencer.length > 0) alertas.push({ id: "inv-por-vencer", nivel: "media", titulo: `${porVencer.length} por vencer en ${DIAS_AVISO_VENCE} días`, detalle: listaCorta(porVencer.map((i) => i.nombre)), vista: "caja", tab: "inventario", donde: "Caja › Inventario" });
+  if (agotadosInv.length > 0) alertas.push({ id: "inv-agotados", nivel: "media", titulo: `${agotadosInv.length} ${agotadosInv.length === 1 ? "artículo agotado" : "artículos agotados"} en inventario`, detalle: listaCorta(agotadosInv.map((i) => i.nombre)), vista: "caja", tab: "inventario", donde: "Caja › Inventario › Compras" });
+  if (bajosInv.length > 0) alertas.push({ id: "inv-bajos", nivel: "info", titulo: `${bajosInv.length} por agotarse`, detalle: listaCorta(bajosInv.map((i) => i.nombre)), vista: "caja", tab: "inventario", donde: "Caja › Inventario › Compras" });
 
   /* 6) Errores que la propia app registró (últimas 24 horas) */
   const recientes = errores.filter((e) => ahora - e.ts < 24 * 3600 * 1000).sort((a, b) => b.ts - a.ts);

@@ -36,7 +36,7 @@ export const GUIAS = [
     "En **Menú y precios** puedes crear el menú **desde una foto** de tu carta y revisarlo antes de agregarlo.",
     "En **Equipo y usuarios** crea una cuenta por persona con su rol (mesero, cocina, caja). Desactiva a quien deje de trabajar contigo.",
     "En **Ajustes del negocio** pon el nombre y los datos que salen en el comprobante (NIT, dirección, teléfono).",
-    "En **Caja** tienes **Historial** (ventas del día e impresión), **Reportes** (por día, semana o mes) e **Inventario** (stock, mermas, compras).",
+    "En **Caja** tienes **Historial** (ventas del día e impresión) e **Inventario** (stock, mermas, compras). Los **Reportes** (por día, semana o mes) están en el menú de perfil → **Análisis y reportes**.",
     "La **campana** de arriba te avisa de lo importante: caja abierta demasiadas horas, cancelaciones o descuentos inusuales, productos agotados o inventario por vencer.",
     "Una vez al mes, en **Respaldos y datos**, descarga una **copia completa** y guárdala fuera de la app (Drive, correo). La app te lo recuerda.",
     "Necesitas internet para usar la app. Si se cae, los cambios esperan y se suben al volver, pero **no cierres la app** mientras tanto.",

@@ -423,7 +423,21 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
     const t = { ...umbrales, [k]: n };
     if (k === "ambar" && t.rojo <= n) t.rojo = Math.min(LIMITES_UMBRAL.max, n + 1);
     if (k === "rojo" && t.ambar >= n) t.ambar = Math.max(LIMITES_UMBRAL.min, n - 1);
-    persistConfig({ ...config, tiempos: t });
+    persistConfig({ ...config, tiempos: { ...(config.tiempos || {}), ...t } });
+  };
+  // Tiempos propios de una estación (la barra suele necesitar menos minutos que la cocina)
+  const umbralesDe = (id) => getUmbrales(config, id);
+  const tieneTiemposPropios = (id) => !!(config.tiempos && config.tiempos.porEstacion && config.tiempos.porEstacion[id]);
+  const setUmbralEst = (id, k, v) => {
+    const n = Math.max(LIMITES_UMBRAL.min, Math.min(LIMITES_UMBRAL.max, v));
+    const t = { ...umbralesDe(id), [k]: n };
+    if (k === "ambar" && t.rojo <= n) t.rojo = Math.min(LIMITES_UMBRAL.max, n + 1);
+    if (k === "rojo" && t.ambar >= n) t.ambar = Math.max(LIMITES_UMBRAL.min, n - 1);
+    persistConfig({ ...config, tiempos: { ...(config.tiempos || {}), porEstacion: { ...((config.tiempos && config.tiempos.porEstacion) || {}), [id]: { ambar: t.ambar, rojo: t.rojo } } } });
+  };
+  const quitarTiemposEst = (id) => {
+    const pe = { ...((config.tiempos && config.tiempos.porEstacion) || {}) }; delete pe[id];
+    persistConfig({ ...config, tiempos: { ...(config.tiempos || {}), porEstacion: pe } });
   };
   const setEstaciones = (lista, extra = {}) => persistConfig({ ...config, estaciones: lista, ...extra });
   const agregarEstacion = () => {
@@ -593,7 +607,33 @@ export function AjustesPanel({ config, persistConfig, menu, onClose, onAbrirAsis
               <button type="button" aria-label={`Más minutos (${k})`} style={x.btnSmall} onClick={() => setUmbral(k, umbrales[k] + 1)}><Plus size={14} /></button>
             </div>
           ))}
-          <button type="button" style={{ ...x.btnSmall, alignSelf: "flex-start" }} onClick={() => persistConfig({ ...config, tiempos: { ...UMBRALES_DEFECTO } })}>Restablecer ({UMBRALES_DEFECTO.ambar} y {UMBRALES_DEFECTO.rojo} min)</button>
+          <button type="button" style={{ ...x.btnSmall, alignSelf: "flex-start" }} onClick={() => persistConfig({ ...config, tiempos: { ...(config.tiempos || {}), ...UMBRALES_DEFECTO } })}>Restablecer ({UMBRALES_DEFECTO.ambar} y {UMBRALES_DEFECTO.rojo} min)</button>
+          {estaciones.length > 1 && (
+            <>
+              <div style={{ ...x.hint, marginTop: 8, fontWeight: 600 }}>Tiempos por estación</div>
+              <div style={x.hint}>Si una estación necesita otros tiempos (la barra suele necesitar menos que la cocina), cámbialos aquí. Las que no toques usan los tiempos generales de arriba.</div>
+              {estaciones.map((e) => {
+                const u = umbralesDe(e.id);
+                return (
+                  <div key={e.id} style={{ border: "1px solid var(--c-ede7d8-o)", borderRadius: 14, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ flex: 1, fontWeight: 700, fontSize: 14.5 }}>{e.nombre}</span>
+                      <span style={{ fontSize: 12.5, opacity: 0.7 }}>{tieneTiemposPropios(e.id) ? "Tiempos propios" : "Usa los generales"}</span>
+                      {tieneTiemposPropios(e.id) && <button type="button" style={x.btnSmall} onClick={() => quitarTiemposEst(e.id)}>Usar generales</button>}
+                    </div>
+                    {[["ambar", "Ámbar", "var(--c-b98a2e-t)"], ["rojo", "Rojo", "var(--c-c1442d-t)"]].map(([k, et, col]) => (
+                      <div key={k} style={x.row}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, fontSize: 14 }}><span style={{ width: 9, height: 9, borderRadius: 5, background: col, flexShrink: 0 }} />{et}</span>
+                        <button type="button" aria-label={`Menos minutos (${et}, ${e.nombre})`} style={x.btnSmall} onClick={() => setUmbralEst(e.id, k, u[k] - 1)}><Minus size={14} /></button>
+                        <span style={{ minWidth: 64, textAlign: "center", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{u[k]} min</span>
+                        <button type="button" aria-label={`Más minutos (${et}, ${e.nombre})`} style={x.btnSmall} onClick={() => setUmbralEst(e.id, k, u[k] + 1)}><Plus size={14} /></button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </>
+          )}
         </Seccion>
         <Seccion titulo="Cajas" resumen={cajas.length > 1 ? `${cajas.length} cajas` : "1 caja"}>
           <div style={x.hint}>Si tienes más de una caja (por ejemplo una por piso), créalas aquí. Cada caja abre y cierra su propio turno y cuadra su efectivo; los clientes pueden pagar en cualquiera de ellas. Puedes agregar una caja con el negocio abierto: el turno que está abierto sigue como «Caja 1» y la nueva se abre aparte.</div>

@@ -5,6 +5,7 @@ import { cuentaGranTotal, cuentaOrders, dateTimeLabel, dayKey, dayLabel, duracio
 import { tramosDe } from "./relevoCaja.js";
 import { ResumenDia } from "./pantallas/ResumenDia.jsx";
 import { Hoja, Seccion, Kpis, Tabla, Firmas, BarraImp, pctDe } from "./impresion.jsx";
+import { porDiaSemana, productosJuntos } from "./analiticaReportes.js";
 
 const n0 = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const METODOS = Object.keys(METODO_META);
@@ -74,6 +75,54 @@ export function HojaDia({ d, orders, mesas, canceladas = [], config, usuario }) 
         />
       </Seccion>
 
+      {comparativa && (comparativa.total.anterior > 0 || comparativa.cuentas.anterior > 0) && (
+        <Seccion titulo={`Comparado con ${comparativa.etiquetaB}`}>
+          <Datos filas={[
+            ["Ventas", `${money(comparativa.total.actual)} contra ${money(comparativa.total.anterior)} · ${fmtDif(comparativa.total)}`],
+            ["Cuentas cobradas", `${Math.round(comparativa.cuentas.actual)} contra ${Math.round(comparativa.cuentas.anterior)} · ${fmtDif(comparativa.cuentas, false)}`],
+            ["Ticket promedio", `${money(comparativa.ticket.actual)} contra ${money(comparativa.ticket.anterior)} · ${fmtDif(comparativa.ticket)}`],
+          ]} />
+        </Seccion>
+      )}
+
+      {filasSemana.length > 1 && (
+        <Seccion titulo="Ventas por día de la semana" nota="La barra y el promedio son lo que se vende en un día así, en un día normal.">
+          <Tabla
+            cols={[{ t: "Día", w: "22%", v: (f) => f.nombre }, { t: "", v: (f) => <BarraImp valor={f.promedio} max={maxSemana} /> }, { t: "Promedio", d: true, w: "20%", v: (f) => money(f.promedio) }, { t: "Total", d: true, w: "20%", v: (f) => money(f.total) }]}
+            filas={filasSemana}
+          />
+        </Seccion>
+      )}
+
+      {juntos.pares.length > 0 && (
+        <Seccion titulo="Productos que se piden juntos" nota="Cuentas que llevaron los dos productos a la vez (solo las combinaciones que se repiten).">
+          <Tabla
+            cols={[{ t: "Combinación", v: (f) => `${f.a} + ${f.b}` }, { t: "Cuentas", d: true, w: "16%", v: (f) => f.cuentas }, { t: "% de cuentas", d: true, w: "20%", v: (f) => `${Math.round(f.pct)}%` }]}
+            filas={juntos.pares}
+          />
+        </Seccion>
+      )}
+
+      {propinas && propinas.datos && (propinas.datos.totalPendiente + propinas.datos.totalRepartido + propinas.datos.totalEnCurso) > 0 && (
+        <Seccion titulo={`Propinas · ${propinas.etiqueta}`} nota="Las propinas de cualquier método de pago se entregan en efectivo. Solo se reparten las de turnos cerrados.">
+          <Datos filas={[
+            ["YA REPARTIDAS", money(propinas.datos.totalRepartido)],
+            ["PENDIENTES POR REPARTIR", money(propinas.datos.totalPendiente)],
+            ...(propinas.datos.totalEnCurso > 0 ? [["En turno abierto (aún no se reparte)", money(propinas.datos.totalEnCurso)]] : []),
+          ]} />
+          {propinas.repartos.length > 0 && (
+            <Tabla
+              cols={[{ t: "Entregada el", w: "24%", v: (r) => dateTimeLabel(r.ts) }, { t: "La entregó", w: "18%", v: (r) => r.nombre || "—" }, { t: "A quién", v: (r) => (r.lineas || []).map((l) => `${l.nombre} ${money(l.monto)}`).join(" · ") }, { t: "Total", d: true, w: "16%", v: (r) => money(r.total) }]}
+              filas={propinas.repartos}
+            />
+          )}
+          <Tabla
+            cols={[{ t: "Día", w: "26%", v: (d) => dayLabel(new Date(`${d.dia}T12:00:00`).getTime()) }, { t: "Repartido", d: true, v: (d) => (d.repartido > 0 ? money(d.repartido) : "—") }, { t: "Pendiente por repartir", d: true, v: (d) => (d.pendiente > 0 ? money(d.pendiente) : "—") }, { t: "Turno abierto", d: true, v: (d) => (d.enCurso > 0 ? money(d.enCurso) : "—") }]}
+            filas={propinas.datos.porDia}
+          />
+        </Seccion>
+      )}
+
       <Seccion titulo="Ventas por mesero">
         <Tabla
           cols={[{ t: "Mesero", v: (f) => f[0] }, { t: "Cuentas", d: true, v: (f) => f[1].cuentas }, { t: "Promedio", d: true, v: (f) => money(f[1].total / f[1].cuentas) }, { t: "Propinas", d: true, v: (f) => money(f[1].propinas) }, { t: "Total", d: true, v: (f) => money(f[1].total) }]}
@@ -127,7 +176,7 @@ export function HojaDia({ d, orders, mesas, canceladas = [], config, usuario }) 
 }
 
 /* ═════════════════════════ 2) Reporte de un período (Reportes) ═════════════════════════ */
-export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = [], costoPorId = {}, tiempoCocina, config, usuario, rentab = null }) {
+export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = [], costoPorId = {}, tiempoCocina, config, usuario, rentab = null, comparativa = null, propinas = null }) {
   const total = pagadas.reduce((s, c) => s + cuentaGranTotal(orders, c), 0);
   const propinas = pagadas.reduce((s, c) => s + n0(c.propina && c.propina.monto), 0);
   const descuentos = pagadas.reduce((s, c) => s + n0(c.descuento && c.descuento.monto), 0);
@@ -169,6 +218,11 @@ export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = 
   pagadas.forEach((c) => { const k = c.mesero || "Sin asignar"; const v = (meseros[k] = meseros[k] || { cuentas: 0, total: 0, propinas: 0 }); v.cuentas += 1; v.total += cuentaGranTotal(orders, c); v.propinas += n0(c.propina && c.propina.monto); });
   const listaMeseros = Object.entries(meseros).sort((a, b) => b[1].total - a[1].total);
   const totalCancelado = canceladas.reduce((s, c) => s + n0(c.montoCancelado), 0);
+  const semana = porDiaSemana(pagadas, orders);
+  const filasSemana = semana.filas.filter((f) => f.total > 0);
+  const maxSemana = Math.max(0, ...filasSemana.map((f) => f.promedio));
+  const juntos = productosJuntos(pagadas, orders, { max: 6 });
+  const fmtDif = (m, esDinero = true) => `${m.pct === null ? "—" : `${m.pct >= 0 ? "+" : ""}${Math.round(m.pct)}%`} (${m.dif >= 0 ? "+" : "−"}${esDinero ? money(Math.abs(m.dif)) : Math.abs(Math.round(m.dif))})`;
 
   return (
     <Hoja config={config} usuario={usuario} titulo={`Reporte de ventas — ${etiqueta}`} subtitulo={rangoTxt}>

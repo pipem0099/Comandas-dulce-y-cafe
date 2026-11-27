@@ -157,7 +157,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
   const filtros = [["todos", "Todos"], ["alertas", `Alertas${nAlertas ? ` (${nAlertas})` : ""}`], ["vencen", `Por vencer${nVencen ? ` (${nVencen})` : ""}`]];
 
   return (
-    <div className="col-fija" style={{ flex: 1, overflowY: "auto", padding: "8px 16px 28px", display: "flex", flexDirection: "column", gap: 12, color: K.ink }}>
+    <div className="col-fija ancho" style={{ flex: 1, overflowY: "auto", padding: "8px 16px 28px", display: "flex", flexDirection: "column", gap: 12, color: K.ink }}>
       {/* Resumen */}
       {insumos.length > 0 && (
         <div style={s.resumen}>
@@ -170,7 +170,7 @@ export function InventarioView({ insumos, saveInsumo, updateInsumo, deleteInsumo
       {/* Acciones principales */}
       {!creando && (
         <div style={{ ...x.row, justifyContent: "flex-end" }}>
-          <button style={{ ...x.btnDark, flex: "0 0 auto", width: "auto", padding: "0 16px" }} onClick={() => { setCreando(true); setAccion(null); }}><Plus size={15} /> Nuevo artículo</button>
+          <button data-atajo="nuevo" style={{ ...x.btnDark, flex: "0 0 auto", width: "auto", padding: "0 16px" }} onClick={() => { setCreando(true); setAccion(null); }}><Plus size={15} /> Nuevo artículo</button>
           <button style={{ ...x.btnGhost, position: "relative" }} onClick={() => setVerCompras(!verCompras)} aria-label="Lista de compras">
             <ShoppingCart size={16} /> Compras
             {porComprar.length > 0 && <span style={s.badge}>{porComprar.length}</span>}

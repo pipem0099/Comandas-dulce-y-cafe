@@ -155,7 +155,7 @@ function VentanaComprobante({ trabajo, cerrar }) {
           <div className="recibo-vista"><HojaComprobante d={d} /></div>
           <input style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", minHeight: 44, borderRadius: 12, border: "1px solid var(--c-e4dfce-o)", background: "var(--c-fffdf8-b)", color: "var(--c-242019-t)", fontSize: 14 }} inputMode="tel" placeholder="Celular del cliente (opcional, para WhatsApp)" value={tel} onChange={(e) => setTel(e.target.value)} />
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button style={estiloBoton(true)} onClick={imprimirAhora}><Printer size={16} /> Imprimir</button>
+            <button data-atajo="imprimir" style={estiloBoton(true)} onClick={imprimirAhora}><Printer size={16} /> Imprimir</button>
             <button style={estiloBoton(false)} onClick={whatsapp}><MessageCircle size={16} /> WhatsApp</button>
             <button style={estiloBoton(false)} onClick={copiar}>{copiado ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar</>}</button>
           </div>

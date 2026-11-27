@@ -1,4 +1,5 @@
-import { useAtajoBuscador } from "./atajos.js";
+import { useAtajoBuscador, useAtajosGlobales, useAtajosVista } from "./atajos.js";
+import { HojaAtajos } from "./componentes/HojaAtajos.jsx";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { calcularAlertas } from "./alertas.js";
 import { contextoErrores } from "./errores.js";
@@ -71,6 +72,7 @@ export default function App() {
   menuRef.current = menu;
   insumosRef.current = insumos;
   const [equipo, setEquipo] = useState([]); // directorio del equipo (nombre, roles, activo): lo leen todos para elegir a quién entregar la caja
+  const [focoProducto, setFocoProducto] = useState(null); // producto a abrir directo en «Menú y precios»
   const [vista, setVista] = useState(null); // pantalla de administración abierta: menu | mesas | equipo | respaldos | ajustes
   const ultimaMarcaPublica = useRef("");
   const [sesion, setSesion] = useState(undefined); // undefined = comprobando · null = sin iniciar sesión
@@ -104,6 +106,10 @@ export default function App() {
   const [pendientesLentos, setPendientesLentos] = useState(false);
   useEffect(() => observarPendientes(setPendientes), []);
   useAtajoBuscador();
+  const atajosRef = useRef(null);
+  const [verAtajosGlobal, setVerAtajosGlobal] = useState(false);
+  useAtajosGlobales(atajosRef);
+  useAtajosVista();
   useEffect(() => {
     if (pendientes === 0) { setPendientesLentos(false); return undefined; }
     const t = setTimeout(() => setPendientesLentos(true), 5000);
@@ -481,6 +487,7 @@ export default function App() {
   const movil = dispositivo === "movil";
   const ocultarNav = kioskoCocina && role === "cocina"; // pantalla completa de cocina: solo se ve la cocina
   const items = itemsNavegacion(usuarioActual);
+  atajosRef.current = { items, ir: (id) => cambiarRol(id), mostrarAtajos: () => setVerAtajosGlobal(true) };
   // Cada pantalla solo se dibuja si la persona tiene el rol que la autoriza (no basta con "estar" en ella)
   const puede = (id) => items.some((i) => i.id === id);
   const cambiarRol = (r) => {
@@ -504,9 +511,15 @@ export default function App() {
     vibrar(6); cambiarRol(items[j].id);
   } };
   // Las alertas llevan a una pantalla principal (caja, mesero…) o a una de administración (respaldos…)
+  // Desde Reportes: un producto, una categoría o un día abren su detalle
+  const irDetalle = (d) => {
+    if (d.tipo === "producto") { setFocoProducto({ id: d.id, n: Date.now() }); abrirVista("menu"); }
+    else if (d.tipo === "categoria") { setFocoProducto({ categoria: d.cat, n: Date.now() }); abrirVista("menu"); }
+    else if (d.tipo === "dia") { setAbrirTabCaja({ tab: "historial", foco: { tipo: "dia", dia: d.dia }, n: Date.now() }); setVista(null); setSaliendoVista(false); cambiarRol("caja"); }
+  };
   const irDesdeAlerta = (v, alerta) => {
-    if (["menu", "mesas", "equipo", "respaldos", "ajustes", "analisis"].includes(v)) abrirVista(v);
-    else { if (v === "caja" && alerta && alerta.tab) setAbrirTabCaja({ tab: alerta.tab, n: Date.now() }); cambiarRol(v); }
+    if (["menu", "mesas", "equipo", "respaldos", "ajustes", "analisis"].includes(v)) { if (v === "menu" && alerta && alerta.productoId) setFocoProducto({ id: alerta.productoId, n: Date.now() }); abrirVista(v); }
+    else { if (v === "caja" && alerta && alerta.tab) setAbrirTabCaja({ tab: alerta.tab, foco: alerta.foco || null, n: Date.now() }); cambiarRol(v); }
   };
 
   return (
@@ -541,7 +554,8 @@ export default function App() {
       <React.Suspense fallback={<CargandoContenido tipo={vista ? "lista" : role === "mesero" ? "mesas" : role === "cocina" ? "comandas" : "lista"} />}>
       {vista && esAdminApp && (
         <>
-          {vista === "menu" && <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} insumos={insumos} onClose={cerrarVista} />}
+          {verAtajosGlobal && <HojaAtajos onCerrar={() => setVerAtajosGlobal(false)} />}
+          {vista === "menu" && <MenuEditor menu={menu} persistMenu={persistMenu} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} insumos={insumos} foco={focoProducto} onClose={cerrarVista} />}
           {vista === "mesas" && <MesasEditor mesas={mesas} persistMesas={persistMesas} cuentas={cuentas} orders={orders} config={config} persistConfig={persistConfig} actor={usuarioActual.nombre} onClose={cerrarVista} />}
           {vista === "ajustes" && <div style={styles.screen}><AjustesPanel turnosAbiertos={turnosAbiertos} config={config} persistConfig={persistConfig} menu={menu} onClose={cerrarVista} onAbrirAsistente={() => setVerAsistente(true)} /></div>}
           {vista === "facturacion" && <div style={styles.screen}><PanelFacturacion usuarioActual={usuarioActual} onClose={cerrarVista} /></div>}
@@ -549,7 +563,7 @@ export default function App() {
           {vista === "analisis" && (
             <div style={styles.screen}>
               <Analisis
-                onClose={cerrarVista} menu={menu} persistMenu={persistMenu} insumos={insumos} config={config} persistConfig={persistConfig}
+                usuarioActual={usuarioActual} turnos={turnos} equipo={equipo} cuentasVivas={cuentas} ordersVivos={orders} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} onIr={abrirVista} onDetalle={irDetalle} onClose={cerrarVista} onEditarProducto={(id) => { setFocoProducto({ id, n: Date.now() }); abrirVista("menu"); }} menu={menu} persistMenu={persistMenu} insumos={insumos} config={config} persistConfig={persistConfig}
                 cuentasAnalisis={cuentasAnalisis} ordersAnalisis={ordersAnalisis}
                 cargarHistorialReciente={cargarHistorialReciente} historialListo={!!baseAnalisis} errorHistorial={!!(baseAnalisis && baseAnalisis.error)} cargandoHistorial={cargandoReciente}
               />

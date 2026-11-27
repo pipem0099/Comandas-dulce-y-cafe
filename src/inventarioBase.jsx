@@ -138,7 +138,7 @@ export function FormInsumo({ v, set, categorias, nuevo, ocupado, onCancel, onGua
 
       <div style={x.row}>
         <button style={{ ...x.btnGhost, flex: 1 }} onClick={onCancel}>Cancelar</button>
-        <button style={{ ...x.btnDark, flex: 2, opacity: ocupado ? 0.6 : 1 }} disabled={ocupado} onClick={onGuardar}><Check size={15} /> {textoGuardar}</button>
+        <button data-atajo="confirmar" style={{ ...x.btnDark, flex: 2, opacity: ocupado ? 0.6 : 1 }} disabled={ocupado} onClick={onGuardar}><Check size={15} /> {textoGuardar}</button>
       </div>
     </div>
   );
