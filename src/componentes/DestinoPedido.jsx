@@ -78,7 +78,7 @@ export function DestinoPedido({ valor, estaciones, pisos, nombrePisoMesa, lineas
             </div>
           )}
 
-          <button type="button" disabled={!listo} onClick={() => { onGuardar(v); cerrar(); }} style={{ ...styles.sendBtn, opacity: listo ? 1 : 0.4, minHeight: 50 }}>
+          <button type="button" data-atajo="confirmar" disabled={!listo} onClick={() => { onGuardar(v); cerrar(); }} style={{ ...styles.sendBtn, opacity: listo ? 1 : 0.4, minHeight: 50 }}>
             {listo ? "Listo" : "Elige a dónde va"}
           </button>
         </>

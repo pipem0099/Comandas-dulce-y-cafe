@@ -45,7 +45,7 @@ export function DatosFactura({ valor, onGuardar, onQuitar, onCerrar }) {
           {error("correo")}
           {!cf && <input autoComplete="off" style={styles.editInput} placeholder="Dirección (opcional)" maxLength={160} value={f.direccion} onChange={set("direccion")} aria-label="Dirección" />}
           {valor && <div style={{ fontSize: 12.5, color: "var(--btn2-mute)" }}>Guardado: {etiquetaDocumento(valor)}</div>}
-          <button style={styles.sendBtn} onClick={() => guardar(cerrar)}>Guardar datos</button>
+          <button data-atajo="confirmar" style={styles.sendBtn} onClick={() => guardar(cerrar)}>Guardar datos</button>
           {valor && onQuitar && <button style={{ ...styles.cancelEditBtn, color: "var(--c-c1442d-t)" }} onClick={() => { onQuitar(); cerrar(); }}>Quitar los datos</button>}
           <button style={styles.cancelEditBtn} onClick={cerrar}>Cancelar</button>
         </>

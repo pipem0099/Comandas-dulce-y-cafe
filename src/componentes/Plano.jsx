@@ -60,7 +60,7 @@ export function PlanoSalon({ mesas, zonas = [], alto = 100, cuentas, orders, edi
   };
 
   return (
-    <div style={{ width: "100%", maxWidth: 980, margin: "0 auto" }}>
+    <div style={{ width: "100%" }}>
       <div
         ref={ref} onPointerMove={mover} onPointerUp={soltar} onPointerCancel={soltar}
         onPointerDown={() => editable && onSeleccionar && onSeleccionar(null)}

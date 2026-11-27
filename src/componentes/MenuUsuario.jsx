@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { X, Sun, Moon, Palette, UserRound, Settings, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup, BookOpen, Keyboard, BarChart3, Printer, FileCheck2 } from "lucide-react";
+import { X, Sun, Moon, Palette, UserRound, Settings, SlidersHorizontal, Users, KeyRound, Download, LogOut, ChevronRight, Check, UtensilsCrossed, LayoutGrid, DatabaseBackup, BookOpen, Keyboard, BarChart3, Printer, FileCheck2, Wallet } from "lucide-react";
 import { AyudaRoles } from "./AyudaRoles.jsx";
 import { HojaAtajos } from "./HojaAtajos.jsx";
+import { MisPropinas } from "./MisPropinas.jsx";
 import { guardarTema, temaGuardado, vibrar } from "../theme.js";
 import { enviarCorreoCambioClave } from "../firebase.js";
 import { rolesLabel } from "../utilidades.js";
@@ -32,6 +33,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   const [seccion, setSeccion] = useState(esAdminU ? "admin" : "cuenta"); // pastilla activa
   const [verAyuda, setVerAyuda] = useState(false);
   const [verAtajos, setVerAtajos] = useState(false);
+  const [verPropinas, setVerPropinas] = useState(false);
   const tieneTeclado = typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   const [verImpresora, setVerImpresora] = useState(false);
   const [confirmClave, setConfirmClave] = useState(false);
@@ -72,6 +74,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
   );
 
   if (verAtajos) return <HojaAtajos onCerrar={() => setVerAtajos(false)} />;
+  if (verPropinas) return <MisPropinas usuarioActual={usuarioActual} onCerrar={() => setVerPropinas(false)} />;
   if (verAyuda) return <AyudaRoles usuario={usuarioActual} config={config} onCerrar={() => setVerAyuda(false)} />;
   if (verImpresora) return <ImpresoraTermica onCerrar={() => setVerImpresora(false)} />;
   return (
@@ -110,7 +113,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
             <Fila icon={UtensilsCrossed} titulo="Menú y precios" sub="Productos, categorías y agotados" onClick={ir(() => onIr("menu"))} />
             <Fila icon={LayoutGrid} titulo="Mesas y plano" sub="Mesas, espacios y su distribución" onClick={ir(() => onIr("mesas"))} />
             <Fila icon={Users} titulo="Equipo y usuarios" sub="Cuentas, roles y propiedad" onClick={ir(() => onIr("equipo"))} />
-            <Fila icon={BarChart3} titulo="Análisis y control" sub="Comparativos, rentabilidad, pérdidas y semana" onClick={ir(() => onIr("analisis"))} />
+            <Fila icon={BarChart3} titulo="Análisis y reportes" sub="Reportes por período, comparativos, rentabilidad y pérdidas" onClick={ir(() => onIr("analisis"))} />
             <Fila icon={FileCheck2} titulo="Facturación electrónica" sub="Proveedor DIAN, impuestos y resolución" onClick={ir(() => onIr("facturacion"))} />
             <Fila icon={DatabaseBackup} titulo="Respaldos y datos" sub="Copias de seguridad y restauración" onClick={ir(() => onIr("respaldos"))} />
             <Fila icon={SlidersHorizontal} titulo="Ajustes del negocio" sub="Marca, estaciones e inventario" onClick={ir(() => onIr("ajustes"))} />
@@ -120,6 +123,7 @@ export function MenuUsuario({ usuarioActual, config, onCerrar, onIr, onSalir }) 
         {seccion === "cuenta" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={s.grupo}>
+              <Fila icon={Wallet} titulo="Mis propinas" sub="Lo pendiente y lo que ya te entregaron" onClick={() => setVerPropinas(true)} />
               <Fila icon={BookOpen} titulo="Cómo se usa la app" sub="Guía corta según tu rol" onClick={() => setVerAyuda(true)} />
               {tieneTeclado && <Fila icon={Keyboard} titulo="Atajos de teclado" sub="Moverte más rápido desde un computador" onClick={() => setVerAtajos(true)} />}
               <Fila icon={Printer} titulo="Impresora de tickets" sub="Imprime cuentas y pedidos de cocina" onClick={() => setVerImpresora(true)} />

@@ -145,7 +145,8 @@ export function FacturaCuenta({ cuenta, ajustes, esAdmin, enCola, totalDocumento
       })()}
       {est.clave !== "emitida" && est.clave !== "anulada" && est.detalle && <div style={{ fontSize: 13, color: est.tono === "error" ? "var(--c-c1442d-t)" : "var(--btn2-mute)" }}>{est.detalle}</div>}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {habilitada && est.puedeEmitir && <button style={{ ...btn, flex: "1 1 100%", justifyContent: "center", background: "var(--accent)", color: "#fff", border: "none" }} disabled={trabajando} onClick={() => emitir(est.clave === "error" && est.incierto ? { forzar: true } : {})}><Send size={15} /> {est.clave === "error" ? est.etiquetaReintento : "Emitir factura"}</button>}
+        {habilitada && est.puedeEmitir && <button style={{ ...btn, flex: "1 1 100%", justifyContent: "center", background: "var(--accent)", color: "#fff", border: "none" }} disabled={trabajando} onClick={() => emitir(est.clave === "error" && est.incierto ? { forzar: true } : {})}><Send size={15} /> {est.clave === "error" ? est.etiquetaReintento : "Emitir factura electrónica"}</button>}
+        {habilitada && est.puedeEmitir && est.clave !== "error" && <div style={{ flex: "1 1 100%", fontSize: 12.5, color: "var(--btn2-mute)", lineHeight: 1.4 }}>Envía esta venta a la DIAN como factura electrónica. No imprime nada: al terminar podrás imprimir la tirilla, ver el PDF o enviarla por correo.</div>}
         {est.puedeVerPdf && doc && <button style={btn} disabled={trabajando} onClick={() => imprimirTirilla(false)}><Printer size={15} /> Imprimir tirilla</button>}
         {est.clave === "anulada" && doc && doc.anulacion && doc.anulacion.numeroNota && <button style={btn} disabled={trabajando} onClick={() => imprimirTirilla(true)}><Printer size={15} /> Tirilla de la Nota Crédito</button>}
         {est.puedeVerPdf && <button style={btn} onClick={verPdf}><FileText size={15} /> Ver / descargar PDF</button>}

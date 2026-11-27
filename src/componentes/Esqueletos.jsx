@@ -66,7 +66,7 @@ export function EsqueletoComandas() {
 /** Historial: filas con el nombre a la izquierda y el monto a la derecha, igual que las filas reales (ancho máx. 1050). */
 export function EsqueletoHistorial({ filas = 8 }) {
   return (
-    <div role="status" aria-label="Cargando" style={{ padding: "8px 16px", maxWidth: 1050 }}>
+    <div role="status" aria-label="Cargando" className="ancho" style={{ padding: "8px 16px" }}>
       <Barra w={64} h={12} />
       <div style={{ height: 12 }} />
       {Array.from({ length: filas }).map((_, i) => (
@@ -106,7 +106,7 @@ export function EsqueletoInventario() {
 /** Reportes: selector de rango, tarjetas de cifras y listas. */
 export function EsqueletoReportes() {
   return (
-    <div role="status" aria-label="Cargando" style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: 14, maxWidth: 1050 }}>
+    <div role="status" aria-label="Cargando" className="ancho" style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", gap: 8 }}>{[0, 1, 2, 3].map((i) => <Barra key={i} w={84} h={34} r={17} />)}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         {[0, 1, 2].map((i) => <div key={i} className="esq-tarjeta"><Barra w="40%" h={11} /><Barra w="60%" h={26} /></div>)}
