@@ -6,9 +6,10 @@ import { ROLES_ORDEN } from "../constantes.js";
 import { styles } from "../estilos.js";
 import { msgAuth } from "../pantallas/Acceso.jsx";
 import { claveFiltrada, MENSAJE_CLAVE_FILTRADA } from "../clavesSeguras.js";
-import { Acordeon, MenuContextual } from "../componentes/Comunes.jsx";
+import { MenuContextual } from "../componentes/Comunes.jsx";
+import { RegistroMensual } from "../componentes/RegistroMensual.jsx";
 import { EsqueletoLista } from "../componentes/Esqueletos.jsx";
-import { agruparPorMes, dateTimeLabel, rolLabel, rolesAMapa, rolesDe, rolesLabel, tieneRol } from "../utilidades.js";
+import { rolLabel, rolesAMapa, rolesDe, rolesLabel, tieneRol } from "../utilidades.js";
 
 export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
   const auditLog = config.auditLog || [];
@@ -221,16 +222,16 @@ export function GestionUsuarios({ config, persistConfig, usuarioActual }) {
           </button>
           {logAbierto && (
             <div className="despliega" style={{ marginTop: 10 }}>
-              {agruparPorMes(auditLog, (r) => r.ts).map((mes, i) => (
-                <Acordeon key={mes.key} titulo={mes.titulo} inicialAbierto={i === 0} resumen={`${mes.items.length} ${mes.items.length === 1 ? "movimiento" : "movimientos"}`}>
-                  {mes.items.map((r, j) => (
-                    <div key={j} style={styles.auditRow}>
-                      <span style={styles.cierreDate}>{dateTimeLabel(r.ts)}</span>
-                      <span style={styles.auditText}>{r.actor}: {r.accion}</span>
-                    </div>
-                  ))}
-                </Acordeon>
-              ))}
+              <RegistroMensual
+                registros={auditLog.map((r, i) => ({ id: `${r.ts}-${i}`, ts: r.ts, quien: r.actor, texto: r.accion, protegido: String(r.accion || "").startsWith("Borró registros") }))}
+                puedeBorrar={tieneRol(usuarioActual, "admin")}
+                onBorrar={async (ids, descripcion) => {
+                  const fuera = new Set(ids);
+                  const resto = auditLog.filter((r, i) => !fuera.has(`${r.ts}-${i}`));
+                  const constancia = registrar(`Borró registros del registro de seguridad: ${descripcion}`);
+                  try { await persistConfig({ ...config, auditLog: [constancia, ...resto].slice(0, 500) }); return true; } catch (e) { return false; }
+                }}
+              />
             </div>
           )}
         </>

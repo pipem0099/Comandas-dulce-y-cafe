@@ -26,7 +26,7 @@ const DIAS_ANTIGUA = 7;         // desde cuántos días una deuda se marca como 
 
 const lista = (x) => (Array.isArray(x) ? x : Object.values(x || {})).filter(Boolean);
 
-export function PendientesView({ deudas, usuarioActual, turnoAbierto, config }) {
+export function PendientesView({ deudas, usuarioActual, turnoAbierto, config, foco }) {
   const esAdmin = tieneRol(usuarioActual, "admin");
   const [texto, setTexto] = useState("");
   const [desde, setDesde] = useState("");
@@ -34,6 +34,13 @@ export function PendientesView({ deudas, usuarioActual, turnoAbierto, config }) 
   const [estado, setEstado] = useState("pendiente");
   const [resueltas, setResueltas] = useState(null);   // null = cargando
   const [selId, setSelId] = useState(null);
+  // Llegada desde una alerta: abre directamente esa cuenta (solo si el aviso es reciente, para no repetirlo al volver a la pestaña)
+  useEffect(() => {
+    if (!foco || foco.tipo !== "deuda" || !foco.id || Date.now() - (foco.n || 0) > 5000) return;
+    setEstado("pendiente"); setTexto(""); setDesde(""); setHasta(""); setSelId(foco.id);
+    const t = setTimeout(() => { const el = document.querySelector(`[data-deuda="${foco.id}"]`); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" }); }, 250);
+    return () => clearTimeout(t);
+  }, [foco && foco.n]); // eslint-disable-line react-hooks/exhaustive-deps
   const buscadorRef = useRef(null);
 
   // Las resueltas (pagadas / condonadas) no están en la lista en vivo: se piden al elegir ese filtro (solo administrador).
@@ -102,7 +109,7 @@ export function PendientesView({ deudas, usuarioActual, turnoAbierto, config }) 
         ) : filtradas.map((d) => {
           const antigua = d.estado === "pendiente" && diasDesde(d.ts) >= DIAS_ANTIGUA;
           return (
-            <button key={d.id} style={{ ...cj.fila, ...(selId === d.id ? cj.filaOn : {}) }} onClick={() => setSelId(d.id)} aria-label={`Abrir cuenta pendiente de ${clienteEtiqueta(d.cliente)}`}>
+            <button key={d.id} data-deuda={d.id} style={{ ...cj.fila, ...(selId === d.id ? cj.filaOn : {}) }} onClick={() => setSelId(d.id)} aria-label={`Abrir cuenta pendiente de ${clienteEtiqueta(d.cliente)}`}>
               <div style={cj.filaTop}>
                 <span style={cj.filaNombre}>{clienteEtiqueta(d.cliente)}</span>
                 {antigua && <span style={{ ...cj.chip, background: "var(--c-fbefd9-b)", color: "var(--warn-text, #8a5a00)" }}>Antigua</span>}

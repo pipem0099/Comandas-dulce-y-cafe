@@ -197,7 +197,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                     </div>
                     <ListaMovimientos movimientos={movimientos} onAnular={calculado ? null : anularMovimiento} puedeAnular={(m) => !tramo || m.ts >= tramo.inicioTs} />
                   </div>
-                ) : <div style={t.vacio}>Todavía no hay movimientos en este turno.{!calculado && <button type="button" className="toque44" style={{ display: "block", marginTop: 6, padding: 0, border: "none", background: "transparent", color: "var(--link)", fontWeight: 600, fontSize: 13.5, cursor: "pointer" }} onClick={() => document.getElementById("registrar-movimiento")?.scrollIntoView({ behavior: "smooth", block: "center" })}>+ Registrar movimiento</button>}</div>}
+                ) : <div style={t.vacio}>Todavía no hay movimientos en este turno.{!calculado && <button type="button" className="toque44" style={{ display: "inline-flex", alignItems: "center", marginTop: 8, minHeight: 36, padding: "0 14px", border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", borderRadius: 999, color: "var(--btn2-fg)", fontWeight: 600, fontSize: 13.5, cursor: "pointer" }} onClick={() => document.getElementById("registrar-movimiento")?.scrollIntoView({ behavior: "smooth", block: "center" })}>+ Registrar movimiento</button>}</div>}
               </div>
             </div>
 
@@ -352,7 +352,7 @@ const t = {
   puertaIcono: { width: 60, height: 60, borderRadius: 30, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--c-e4eee1-b)", color: "var(--pago-ok)", border: "1px solid var(--ok-border)" },
   puertaTitulo: { fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--c-242019-t)" },
   puertaTexto: { fontSize: 13.5, lineHeight: 1.5, color: "var(--c-5c5648-t)", maxWidth: 380 },
-  pagina: { display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, margin: "0 auto", width: "100%" },
+  pagina: { display: "flex", flexDirection: "column", gap: 14, width: "100%" },
   estado: { display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 16, background: "var(--c-e4eee1-b)", border: "1px solid rgba(52,199,142,.32)", color: "var(--c-242019-t)" },
   estadoPunto: { width: 12, height: 12, borderRadius: 6, background: "var(--pago-ok)", boxShadow: "0 0 0 5px var(--ok-border)", flexShrink: 0 },
   estadoChip: { fontSize: 11.5, fontWeight: 600, padding: "2px 9px", borderRadius: 10, background: "rgba(128,138,150,.16)", color: "var(--c-5c5648-t)", marginLeft: 4 },

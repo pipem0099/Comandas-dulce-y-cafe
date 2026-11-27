@@ -103,8 +103,12 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
 
   // Reloj en vivo (cada segundo) y umbrales ámbar/rojo editables en Ajustes → Tiempos de espera
   const ahora = useAhora(1000);
-  const umbrales = getUmbrales(config);
-  const nivelDe = (ts) => nivelEspera(ts, umbrales, ahora);
+  // Cada estación tiene sus tiempos. Con una estación elegida se usan los suyos; en «Todas», cada comanda usa los más exigentes de sus estaciones.
+  const nivelDe = (ts, o) => {
+    const ids = est !== "todas" ? [est] : Array.from(new Set(((o && o.items) || []).map((it) => estacionDeLinea(it, config))));
+    const us = (ids.length ? ids : [undefined]).map((id) => getUmbrales(config, id));
+    return nivelEspera(ts, { ambar: Math.min(...us.map((u) => u.ambar)), rojo: Math.min(...us.map((u) => u.rojo)) }, ahora);
+  };
 
   const activos = orders.filter((o) => o.estado !== "listo" && o.estado !== "servido" && o.estado !== "cancelado");
   const active = activos.filter((o) => o.items.some((it) => enEstacion(it) && itemListos(o, it) < it.qty)).sort((a, b) => a.ts - b.ts);
@@ -385,13 +389,13 @@ export function CocinaView({ orders, saveOrder, mesas, config, onKiosko }) {
           {lista.map((o) => (
             <FilaDeslizable key={o.id} data-flip={o.id} radio={12}
               izquierda={{ texto: o.estado === "pendiente" ? "Empezar" : "Todo listo", icono: o.estado === "pendiente" ? Flame : Check, color: o.estado === "pendiente" ? "var(--warn-solid)" : "var(--ok-solid)", onAccion: () => advance(o.id) }}>
-            <div className={"anim-in" + (nivelDe(o.ts) === "rojo" ? " ticket-urgente" : "")} style={{ ...styles.ticket, borderLeftColor: COLOR_NIVEL[nivelDe(o.ts)] }}>
+            <div className={"anim-in" + (nivelDe(o.ts, o) === "rojo" ? " ticket-urgente" : "")} style={{ ...styles.ticket, borderLeftColor: COLOR_NIVEL[nivelDe(o.ts, o)] }}>
               <div style={styles.ticketHead}>
                 <span style={styles.ticketMesa}>
                   {mesaNombre(mesas, o.mesa).toUpperCase()}
                   {o.editado && <span style={{ ...styles.editedBadge, ...(o.cambio && o.cambioVisto === false ? { background: "var(--warn-solid)", color: "#FFFFFF" } : {}) }}>MODIFICADO</span>}
                 </span>
-                <span className={"ticket-reloj" + (nivelDe(o.ts) === "rojo" ? " ticket-reloj--rojo" : "")} style={{ ...styles.ticketTime, color: COLOR_NIVEL[nivelDe(o.ts)], fontWeight: 700, fontVariantNumeric: "tabular-nums" }}><Clock size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{relojEspera(o.ts, ahora)}</span>
+                <span className={"ticket-reloj" + (nivelDe(o.ts, o) === "rojo" ? " ticket-reloj--rojo" : "")} style={{ ...styles.ticketTime, color: COLOR_NIVEL[nivelDe(o.ts, o)], fontWeight: 700, fontVariantNumeric: "tabular-nums" }}><Clock size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{relojEspera(o.ts, ahora)}</span>
               </div>
               <div style={styles.ticketExactTime}>
                 {o.tipo === "llevar" && <span style={styles.ticketTipo}>PARA LLEVAR</span>}

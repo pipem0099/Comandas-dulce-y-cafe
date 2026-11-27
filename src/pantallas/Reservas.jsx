@@ -130,7 +130,7 @@ export function ReservasView({ reservas, saveReserva, deleteReserva, mesas, usua
     <div style={styles.screen}>
       <div className="ancho" style={{ ...styles.mesaGridHeader, alignItems: "flex-end" }}>
         <div><div style={styles.pageEyebrow}>AGENDA</div><div style={styles.pageTitle}>Reservas</div></div>
-        <button style={{ ...styles.sendBtn, width: "auto", padding: "10px 16px" }} onClick={nueva}><Plus size={16} /> Nueva reserva</button>
+        <button data-atajo="nuevo" style={{ ...styles.sendBtn, width: "auto", padding: "10px 16px" }} onClick={nueva}><Plus size={16} /> Nueva reserva</button>
       </div>
 
       <Segmentado className="ancho" style={rv.dias} ariaLabel="Día">
@@ -233,7 +233,7 @@ function FormReserva({ config = {}, inicial, mesas, reservas, usuarioActual, onG
         </button>
         {choque && <div style={rv.aviso}>{mesaChoque || "Esa mesa"} ya está reservada cerca de esa hora por {choque.nombre}.</div>}
         <input style={styles.editInput} placeholder="Nota (cumpleaños, alergias, silla de bebé…)" value={f.nota || ""} onChange={(e) => set("nota", e.target.value)} />
-        <button style={{ ...styles.sendBtn, opacity: valido ? 1 : 0.4 }} disabled={!valido} onClick={guardar}><Check size={16} /> {f.id ? "Guardar cambios" : "Guardar reserva"}</button>
+        <button data-atajo="confirmar" style={{ ...styles.sendBtn, opacity: valido ? 1 : 0.4 }} disabled={!valido} onClick={guardar}><Check size={16} /> {f.id ? "Guardar cambios" : "Guardar reserva"}</button>
         {onEliminar && (confirmarBorrar
           ? <div style={{ display: "flex", gap: 8, alignItems: "center" }}><span style={{ flex: 1, fontSize: 13 }}>¿Eliminar esta reserva?</span><button style={styles.confirmYes} onClick={onEliminar}>Sí</button><button style={styles.confirmNo} onClick={() => setConfirmarBorrar(false)}>No</button></div>
           : <button style={rv.eliminar} onClick={() => setConfirmarBorrar(true)}>Eliminar reserva</button>)}
@@ -256,7 +256,7 @@ function FormReserva({ config = {}, inicial, mesas, reservas, usuarioActual, onG
               <span><span>{m.nombre}</span>{variosPisos && <small>{pisoDe(m)}</small>}</span>
             </button>); })}
         </div>
-        <button style={styles.sendBtn} onClick={cerrarMesas}><Check size={16} /> {elegidas.length > 1 ? `Listo · ${elegidas.length} mesas` : "Listo"}</button>
+        <button data-atajo="confirmar" style={styles.sendBtn} onClick={cerrarMesas}><Check size={16} /> {elegidas.length > 1 ? `Listo · ${elegidas.length} mesas` : "Listo"}</button>
       </>
     )}
   </Hoja>

@@ -16,7 +16,7 @@ import { buildHistory, dateTimeLabel, dayKey, dayLabel, mesaNombre, monthLabel, 
 
 /* ---------------- Historial ---------------- */
 
-export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, config, mesas, usuarioActual }) {
+export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargandoHistorial, cargarHistorialCompleto, config, mesas, usuarioActual, foco }) {
   const [view, setView] = useState("years");
   const [year, setYear] = useState(null);
   const [month, setMonth] = useState(null);
@@ -29,6 +29,8 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
   const facturasEnCola = useFacturasEnCola();
   const [facturaId, setFacturaId] = useState(null); // la factura de una cuenta se abre a demanda (evita escuchar cientos de cuentas a la vez)
   const [verTodasCanceladas, setVerTodasCanceladas] = useState(false);
+  const [soloDescuento, setSoloDescuento] = useState(false);   // dentro de un día: ver solo las cuentas con descuento
+  const focoAplicado = React.useRef(0);
   const esAdmin = tieneRol(usuarioActual, "admin");
   const cuentas = cuentasParaHistorial;
   const orders = ordersParaHistorial;
@@ -38,6 +40,17 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
   useEffect(() => { cargarHistorialCompleto(); }, [cargarHistorialCompleto]);
 
   const { days, months, years } = buildHistory(cuentas, orders);
+  // Llegada desde una alerta o desde Reportes: deja el Historial ya filtrado (cancelaciones abiertas, día elegido o solo descuentos)
+  const claveFoco = foco && (foco.tipo === "dia" || foco.tipo === "descuentos") ? (foco.dia || dayKey(Date.now())) : null;
+  useEffect(() => {
+    if (!foco || !foco.n || focoAplicado.current === foco.n || Date.now() - foco.n > 8000) return;
+    if (foco.tipo === "cancelaciones") { focoAplicado.current = foco.n; setView("years"); setVerCanceladas(true); setVerTodasCanceladas(false); return; }
+    if (claveFoco && days[claveFoco]) {
+      focoAplicado.current = foco.n;
+      setYear(claveFoco.slice(0, 4)); setMonth(claveFoco.slice(0, 7)); setDay(claveFoco); setView("day");
+      setSoloDescuento(foco.tipo === "descuentos"); setCuentasAbiertas(true);
+    }
+  }); // sin dependencias: reintenta hasta que el día esté cargado (el historial llega por partes)
   const CANCELADAS_RECIENTES_DIAS = 30;
   const cortoCanceladasRecientes = Date.now() - CANCELADAS_RECIENTES_DIAS * 24 * 60 * 60 * 1000;
   const todasCanceladas = cuentas
@@ -177,7 +190,7 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
         <button style={styles.backBtn} onClick={() => setView("months")}>← Meses</button>
         <div style={{ ...styles.catLabel, marginTop: 12 }}>{list[0] ? monthLabel(list[0].ts) : ""}</div>
         {list.map((d) => (
-          <button key={d.key} className="hist-fila" style={styles.histRow} onClick={() => { setDay(d.key); setView("day"); }}>
+          <button key={d.key} className="hist-fila" style={styles.histRow} onClick={() => { setDay(d.key); setSoloDescuento(false); setView("day"); }}>
             <span style={styles.histRowTitle}>{dayLabel(d.ts)}</span>
             <span style={styles.histRowSub}>{d.cuentasCount} {d.cuentasCount === 1 ? "cuenta cobrada" : "cuentas cobradas"}</span>
             <span style={styles.histRowTotal}>{money(d.total)}</span>
@@ -216,10 +229,16 @@ export function HistorialView({ cuentasParaHistorial, ordersParaHistorial, histo
 
       <button type="button" aria-expanded={cuentasAbiertas} onClick={() => setCuentasAbiertas((v) => !v)} className="no-imprimir"
         style={{ ...styles.catLabel, marginTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", minHeight: 44, padding: 0, border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}>
-        <span>CUENTAS COBRADAS ESE DÍA · {d.cuentas.length}</span>
+        <span>CUENTAS COBRADAS ESE DÍA · {soloDescuento ? `${d.cuentas.filter((c) => c.descuento).length} CON DESCUENTO` : d.cuentas.length}</span>
         <Chevron abierto={cuentasAbiertas} size={16} />
       </button>
-      <Despliegue abierto={cuentasAbiertas}>{d.cuentas.slice().sort((a, b) => a.pagadaTs - b.pagadaTs).map((c) => {
+      {d.cuentas.some((c) => c.descuento) && (
+        <button type="button" className="no-imprimir" aria-pressed={soloDescuento} onClick={() => setSoloDescuento((v) => !v)}
+          style={{ ...styles.propinaPill, ...(soloDescuento ? styles.pillOn : {}), minHeight: 36, marginBottom: 8 }}>
+          {soloDescuento ? "✓ Solo con descuento" : "Solo con descuento"}
+        </button>
+      )}
+      <Despliegue abierto={cuentasAbiertas}>{d.cuentas.filter((c) => !soloDescuento || c.descuento).slice().sort((a, b) => a.pagadaTs - b.pagadaTs).map((c) => {
         const dividida = c.pagos && c.pagos.length > 1;
         const isExpanded = expandedCuentaId === c.id;
         const meta = !dividida && c.pagos && c.pagos[0] ? METODO_META[c.pagos[0].metodoPago] : null;

@@ -1,5 +1,5 @@
 import { InfoTip } from "../componentes/InfoTip.jsx";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import { Plus, Check, Trash2, Settings2, Search, X, Camera, Info } from "lucide-react";
 import { tieneOpciones, getEstaciones, costoReceta, uid, money } from "../logica.js";
@@ -9,7 +9,7 @@ import { MenuDesdeFoto } from "../componentes/MenuDesdeFoto.jsx";
 import { styles } from "../estilos.js";
 import { Transicion } from "../movimiento.jsx";
 
-export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, insumos, onClose }) {
+export function MenuEditor({ foco, menu, persistMenu, config, persistConfig, actor, insumos, onClose }) {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
@@ -85,6 +85,21 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
     setEditingItemId(item.id); setEditPriceValue(item.price ? String(item.price) : ""); setEditCostValue(item.cost ? String(item.cost) : "");
   };
 
+  // Llegada desde Análisis o desde una alerta: abre ese producto y lo deja a la vista.
+  useEffect(() => {
+    if (foco && foco.categoria) { setFiltro(foco.categoria); setBusqueda(""); setSoloSinCosto(false); return; }   // desde Reportes: una categoría
+    if (!foco || !foco.id) return;
+    const item = menu.find((x) => x.id === foco.id);
+    if (!item) return;
+    setFiltro("__todas__"); setBusqueda(""); setSoloSinCosto(false);
+    setCatsAbiertas((prev) => { const n = new Set(prev); n.add(item.cat); return n; });
+    setAbierto(item.id); setConfigId(null); setConfirmDeleteId(null);
+    setEditingItemId(item.id); setEditPriceValue(item.price ? String(item.price) : ""); setEditCostValue(item.cost ? String(item.cost) : "");
+    const t = setTimeout(() => { const el = document.querySelector(`[data-prod="${item.id}"]`); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" }); }, 380);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foco && foco.n]);
+
   return (
     <div style={styles.screen}>
       <CabeceraAdmin titulo="Menú y precios" onClose={onClose} />
@@ -100,7 +115,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
               Sin el costo de un producto la app no puede calcular cuánto ganas con él, y los márgenes de Análisis salen incompletos. Abre el producto y escribe su costo, o usa «Ver cuáles» para encontrarlos rápido.
             </InfoTip>
             <span style={{ flex: 1, textAlign: "left" }}>{sinCosto} {sinCosto === 1 ? "producto sin costo registrado" : "productos sin costo registrado"}</span>
-            <button type="button" className="toque44" aria-pressed={soloSinCosto} onClick={() => setSoloSinCosto((v) => !v)} style={{ border: "none", background: "transparent", color: "var(--link)", fontWeight: 600, fontSize: 13.5, cursor: "pointer", padding: "0 4px", flexShrink: 0 }}>{soloSinCosto ? "Ver todos" : "Ver cuáles"}</button>
+            <button type="button" className="toque44" aria-pressed={soloSinCosto} onClick={() => setSoloSinCosto((v) => !v)} style={{ border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", borderRadius: 999, color: "var(--btn2-fg)", fontWeight: 600, fontSize: 13, cursor: "pointer", minHeight: 32, padding: "0 12px", flexShrink: 0 }}>{soloSinCosto ? "Ver todos" : "Ver cuáles"}</button>
           </div>
         )}
 
@@ -123,7 +138,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
 
         {/* Agregar producto: cerrado por defecto para no estorbar */}
         {!nuevoAbierto ? (
-          <button style={{ ...styles.addItemBtn, marginBottom: 14 }} onClick={() => { setNuevoAbierto(true); setCat(filtro !== "__todas__" ? filtro : ""); }}>
+          <button data-atajo="nuevo" style={{ ...styles.addItemBtn, marginBottom: 14 }} onClick={() => { setNuevoAbierto(true); setCat(filtro !== "__todas__" ? filtro : ""); }}>
             <Plus size={16} /> Nuevo producto
           </button>
         ) : (
@@ -142,7 +157,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
               <button role="tab" aria-selected={!!catNueva} style={{ ...m.pastilla, borderStyle: "dashed", ...(catNueva ? m.pastillaOn : {}) }} onClick={() => { setCatNueva(true); setCat(""); }}><Plus size={13} /> Nueva</button>
             </Segmentado>
             {catNueva && <input style={styles.editInput} placeholder="Nombre de la nueva categoría" value={cat} onChange={(e) => setCat(e.target.value)} autoFocus />}
-            <button style={{ ...styles.sendBtn, opacity: name.trim() && price && cat.trim() ? 1 : 0.4 }} disabled={!(name.trim() && price && cat.trim())} onClick={addItem}><Plus size={15} /> Agregar al menú</button>
+            <button data-atajo="confirmar" style={{ ...styles.sendBtn, opacity: name.trim() && price && cat.trim() ? 1 : 0.4 }} disabled={!(name.trim() && price && cat.trim())} onClick={addItem}><Plus size={15} /> Agregar al menú</button>
           </div>
         )}
 
@@ -172,7 +187,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
                 const margenPct = item.price > 0 ? Math.round((margen / item.price) * 100) : 0;
                 const abiertoAhora = abierto === item.id;
                 return (
-                  <div key={item.id} style={{ ...m.fila, ...(idx === arr.length - 1 ? { borderBottom: "none" } : {}) }}>
+                  <div key={item.id} data-prod={item.id} style={{ ...m.fila, ...(idx === arr.length - 1 ? { borderBottom: "none" } : {}) }}>
                     <button style={m.filaMain} onClick={() => desplegar(item)} aria-expanded={abiertoAhora}>
                       <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, textAlign: "left", flex: 1 }}>
                         <span style={{ ...m.nombre, ...(item.agotado ? { textDecoration: "line-through", opacity: 0.55 } : {}) }}>{item.name}</span>
@@ -190,7 +205,7 @@ export function MenuEditor({ menu, persistMenu, config, persistConfig, actor, in
                           <div style={{ flex: 1 }}><div style={m.etiqueta}>Precio</div><CampoMonto style={{ ...styles.editInput, width: "100%" }} placeholder="Precio" value={editPriceValue} onChange={setEditPriceValue} /></div>
                           <div style={{ flex: 1 }}><div style={m.etiqueta}>Costo</div><CampoMonto style={{ ...styles.editInput, width: "100%" }} placeholder="Costo" value={editCostValue} onChange={setEditCostValue} /></div>
                         </div>
-                        <button style={styles.sendBtn} onClick={() => guardarEdicionItem(item)}><Check size={15} /> Guardar precio y costo</button>
+                        <button data-atajo="confirmar" style={styles.sendBtn} onClick={() => guardarEdicionItem(item)}><Check size={15} /> Guardar precio y costo</button>
                         <button style={styles.modoChoiceBtn} onClick={() => toggleAgotado(item.id)}>{item.agotado ? "Marcar como disponible" : "Marcar como agotado"}</button>
                         <button style={styles.modoChoiceBtn} onClick={() => setConfigId(configId === item.id ? null : item.id)}>
                           <Settings2 size={16} /> Opciones{getEstaciones(config).length > 1 ? ", estación" : ""} y receta

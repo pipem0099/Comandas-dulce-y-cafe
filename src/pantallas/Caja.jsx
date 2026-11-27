@@ -30,7 +30,6 @@ import { Transicion, NumeroAnimado } from "../movimiento.jsx";
 // Las pestañas de administración (inventario, historial, reportes con gráficas) se bajan solo al abrirlas.
 const InventarioView = perezoso(() => import("../inventario.jsx"), "InventarioView");
 const HistorialView = perezoso(() => import("../pantallas/Historial.jsx"), "HistorialView");
-const ReportesView = perezoso(() => import("../pantallas/Reportes.jsx"), "ReportesView");
 
 /* ---------------- CAJA ---------------- */
 
@@ -63,10 +62,10 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
   const bloqueado = !turnoAbierto && !esAdmin;
   const tabActual = bloqueado ? "turno" : tab;
   // Una alerta (ej. "cuentas pendientes con más de 7 días") puede pedir abrir una pestaña concreta de la caja
-  // Alt + 1…6 cambian de pestaña (solo las que esta persona puede ver)
+  // Alt + 1…5 cambian de pestaña (solo las que esta persona puede ver)
   useEffect(() => {
     if (bloqueado) return undefined;
-    const orden = ["turno", "mesas", "pendientes", ...(esAdmin ? ["historial", "reportes", "inventario"] : [])];
+    const orden = ["turno", "mesas", "pendientes", ...(esAdmin ? ["historial", "inventario"] : [])];
     const onKey = (e) => {
       if (!e.altKey || e.ctrlKey || e.metaKey) return;
       const m = /^Digit([1-9])$/.exec(e.code || "");
@@ -149,7 +148,6 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
             Pendientes{deudas.length > 0 && <span style={{ marginLeft: 6, color: hayDeudaVieja ? "var(--c-c1442d-t)" : "inherit", fontWeight: hayDeudaVieja ? 800 : "inherit" }}>{hayDeudaVieja ? `● ${deudas.length}` : `· ${deudas.length}`}</span>}
           </button>
           {esAdmin && <button style={{ ...styles.cajaTabBtn, ...(tabActual === "historial" ? styles.cajaTabBtnActive : {}) }} aria-current={tabActual === "historial" ? "true" : undefined} onClick={() => setTab("historial")}>Historial</button>}
-          {esAdmin && <button style={{ ...styles.cajaTabBtn, ...(tabActual === "reportes" ? styles.cajaTabBtnActive : {}) }} aria-current={tabActual === "reportes" ? "true" : undefined} onClick={() => setTab("reportes")}>Reportes</button>}
           {esAdmin && (
             <button style={{ ...styles.cajaTabBtn, ...(tabActual === "inventario" ? styles.cajaTabBtnActive : {}) }} aria-current={tabActual === "inventario" ? "true" : undefined} onClick={() => setTab("inventario")}>
               Inventario{insumos.filter((i) => estadoStock(i) !== "ok").length > 0 ? ` · ${insumos.filter((i) => estadoStock(i) !== "ok").length}` : ""}
@@ -158,7 +156,7 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
         </FilaTabs>
       )}
 
-      <Transicion clave={tabActual} indice={["turno", "mesas", "pendientes", "historial", "reportes", "inventario"].indexOf(tabActual)} altura={false} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }} estiloDentro={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      <Transicion clave={tabActual} indice={["turno", "mesas", "pendientes", "historial", "inventario"].indexOf(tabActual)} altura={false} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }} estiloDentro={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {tabActual === "turno" && (
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
         <TurnoView cajaActual={cajaActual} equipo={equipo} turnos={turnos} turnoAbierto={turnoAbierto} saveTurno={saveTurno} orders={orders} cuentas={cuentas} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} menu={menu} mesas={mesas} ordersParaHistorial={ordersParaHistorial} cuentasParaHistorial={cuentasParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} />
@@ -273,10 +271,9 @@ export function CajaView({ cajaElegida = null, setCajaElegida = () => {}, turnos
         </div>
       )}
 
-      {tabActual === "pendientes" && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><PendientesView deudas={deudas} usuarioActual={usuarioActual} turnoAbierto={turnoAbierto} config={config} /></div>}
-      {tabActual === "historial" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido tipo="historial" />}><HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} /></React.Suspense></div>}
+      {tabActual === "pendientes" && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><PendientesView deudas={deudas} usuarioActual={usuarioActual} turnoAbierto={turnoAbierto} config={config} foco={abrirTab && abrirTab.foco ? { ...abrirTab.foco, n: abrirTab.n } : null} /></div>}
+      {tabActual === "historial" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido tipo="historial" />}><HistorialView cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargandoHistorial={cargandoHistorial} cargarHistorialCompleto={cargarHistorialCompleto} config={config} mesas={mesas} usuarioActual={usuarioActual} foco={abrirTab && abrirTab.foco ? { ...abrirTab.foco, n: abrirTab.n } : null} /></React.Suspense></div>}
       {tabActual === "inventario" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido tipo="inventario" />}><InventarioView insumos={insumos} saveInsumo={saveInsumo} updateInsumo={updateInsumo} deleteInsumo={deleteInsumo} ajustarInventario={ajustarInventario} config={config} persistConfig={persistConfig} usuarioActual={usuarioActual} /></React.Suspense></div>}
-      {tabActual === "reportes" && esAdmin && <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}><React.Suspense fallback={<CargandoContenido tipo="reportes" />}><ReportesView cuentas={cuentas} orders={orders} menu={menu} insumos={insumos} usuarioActual={usuarioActual} onIr={onIr} config={config} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} /></React.Suspense></div>}
       </Transicion>
     </div>
   );

@@ -543,7 +543,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
             <div style={styles.subtotalRow}>
               <span>
                 Descuento {cuenta.descuento.pct != null ? `${cuenta.descuento.pct}% ` : ""}({cuenta.descuento.motivo}{cuenta.descuento.aplicadoPor ? ` · ${cuenta.descuento.aplicadoPor}` : ""})
-                {esAdmin && <button style={styles.inlineLink} onClick={quitarDescuento}>quitar</button>}
+                {esAdmin && <button type="button" onClick={quitarDescuento} aria-label="Quitar descuento" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 8, minHeight: 26, padding: "0 10px", borderRadius: 999, border: "1px solid var(--btn2-line)", background: "var(--btn2-bg)", color: "var(--btn2-fg)", fontSize: 12, fontWeight: 600, cursor: "pointer", verticalAlign: "middle" }}>✕ Quitar</button>}
               </span>
               <span style={{ color: "var(--c-c1442d-t)" }}>−{money(cuenta.descuento.monto)}</span>
             </div>
@@ -626,7 +626,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
 
           <div style={{ ...styles.subtotalRow, ...styles.subtotalRowFinal }}><span>Total a cobrar</span><span>{money(total)}</span></div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button style={styles.cuentaClienteBtn} onClick={() => mostrarComprobante({ tipo: "cuenta", cuenta, orders })}><Receipt size={14} /> Cuenta para el cliente</button>
+            <button data-atajo="imprimir" style={styles.cuentaClienteBtn} onClick={() => mostrarComprobante({ tipo: "cuenta", cuenta, orders })}><Receipt size={14} /> Cuenta para el cliente</button>
             <button style={styles.cuentaClienteBtn} onClick={() => setVerFactura(true)}><Receipt size={14} /> {cuenta.datosFiscales ? `Factura: ${etiquetaDocumento(cuenta.datosFiscales) || "datos"}` : "Datos para factura"}</button>
           </div>
           {verFactura && <DatosFactura valor={cuenta.datosFiscales} onGuardar={(d) => patchCuenta({ datosFiscales: d })} onQuitar={() => patchCuenta({ datosFiscales: null })} onCerrar={() => setVerFactura(false)} />}
@@ -669,7 +669,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                   {renderVueltos(total)}
                   <div style={{ display: "flex", gap: 8 }}>
                     <button style={styles.cancelEditBtn} onClick={() => setModoLocal(null)}>Volver</button>
-                    <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel ? 1 : 0.4 }} disabled={!metodoSel} data-confirmar="1" onClick={confirmarUnico}><Lock size={15} /> Confirmar cobro</button>
+                    <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel ? 1 : 0.4 }} disabled={!metodoSel} data-confirmar="1" data-atajo="confirmar" onClick={confirmarUnico}><Lock size={15} /> Confirmar cobro</button>
                   </div>
                 </>
               ) : effectiveModo === "mixto" ? (
@@ -689,7 +689,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                   {renderVueltos(montoEste)}
                   <div style={{ display: "flex", gap: 8 }}>
                     {pagos.length === 0 && <button style={styles.cancelEditBtn} onClick={() => setModoLocal(null)}>Volver</button>}
-                    <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel && montoEste > 0 ? 1 : 0.4 }} disabled={!metodoSel || montoEste <= 0} data-confirmar="1" onClick={confirmarMixto}>
+                    <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel && montoEste > 0 ? 1 : 0.4 }} disabled={!metodoSel || montoEste <= 0} data-confirmar="1" data-atajo="confirmar" onClick={confirmarMixto}>
                       <Check size={15} /> {montoEste <= 0 ? "Elige o escribe un monto" : `${montoEste >= restante ? "Registrar pago final" : "Registrar pago parcial"} — ${money(montoEste)}`}
                     </button>
                   </div>
@@ -717,7 +717,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                       {renderVueltos(montoParteActual)}
                       <div style={{ display: "flex", gap: 8 }}>
                         {partesRegistradas === 0 && <button style={styles.cancelEditBtn} onClick={() => setModoLocal(null)}>Volver</button>}
-                        <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel ? 1 : 0.4 }} disabled={!metodoSel} data-confirmar="1" onClick={confirmarParte}><Check size={15} /> Registrar parte {parteActual}</button>
+                        <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel ? 1 : 0.4 }} disabled={!metodoSel} data-confirmar="1" data-atajo="confirmar" onClick={confirmarParte}><Check size={15} /> Registrar parte {parteActual}</button>
                       </div>
                       {linkCombinar}
                     </>
@@ -790,7 +790,7 @@ export function MesaCuentaCard({ cuenta, orders, saveCuenta, saveOrdersMap, turn
                       {renderVueltos(totalCart)}
                       <div style={{ display: "flex", gap: 8 }}>
                         {pagos.length === 0 && <button style={styles.cancelEditBtn} onClick={() => setModoLocal(null)}>Volver</button>}
-                        <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel && cartMonto > 0 ? 1 : 0.4 }} disabled={!metodoSel || cartMonto === 0} data-confirmar="1" onClick={confirmarProducto}><Check size={15} /> Registrar pago — {money(totalCart)}</button>
+                        <button style={{ ...styles.sendBtn, flex: 1, opacity: metodoSel && cartMonto > 0 ? 1 : 0.4 }} disabled={!metodoSel || cartMonto === 0} data-confirmar="1" data-atajo="confirmar" onClick={confirmarProducto}><Check size={15} /> Registrar pago — {money(totalCart)}</button>
                       </div>
                       {cartMonto > 0 && linkCombinar}
                       {/* Para cuando alguien decide pagar de una vez todo lo que falta (aunque haya productos tocados arriba) */}

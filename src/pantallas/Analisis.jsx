@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { perezoso } from "../cargaDiferida.js";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import { FilaTabs } from "../componentes/Comunes.jsx";
 import { InfoTip } from "../componentes/InfoTip.jsx";
@@ -10,7 +11,7 @@ import { horaReloj, rangoHoras, horasDesdeApertura } from "../horas.js";
 import { styles } from "../estilos.js";
 import { money } from "../logica.js";
 import { dateTimeLabel } from "../utilidades.js";
-import { getCollectionAll } from "../firebase.js";
+import { BitacoraControl } from "./BitacoraControl.jsx";
 import {
   DIA, DIAS_SEMANA, prepararVentas, rangosComparables, resumenPeriodo, comparar, descomponerVenta, rentabilidad, productosMuertos,
   metricasEmpleados, planificacionSemanal, comprasSugeridas, sugerirPlantillaCostos, precioSugerido,
@@ -39,9 +40,9 @@ function Tabs({ valor, onChange, opciones }) {
     </FilaTabs>
   );
 }
-function Linea({ a, b, sub, color, fuerte }) {
+function Linea({ a, b, sub, color, fuerte, onClick }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, padding: "8px 0", fontSize: 13.5, color: C.medio }}>
+    <div role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onClick={onClick} onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined} style={{ ...(onClick ? { cursor: "pointer" } : {}), display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, padding: "8px 0", fontSize: 13.5, color: C.medio }}>
       <span style={{ flex: 1, minWidth: 0 }}>{a}</span>
       <span style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, textAlign: "right" }}>
         <span style={{ color: color || C.texto, fontWeight: fuerte ? 800 : 600, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{b}</span>
@@ -185,14 +186,8 @@ function Productos({ ventas, menu, insumos, plantilla, ahora, onCostos }) {
 }
 
 /* ───────── 4 · Control de pérdidas ───────── */
-function Perdidas({ ventas, cuentas, ahora }) {
+function Perdidas({ ventas, cuentas, ahora, usuarioActual }) {
   const [dias, setDias] = useState(7);
-  const [bitacora, setBitacora] = useState(null);
-  useEffect(() => {
-    let vivo = true;
-    getCollectionAll("auditoria").then((l) => { if (vivo) setBitacora((l || []).filter((x) => x && x.ts).sort((a, b) => b.ts - a.ts).slice(0, 30)); }).catch(() => { if (vivo) setBitacora([]); });
-    return () => { vivo = false; };
-  }, []);
   const m = useMemo(() => metricasEmpleados(cuentas, ventas, [ahora - dias * DIA, ahora + 1]), [cuentas, ventas, dias, ahora]);
   const totCancel = m.empleados.reduce((s, e) => s + e.cancelMonto, 0), totDesc = m.empleados.reduce((s, e) => s + e.descMonto, 0);
   const razon = (e) => {
@@ -238,21 +233,7 @@ function Perdidas({ ventas, cuentas, ahora }) {
         </div>
       ))}
 
-      <div style={{ ...titulo, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span>Bitácora de control</span>
-        <InfoTip titulo="Bitácora de control" render={() => (
-          <>
-            <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--c-5c5648-t)" }}>Cada cancelación y descuento queda firmado con el usuario real. No se puede modificar ni borrar.</div>
-            <div style={{ maxHeight: "50vh", overflowY: "auto" }}>
-              {bitacora === null ? <Vacio>Cargando…</Vacio> : bitacora.length === 0 ? <Vacio>Aún no hay registros.</Vacio> : bitacora.map((b, i) => (
-                <div key={`${b.ts}-${i}`} style={{ padding: "8px 0", borderBottom: `1px solid ${C.borde}`, fontSize: 12.5, color: C.medio }}>
-                  <b style={{ color: C.texto, fontWeight: 500 }}>{b.nombre || b.uid}</b> · {String(b.accion).replace("_", " ")} · {money(b.monto)} · {dateTimeLabel(b.ts)}{b.motivo ? ` · ${b.motivo}` : ""}
-                </div>
-              ))}
-            </div>
-          </>
-        )} />
-      </div>
+      <div style={caja}><BitacoraControl usuarioActual={usuarioActual} /></div>
     </>
   );
 }
@@ -479,8 +460,8 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
               return (
                 <div key={p.id} style={{ padding: "10px 0", borderTop: `1px solid ${C.borde}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 500, color: C.texto }}>{p.name}</div>
+                    <div style={{ flex: 1, minWidth: 0, ...(onEditarProducto ? { cursor: "pointer" } : {}) }} onClick={onEditarProducto ? () => onEditarProducto(p.id) : undefined} title={onEditarProducto ? "Abrir en Menú y precios" : undefined}>
+                      <div style={{ fontSize: 14.5, fontWeight: 500, color: C.texto }}>{p.name}{onEditarProducto ? " ›" : ""}</div>
                       <div style={{ fontSize: 12, color: C.suave }}>Margen {Math.round(p.margenPct)}% · costo {money(costoUnit)}</div>
                     </div>
                     {nuevo > 0 && (
@@ -512,7 +493,7 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
       {rent.sinCosto.length > 0 && (
         <>
           <div style={titulo}>Vendidos sin costo ({rent.sinCosto.length})</div>
-          <div style={caja}>{rent.sinCosto.slice(0, 12).map((p) => <Linea key={p.id} a={p.name} b={p.cat || ""} />)}
+          <div style={caja}>{rent.sinCosto.slice(0, 12).map((p) => <Linea key={p.id} a={p.name} b={<>{p.cat || ""}{onEditarProducto ? " ›" : ""}</>} onClick={onEditarProducto ? () => onEditarProducto(p.id) : undefined} />)}
             <div style={{ ...nota, color: C.suave, marginTop: 6 }}>Ponles costo en Menú y precios, arma su receta en inventario, o asigna un % a su categoría arriba.</div></div>
         </>
       )}
@@ -528,9 +509,11 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
   );
 }
 
+const ReportesView = perezoso(() => import("./Reportes.jsx"), "ReportesView");
+
 /* ───────── Pantalla ───────── */
-export function Analisis({ onClose, menu, persistMenu, insumos, config, persistConfig, cuentasAnalisis, ordersAnalisis, cargarHistorialReciente, historialListo, errorHistorial, cargandoHistorial }) {
-  const [tab, setTab] = useState("resumen");
+export function Analisis({ turnos, equipo, onDetalle, cuentasVivas, ordersVivos, cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargarHistorialCompleto, onIr, usuarioActual, onEditarProducto, onClose, menu, persistMenu, insumos, config, persistConfig, cuentasAnalisis, ordersAnalisis, cargarHistorialReciente, historialListo, errorHistorial, cargandoHistorial }) {
+  const [tab, setTab] = useState("reportes");
   const [ahora] = useState(() => Date.now());
   // Se piden los últimos 120 días una sola vez: lo que ya está en vivo (~35 días) no alcanza para 8 semanas ni para el mes pasado,
   // y traer TODO el historial pesaría cada vez más con los años.
@@ -539,15 +522,21 @@ export function Analisis({ onClose, menu, persistMenu, insumos, config, persistC
   const plantilla = useMemo(() => ((config && config.margenActivo) ? Object.fromEntries(Object.entries((config && config.plantillaCostos) || {}).map(([k, v]) => [k, Number(v) || 0])) : {}), [config]);
   return (
     <>
-      <CabeceraAdmin titulo="Análisis y control" onClose={onClose} />
+      <CabeceraAdmin titulo="Análisis y reportes" onClose={onClose} />
       <div className="ancho ancho-admin" style={{ ...styles.menuScroll, paddingBottom: 40 }}>
-        <Tabs valor={tab} onChange={setTab} opciones={[["resumen", "Resumen"], ["productos", "Productos"], ["perdidas", "Pérdidas"], ["semana", "Semana"], ["costos", "Costos"]]} />
+        <Tabs valor={tab} onChange={setTab} opciones={[["reportes", "Reportes"], ["resumen", "Comparativo"], ["productos", "Productos"], ["perdidas", "Pérdidas"], ["semana", "Semana"], ["costos", "Costos"]]} />
         {cargandoHistorial && !historialListo && <div style={{ ...nota, color: C.suave, marginBottom: 10 }}>Cargando los últimos 120 días…</div>}
         {errorHistorial && <div style={{ ...nota, color: C.rojo, marginBottom: 10 }}>No se pudo cargar el historial: se muestran solo los últimos días. Revisa tu conexión y vuelve a entrar.</div>}
-        <Transicion clave={tab} indice={["resumen", "productos", "perdidas", "semana", "costos"].indexOf(tab)}>
+        <Transicion clave={tab} indice={["reportes", "resumen", "productos", "perdidas", "semana", "costos"].indexOf(tab)}>
+        {tab === "reportes" && (
+          <React.Suspense fallback={<div style={{ ...nota, padding: "14px 0" }}>Cargando reportes…</div>}>
+            <ReportesView incrustado turnos={turnos} equipo={equipo} onVerDia={onDetalle ? (dia) => onDetalle({ tipo: "dia", dia }) : undefined} onVerProducto={onDetalle ? (id) => onDetalle({ tipo: "producto", id }) : undefined} onVerCategoria={onDetalle ? (cat) => onDetalle({ tipo: "categoria", cat }) : undefined} cuentas={cuentasVivas || []} orders={ordersVivos || []} menu={menu || []} insumos={insumos || []} usuarioActual={usuarioActual} onIr={onIr} config={config}
+              cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} />
+          </React.Suspense>
+        )}
         {tab === "resumen" && <Resumen ventas={ventas} ahora={ahora} />}
         {tab === "productos" && <Productos ventas={ventas} menu={menu || []} insumos={insumos || []} plantilla={plantilla} ahora={ahora} onCostos={() => setTab("costos")} />}
-        {tab === "perdidas" && <Perdidas ventas={ventas} cuentas={cuentasAnalisis || []} ahora={ahora} />}
+        {tab === "perdidas" && <Perdidas ventas={ventas} cuentas={cuentasAnalisis || []} ahora={ahora} usuarioActual={usuarioActual} />}
         {tab === "semana" && <Semana ventas={ventas} menu={menu || []} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
         {tab === "costos" && <Costos ventas={ventas} menu={menu || []} persistMenu={persistMenu} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
         </Transicion>

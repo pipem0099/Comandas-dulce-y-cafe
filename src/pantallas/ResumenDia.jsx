@@ -1,5 +1,5 @@
-import React from "react";
-import { CheckCircle2, AlertTriangle, Share2 } from "lucide-react";
+import React, { useRef } from "react";
+import { CheckCircle2, AlertTriangle, Share2, ChevronRight } from "lucide-react";
 import { plantillaDe, rellenar, linkWhatsApp } from "../mensajes.js";
 import { money } from "../logica.js";
 import { dateTimeLabel, timeLabel, movimientosDe, arqueosDe, ventasEnRango, propinasEnRango } from "../utilidades.js";
@@ -54,6 +54,14 @@ export function ResumenDia({ turno, cuentas, config }) {
   const difEfectivo = tramos.reduce((a, t) => a + (t.diferencia || 0), 0);
   const difTarjeta = turno.difTarjeta || 0, difTransf = turno.difTransferencia || 0;
   const todoCuadra = difEfectivo === 0 && difTarjeta === 0 && difTransf === 0 && tramos.every((t) => !t.diferencia);
+  const movsRef = useRef(null);   // tarjeta de «entradas y salidas»: a donde lleva tocar el aviso de diferencia
+  const efectivoRef = useRef(null);
+  const irAMovimientos = () => {
+    const el = movsRef.current || efectivoRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.animate && el.animate([{ boxShadow: "0 0 0 3px var(--accent)" }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1400, easing: "ease-out" });
+  };
   const tieneTarjeta = typeof turno.tarjetaContada === "number" || typeof turno.transferenciaContada === "number";
 
   // El texto sale de la plantilla que se edita en Ajustes → Mensajes de WhatsApp; la persona revisa y toca "Enviar" en WhatsApp.
@@ -69,7 +77,9 @@ export function ResumenDia({ turno, cuentas, config }) {
   return (
     <div style={r.raiz}>
       {/* 1) ¿Cuadró o no? */}
-      <div style={{ ...r.estado, background: todoCuadra ? K.okBg : K.malBg, color: todoCuadra ? K.verde : K.rojo }}>
+      <div role={todoCuadra ? undefined : "button"} tabIndex={todoCuadra ? undefined : 0} onClick={todoCuadra ? undefined : irAMovimientos}
+        onKeyDown={todoCuadra ? undefined : (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); irAMovimientos(); } }}
+        style={{ ...r.estado, background: todoCuadra ? K.okBg : K.malBg, color: todoCuadra ? K.verde : K.rojo, ...(todoCuadra ? {} : { cursor: "pointer" }) }}>
         {todoCuadra ? <CheckCircle2 size={20} style={{ flexShrink: 0 }} /> : <AlertTriangle size={20} style={{ flexShrink: 0 }} />}
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{todoCuadra ? "Todo cuadró" : "Hay diferencias"}</div>
@@ -82,14 +92,16 @@ export function ResumenDia({ turno, cuentas, config }) {
                   difTransf ? `Transferencia: ${dif(difTransf).t.toLowerCase()}` : null,
                 ].filter(Boolean).join(" · ")}
           </div>
+          {!todoCuadra && <div style={{ color: K.ink, fontWeight: 600, fontSize: 12.5, marginTop: 4 }}>{movs.length > 0 ? "Toca para ver las entradas y salidas de dinero" : "Toca para ver el cuadre del efectivo"}</div>}
         </div>
+        {!todoCuadra && <ChevronRight size={18} style={{ marginLeft: "auto", flexShrink: 0 }} />}
       </div>
       <div style={r.meta}>
         {dateTimeLabel(turno.aperturaTs)}{turno.cierreTs ? ` → ${timeLabel(turno.cierreTs)}` : ""} · Abrió {turno.abiertoPor || "—"}{turno.cerradoPor ? ` · Cerró ${turno.cerradoPor}` : ""}
       </div>
 
       {/* 2) Cuadre del efectivo */}
-      <div style={r.card}>
+      <div ref={efectivoRef} style={r.card}>
         <div style={r.titulo}>EFECTIVO · QUIÉN TUVO LA CAJA</div>
         <div style={r.ayuda}>El efectivo se cuenta por responsable: cada persona responde solo por el tramo en que la caja estuvo a su cargo.</div>
         {tramos.map((t, i) => {
@@ -135,7 +147,7 @@ export function ResumenDia({ turno, cuentas, config }) {
 
       {/* 4) Entradas y salidas */}
       {movs.length > 0 && (
-        <div style={r.card}>
+        <div ref={movsRef} style={r.card}>
           <div style={r.titulo}>ENTRADAS Y SALIDAS DE DINERO</div>
           <ListaMovimientos movimientos={movs} />
         </div>

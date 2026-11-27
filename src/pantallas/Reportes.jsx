@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Plus, Minus, Clock, UserCircle2, Printer } from "lucide-react";
 import { imprimir } from "../impresion.jsx";
 import { HojaReporte } from "../hojas.jsx";
@@ -10,14 +10,17 @@ import { NumeroAnimado } from "../movimiento.jsx";
 import { horaCorta, horasDesdeApertura } from "../horas.js";
 import { styles } from "../estilos.js";
 import { cuentaGranTotal, cuentaOrders, dateTimeLabel, tieneRol } from "../utilidades.js";
+import { ReportesExtra } from "./ReportesExtra.jsx";
+import { PanelPropinas } from "./PanelPropinas.jsx";
+import { comparativaPeriodo } from "../analiticaReportes.js";
 import { prepararVentas, rentabilidad, rangosComparables, resumenPeriodo, comparar } from "../analitica.js";
 
 /* ---------------- Reportes ---------------- */
 
-export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu, insumos = [], usuarioActual, onIr, config, cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargarHistorialCompleto }) {
+export function ReportesView({ turnos, equipo, onVerDia, onVerProducto, onVerCategoria, incrustado = false, cuentas: cuentasVivas, orders: ordersVivos, menu, insumos = [], usuarioActual, onIr, config, cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargarHistorialCompleto }) {
   const [rango, setRango] = useState("hoy");
   // Lo de "en vivo" solo trae los últimos ~35 días: para el mes pasado se pide el historial completo (una sola vez).
-  const necesitaHistorial = rango === "mesPasado";
+  const necesitaHistorial = rango === "mesPasado" || rango === "mesActual" || rango === "mes";   // también para comparar con el período anterior
   useEffect(() => { if (necesitaHistorial && cargarHistorialCompleto) cargarHistorialCompleto(); }, [necesitaHistorial, cargarHistorialCompleto]);
   const cuentas = necesitaHistorial && cuentasParaHistorial ? cuentasParaHistorial : cuentasVivas;
   const orders = necesitaHistorial && ordersParaHistorial ? ordersParaHistorial : ordersVivos;
@@ -63,6 +66,7 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
   const rentab = rentabilidad(prepararVentas(pagadasRango, orders), menu, { insumos, plantilla: (config && config.margenActivo && config.plantillaCostos) || {} });
   const huboCostosCargados = rentab.ventaConCosto > 0;
   const costoProductos = rentab.ventaConCosto - rentab.margenTotal;
+  const productoPorNombre = Object.fromEntries((menu || []).map((m) => [m.name, m]));
   const topProductos = Object.entries(productoMap).sort((a, b) => b[1].qty - a[1].qty).slice(0, 5);
   const margenRango = rentab.margenTotal;
   const margenPct = rentab.margenPct !== null ? Math.round(rentab.margenPct) : 0;
@@ -93,26 +97,26 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
     meseroMap[nombre].propinas += (c.propina && c.propina.monto) || 0;
   });
   const meserosOrdenados = Object.entries(meseroMap).sort((a, b) => b[1].total - a[1].total);
-  const [repartirPropinas, setRepartirPropinas] = useState(false);
-  const [numPersonasPropina, setNumPersonasPropina] = useState(2);
+  const propinasRef = useRef(null);   // lo que muestra el panel de propinas (para el reporte impreso)
 
   const imprimirReporte = () => imprimir(
     <HojaReporte etiqueta={etiquetaRango} rangoTxt={rangoTexto} pagadas={pagadasRango} orders={orders} canceladas={canceladasRango} costoPorId={costoPorId} rentab={rentab}
-      tiempoCocina={tiempoPromedioMin !== null ? { min: tiempoPromedioMin, n: ordenesConTiempo.length } : null} config={config} usuario={usuarioActual} />
+      tiempoCocina={tiempoPromedioMin !== null ? { min: tiempoPromedioMin, n: ordenesConTiempo.length } : null} config={config} usuario={usuarioActual}
+      comparativa={!necesitaHistorial || historialCompleto ? comparativaPeriodo(rango, cuentas, orders) : null} propinas={esAdmin ? propinasRef.current : null} />
   );
 
   return (
-    <div className="ancho ancho-admin" style={styles.menuScroll}>
+    <div className={incrustado ? undefined : "ancho ancho-admin"} style={incrustado ? undefined : styles.menuScroll}>
       <FilaTabs className="no-imprimir" style={{ ...styles.cajaTabSwitch, padding: "0 0 12px" }}>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "hoy" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "hoy" ? "true" : undefined} onClick={() => setRango("hoy")}>Hoy</button>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "semana" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "semana" ? "true" : undefined} onClick={() => setRango("semana")}>7 días</button>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "mes" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "mes" ? "true" : undefined} onClick={() => setRango("mes")}>30 días</button>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "mesActual" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "mesActual" ? "true" : undefined} onClick={() => setRango("mesActual")}>Este mes</button>
         <button style={{ ...styles.cajaTabBtn, ...(rango === "mesPasado" ? styles.cajaTabBtnActive : {}) }} aria-current={rango === "mesPasado" ? "true" : undefined} onClick={() => setRango("mesPasado")}>Mes pasado</button>
-        {esAdmin && <button style={styles.exportLink} onClick={imprimirReporte}><Printer size={15} />Imprimir</button>}
+        {esAdmin && <button data-atajo="imprimir" style={styles.exportLink} onClick={imprimirReporte}><Printer size={15} />Imprimir</button>}
       </FilaTabs>
 
-      {necesitaHistorial && !historialCompleto && <div style={styles.cargandoHistBox}><span>Cargando el historial del mes pasado…</span></div>}
+      {necesitaHistorial && !historialCompleto && <div style={styles.cargandoHistBox}><span>Cargando el historial…</span></div>}
 
       <div style={styles.cajaTotalCard}>
         <span style={styles.cajaTotalLabel}>Total vendido</span>
@@ -166,26 +170,15 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
         </>
       )}
 
-      <div style={styles.catLabel}>PROPINAS DEL PERÍODO</div>
-      <div style={styles.turnoBox}>
-        <div style={styles.closeConfirmText}>{money(propinasRango)} en propinas en este rango.</div>
-        {!repartirPropinas ? (
-          <button style={styles.inlineAddLink} onClick={() => setRepartirPropinas(true)}>Repartir entre el equipo →</button>
-        ) : (
-          <>
-            <div style={styles.partesStepperRow}>
-              <span style={styles.closeConfirmText}>Dividir entre:</span>
-              <div style={styles.stepper}>
-                <button aria-label="Una persona menos" style={styles.stepBtn} onClick={() => setNumPersonasPropina((n) => Math.max(1, n - 1))}><Minus size={14} /></button>
-                <span style={styles.stepVal}>{numPersonasPropina}</span>
-                <button aria-label="Una persona más" style={{ ...styles.stepBtn, ...styles.stepBtnPlus }} onClick={() => setNumPersonasPropina((n) => Math.min(20, n + 1))}><Plus size={14} /></button>
-              </div>
-              <span style={styles.closeConfirmText}>personas</span>
-            </div>
-            <div style={styles.diferenciaBox}>Cada uno: <b>{money(propinasRango / numPersonasPropina)}</b></div>
-          </>
-        )}
-      </div>
+      {esAdmin ? (
+        <PanelPropinas cuentasRango={cuentas} cuentasTodas={historialCompleto ? cuentasParaHistorial : cuentas} turnos={turnos || []} equipo={equipo || []} usuarioActual={usuarioActual}
+          desde={desde} hasta={hasta} etiquetaRango={etiquetaRango} historialListo={!!historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} onResumen={(r) => { propinasRef.current = r; }} />
+      ) : (
+        <>
+          <div style={styles.catLabel}>PROPINAS DEL PERÍODO</div>
+          <div style={styles.turnoBox}><div style={styles.closeConfirmText}>{money(propinasRango)} en propinas en este rango.</div></div>
+        </>
+      )}
 
       {tiempoPromedioMin !== null && (
         <div style={styles.tiempoCocinaBox}>
@@ -227,9 +220,13 @@ export function ReportesView({ cuentas: cuentasVivas, orders: ordersVivos, menu,
         <div style={styles.cajaEmptyText}>Sin datos todavía.</div>
       ) : (
         topProductos.map(([name, p], i) => (
-          <FilaDato key={name} nombre={name} detalle={`${p.qty} ${p.qty === 1 ? "vendido" : "vendidos"}`} valor={money(p.subtotal)} ultima={i === topProductos.length - 1} />
+          <FilaDato key={name} nombre={name} detalle={`${p.qty} ${p.qty === 1 ? "vendido" : "vendidos"}`} valor={`${money(p.subtotal)}${onVerProducto && productoPorNombre[name] ? " ›" : ""}`} ultima={i === topProductos.length - 1}
+            onClick={onVerProducto && productoPorNombre[name] ? () => onVerProducto(productoPorNombre[name].id) : undefined} />
         ))
       )}
+
+      <ReportesExtra rango={rango} pagadas={pagadasRango} orders={orders} menu={menu} cuentasBase={cuentas} ordersBase={orders}
+        historialListo={!necesitaHistorial || !!historialCompleto} onVerDia={onVerDia} onVerCategoria={onVerCategoria} />
 
       <div style={{ ...styles.catLabel, marginTop: 20 }}>VENTAS POR MESERO</div>
       {meserosOrdenados.length === 0 ? (

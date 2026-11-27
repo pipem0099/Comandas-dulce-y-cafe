@@ -108,7 +108,7 @@ export function HojaCierreTurno({
               ) : (
                 <input style={styles.editInput} placeholder="Observaciones (opcional)" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
               )}
-              <button style={{ ...styles.sendBtn, opacity: puedeConfirmar ? 1 : 0.4 }} disabled={!puedeConfirmar} onClick={() => { alConfirmar(); cerrar(); }}>
+              <button data-atajo="confirmar" style={{ ...styles.sendBtn, opacity: puedeConfirmar ? 1 : 0.4 }} disabled={!puedeConfirmar} onClick={() => { alConfirmar(); cerrar(); }}>
                 <Lock size={15} /> Confirmar cierre
               </button>
             </>

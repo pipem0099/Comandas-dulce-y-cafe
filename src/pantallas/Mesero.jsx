@@ -809,7 +809,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           )}
         </div>
 
-        <div className="ancho" style={{ ...styles.menuScroll, flex: "none", overflowY: "visible" }}>
+        <div className="ancho pedido-rejilla" style={{ ...styles.menuScroll, flex: "none", overflowY: "visible" }}>
           {(search.trim()
             ? menu.filter((m) => m.name.toLowerCase().includes(search.trim().toLowerCase()))
             : menu.filter((m) => m.cat === (activeCat || categories[0]))
@@ -822,7 +822,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
             const sinStock = !agotadoManual && faltaStock(item, insumos);
             const agotado = agotadoManual || (sinStock && !!config.inventarioBloquear);
             return (
-              <div key={item.id} style={{ ...styles.menuRow, flexWrap: "wrap", opacity: agotado ? 0.5 : 1 }}>
+              <div key={item.id} className="fila-prod" style={{ ...styles.menuRow, flexWrap: "wrap", opacity: agotado ? 0.5 : 1 }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={styles.menuItemName}>{item.name} {agotadoManual && <span style={styles.agotadoTag}>AGOTADO</span>}{sinStock && <span style={styles.agotadoTag}>SIN STOCK</span>}</div>
                   {search.trim() && <div style={styles.menuItemCat}>{item.cat}</div>}
@@ -887,11 +887,12 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
           )}
           {necesitaDestino && !editingOrderId && totalItems > 0 && (
             <button type="button" onClick={() => setVerDestino(true)} aria-label="Elegir a dónde va el pedido"
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 44, padding: "0 14px", borderRadius: 14, border: `1px solid ${destinoListo ? "var(--btn2-line)" : "var(--accent)"}`, background: "var(--btn2-bg)", color: "var(--c-242019-t)", fontSize: 14, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+              style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 8, minHeight: 44, padding: "0 14px", borderRadius: 14, border: `1px solid ${destinoListo ? "var(--btn2-line)" : "var(--accent)"}`, background: "var(--btn2-bg)", color: "var(--c-242019-t)", fontSize: 14, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
               <span style={{ opacity: 0.7, fontWeight: 600 }}>Va a</span>
-              <span style={{ flex: 1, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: destinoListo ? "var(--btn2-fg)" : "var(--accent)", fontWeight: 700 }}>
+              <span style={{ flex: "0 1 auto", textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: destinoListo ? "var(--btn2-fg)" : "var(--accent)", fontWeight: 700 }}>
                 {destinoListo ? resumenDestino(destinoNorm, estaciones, pisos, nombrePiso(config, pisoDeMesaId(mesas, selectedMesa, config) || pisoVista)) : "Elegir a dónde va ›"}
               </span>
+              {destinoListo && <span aria-hidden="true" style={{ marginLeft: "auto", opacity: 0.5, fontWeight: 700 }}>›</span>}
             </button>
           )}
           <div style={{ display: "flex", gap: 8 }}>
@@ -899,7 +900,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
             {!(notaAbierta || note) && (
               <button style={{ ...styles.cancelEditBtn, flex: "0 0 auto", padding: "0 14px", display: "inline-flex", alignItems: "center", justifyContent: "center" }} onClick={() => setNotaAbierta(true)} aria-label="Agregar nota para cocina" title="Nota para cocina"><MessageSquarePlus size={18} /></button>
             )}
-            <button style={{ ...styles.sendBtn, flex: 1, opacity: totalItems === 0 || enviando ? 0.4 : 1 }} disabled={totalItems === 0 || enviando} onClick={() => enviarPedido(selectedMesa)}>
+            <button data-atajo="confirmar" style={{ ...styles.sendBtn, flex: 1, opacity: totalItems === 0 || enviando ? 0.4 : 1 }} disabled={totalItems === 0 || enviando} onClick={() => enviarPedido(selectedMesa)}>
               {editingOrderId ? <Check size={16} /> : <Send size={16} />}
               {enviando ? "Enviando…" : editingOrderId ? `Guardar cambios (${totalItems})` : `Enviar pedido ${totalItems > 0 ? `(${totalItems})` : ""}`}
             </button>
@@ -1041,7 +1042,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
               );
             }
             return (
-              <button key={m.id} className="anim-in" style={styles.mesaCard} onClick={() => tocarMesa(m.id)} {...mantener(() => setMenuMesa(m.id))}>
+              <button key={m.id} data-mesa-tile="" className="anim-in" style={styles.mesaCard} onClick={() => tocarMesa(m.id)} {...mantener(() => setMenuMesa(m.id))}>
                 <span style={styles.mesaCardNum}>{m.nombre}</span>
                 <span style={{ ...styles.mesaCardTag, background: visual.bg, color: visual.color }}>{visual.tag}</span>
                 {visual.extra && <span style={styles.mesaCardExtra}>{visual.extra}</span>}
@@ -1056,7 +1057,7 @@ export function MeseroView({ reservas = [], menu, orders, cuentas, usuarioActual
       <div className="ancho" style={styles.externosWrap}>
         <div style={styles.catLabel}>PARA LLEVAR Y DOMICILIOS</div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button style={styles.externoBtn} onClick={() => setNuevoExterno("llevar")}><ShoppingBag size={16} /> Para llevar</button>
+          <button data-atajo="nuevo" style={styles.externoBtn} onClick={() => setNuevoExterno("llevar")}><ShoppingBag size={16} /> Para llevar</button>
           <button style={styles.externoBtn} onClick={() => setNuevoExterno("domicilio")}><Bike size={16} /> Domicilio</button>
         </div>
         {cuentas.filter((c) => esExterna(c) && c.estado === "abierta").sort((a, b) => a.ts - b.ts).map((c) => {
