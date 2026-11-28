@@ -157,7 +157,7 @@ export function FilaTabs({ children, className, style }) {
 export function FilaDato({ nombre, detalle, valor, valorColor, onClick, ultima }) {
   const Tag = onClick ? "button" : "div";
   return (
-    <Tag onClick={onClick} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, width: "100%", padding: "12px 0", background: "transparent", border: "none", borderBottom: ultima ? "none" : "1px solid var(--c-ede7d8-o)", textAlign: "left", cursor: onClick ? "pointer" : "default", color: "var(--c-242019-t)" }}>
+    <Tag onClick={onClick} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, width: "100%", maxWidth: 640, padding: "12px 0", background: "transparent", border: "none", borderBottom: ultima ? "none" : "1px solid var(--c-ede7d8-o)", textAlign: "left", cursor: onClick ? "pointer" : "default", color: "var(--c-242019-t)" }}>
       <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
         <span style={{ fontSize: 14.5, fontWeight: 500, color: "var(--c-242019-t)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombre}</span>
         {detalle ? <span style={{ fontSize: 12, color: "var(--c-242019-t)", opacity: "var(--detalle-op)" }}>{detalle}</span> : null}

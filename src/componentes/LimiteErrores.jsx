@@ -4,13 +4,24 @@ import { reportarError } from "../errores.js";
 /*
  * Red de seguridad: si una pantalla falla al dibujarse, en vez de dejar la app en blanco
  * muestra un aviso con salidas claras (intentar de nuevo o recargar).
+ * Con `compacto` se usa DENTRO de una pantalla (p. ej. una pestaña de Análisis): el aviso ocupa solo ese espacio y el resto
+ * (cabecera, pestañas, menú) sigue funcionando. `origen` etiqueta el error en el reporte; `texto` nombra la parte que falló.
  */
 export class LimiteErrores extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }
-  componentDidCatch(error, info) { console.error("Error en la pantalla:", error, info && info.componentStack); reportarError(error, "pantalla"); }
+  componentDidCatch(error, info) { console.error("Error en la pantalla:", error, info && info.componentStack); reportarError(error, this.props.origen || "pantalla"); }
   render() {
     if (!this.state.error) return this.props.children;
+    if (this.props.compacto) {
+      return (
+        <div role="alert" style={{ padding: "18px 16px", margin: "12px 0", borderRadius: 16, border: "1px solid var(--c-e4dfce-o, #333)", background: "var(--c-ede7d8-b, transparent)", color: "var(--c-242019-t, #ECEDEF)", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>No se pudo mostrar {this.props.texto || "esta sección"}</div>
+          <div style={{ fontSize: 13.5, color: "var(--c-8a8272-t, #9aa0a6)", lineHeight: 1.5 }}>Tus datos están a salvo y el resto de la app sigue funcionando. Puedes intentar de nuevo o abrir otra pestaña.</div>
+          <button type="button" style={{ alignSelf: "flex-start", minHeight: 44, padding: "0 16px", borderRadius: 12, border: "none", background: "var(--neon, var(--accent, #0e9f6e))", color: "var(--neon-text, #fff)", fontSize: 14, fontWeight: 700, cursor: "pointer" }} onClick={() => this.setState({ error: null })}>Intentar de nuevo</button>
+        </div>
+      );
+    }
     return (
       <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "var(--c-f7f4ec-b, #121316)", color: "var(--c-242019-t, #ECEDEF)", fontFamily: "var(--font-body, system-ui)" }}>
         <div style={{ maxWidth: 360, width: "100%", display: "flex", flexDirection: "column", gap: 12, textAlign: "center" }}>
