@@ -1,7 +1,7 @@
 {
   "name": "comandas",
   "private": true,
-  "version": "23.13.0",
+  "version": "23.28.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -25,6 +25,8 @@
     "diseno:probar": "node tools/probar-diseno.mjs",
     "offline:probar": "node tools/probar-offline.mjs",
     "revisar": "node tools/revisar-codigo.mjs",
+    "verificar:despliegue": "npm run reglas:probar && npm run menu-foto:probar && npm run seguridad:probar && npm run analitica:probar && npm run cobros:probar && npm run revisar && npm run build",
+    "revisar:indefinidos": "node tools/revisar-indefinidos.mjs",
     "preparar-entrega": "node tools/preparar-entrega.mjs",
     "pisos:probar": "node tools/probar-pisos.mjs",
     "version:probar": "node tools/probar-version.mjs",

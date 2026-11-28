@@ -1,5 +1,7 @@
 [build]
-  command = "npm run build"
+  # Antes de compilar corre las comprobaciones rápidas (segundos): reglas de seguridad, lógica de cobros y análisis, y la revisión de código
+  # (incluye variables sin definir). Si algo falla, Netlify NO publica y deja en línea la versión anterior. Mismo conjunto que .github/workflows/verificar.yml.
+  command = "npm run verificar:despliegue"
   publish = "dist"
   [build.environment]
     NODE_VERSION = "22"
