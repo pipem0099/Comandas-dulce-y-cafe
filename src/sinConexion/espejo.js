@@ -2,6 +2,7 @@
  * Copia local de lo último que mandó el servidor (menú, mesas, cuentas, pedidos...). Así la app abre con datos aunque no haya internet
  * (se muestra primero la copia y, en cuanto llega el servidor, se reemplaza). Se vacía al cerrar sesión: nada queda guardado en un equipo ajeno.
  */
+import { fallo } from "../fallos.js";
 const PREFIJO = "esp:";
 export function crearEspejo({ almacen, demoraMs = 600, reloj = Date.now } = {}) {
   const esperando = new Map(); // clave → { valor, timer }
@@ -9,7 +10,7 @@ export function crearEspejo({ almacen, demoraMs = 600, reloj = Date.now } = {}) 
     const e = esperando.get(clave);
     if (!e) return;
     clearTimeout(e.timer); esperando.delete(clave);
-    try { await almacen.guardar(PREFIJO + clave, { ts: reloj(), valor: e.valor }); } catch (_) { /* sin espacio o sin permiso: la app sigue sin copia */ }
+    try { await almacen.guardar(PREFIJO + clave, { ts: reloj(), valor: e.valor }); } catch (err) { fallo("espejo:guardar", err); /* sin espacio o sin permiso: la app sigue funcionando, solo que sin copia para abrir sin internet */ }
   };
   return {
     async leer(clave) { try { return await almacen.leer(PREFIJO + clave); } catch (_) { return undefined; } },
