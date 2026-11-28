@@ -1,6 +1,7 @@
 import { saveRecord } from "./firebase.js";
 import { VERSION } from "./constantes.js";
 import { uid as nuevoId } from "./logica.js";
+import { registrarDestinoDeFallos } from "./fallos.js";
 
 /*
  * Registro de errores de la propia app: cuando algo falla en la pantalla de alguien, queda anotado
@@ -44,6 +45,9 @@ export function reportarError(error, origen = "app") {
     Promise.resolve(saveRecord("errores", nuevoId(), registro)).catch(() => {});
   } catch (e) { /* nada */ }
 }
+
+// Los fallos tolerados de módulos de bajo nivel (ver fallos.js) también quedan anotados, con las mismas reglas: sin repetir y pocos por vez.
+registrarDestinoDeFallos(reportarError);
 
 /** Engancha los errores que no atrapó nadie (fallos sueltos y promesas rechazadas). */
 export function instalarCapturaDeErrores() {

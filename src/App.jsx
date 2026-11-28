@@ -563,7 +563,7 @@ export default function App() {
           {vista === "analisis" && (
             <div style={styles.screen}>
               <Analisis
-                usuarioActual={usuarioActual} turnos={turnos} equipo={equipo} cuentasVivas={cuentas} ordersVivos={orders} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} onIr={abrirVista} onDetalle={irDetalle} onClose={cerrarVista} onEditarProducto={(id) => { setFocoProducto({ id, n: Date.now() }); abrirVista("menu"); }} menu={menu} persistMenu={persistMenu} insumos={insumos} config={config} persistConfig={persistConfig}
+                usuarioActual={usuarioActual} turnos={turnos} equipo={equipo} mesas={mesas} cuentasVivas={cuentas} ordersVivos={orders} cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} onIr={abrirVista} onDetalle={irDetalle} onClose={cerrarVista} onEditarProducto={(id) => { setFocoProducto({ id, n: Date.now() }); abrirVista("menu"); }} menu={menu} persistMenu={persistMenu} insumos={insumos} config={config} persistConfig={persistConfig}
                 cuentasAnalisis={cuentasAnalisis} ordersAnalisis={ordersAnalisis}
                 cargarHistorialReciente={cargarHistorialReciente} historialListo={!!baseAnalisis} errorHistorial={!!(baseAnalisis && baseAnalisis.error)} cargandoHistorial={cargandoReciente}
               />

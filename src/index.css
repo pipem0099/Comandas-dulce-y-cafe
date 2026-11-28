@@ -175,6 +175,10 @@ html[data-teclado] button:focus-visible, html[data-teclado] [role="button"]:focu
   transform: translate3d(0, calc(100% + 48px), 0); will-change: transform;
   transition: transform .62s var(--resorte-suave);
 }
+/* Vista previa de un día del calendario (mantener presionado / doble clic): tarjeta centrada sobre fondo oscurecido y desenfocado */
+.peek { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; background: rgba(0, 0, 0, .4); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); animation: fadeIn .2s ease-out both; }
+.peek-tarjeta { position: relative; width: 100%; max-width: 360px; max-height: min(78dvh, 560px); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 18px; border-radius: 24px; background: var(--sheet); color: var(--c-242019-t); font-family: var(--font-body); box-shadow: var(--shadow-float); outline: none; animation: peekIn .28s cubic-bezier(.2, .9, .3, 1.15) both; }
+@keyframes peekIn { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
 .hoja-v2-agarre { flex-shrink: 0; display: flex; justify-content: center; padding: 9px 0 3px; touch-action: none; cursor: grab; }
 .hoja-v2-agarre span { width: 38px; height: 5px; border-radius: 3px; background: var(--c-c7bfa0-o); opacity: .9; }
 .hoja-v2-scroll {

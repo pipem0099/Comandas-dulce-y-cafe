@@ -75,54 +75,6 @@ export function HojaDia({ d, orders, mesas, canceladas = [], config, usuario }) 
         />
       </Seccion>
 
-      {comparativa && (comparativa.total.anterior > 0 || comparativa.cuentas.anterior > 0) && (
-        <Seccion titulo={`Comparado con ${comparativa.etiquetaB}`}>
-          <Datos filas={[
-            ["Ventas", `${money(comparativa.total.actual)} contra ${money(comparativa.total.anterior)} · ${fmtDif(comparativa.total)}`],
-            ["Cuentas cobradas", `${Math.round(comparativa.cuentas.actual)} contra ${Math.round(comparativa.cuentas.anterior)} · ${fmtDif(comparativa.cuentas, false)}`],
-            ["Ticket promedio", `${money(comparativa.ticket.actual)} contra ${money(comparativa.ticket.anterior)} · ${fmtDif(comparativa.ticket)}`],
-          ]} />
-        </Seccion>
-      )}
-
-      {filasSemana.length > 1 && (
-        <Seccion titulo="Ventas por día de la semana" nota="La barra y el promedio son lo que se vende en un día así, en un día normal.">
-          <Tabla
-            cols={[{ t: "Día", w: "22%", v: (f) => f.nombre }, { t: "", v: (f) => <BarraImp valor={f.promedio} max={maxSemana} /> }, { t: "Promedio", d: true, w: "20%", v: (f) => money(f.promedio) }, { t: "Total", d: true, w: "20%", v: (f) => money(f.total) }]}
-            filas={filasSemana}
-          />
-        </Seccion>
-      )}
-
-      {juntos.pares.length > 0 && (
-        <Seccion titulo="Productos que se piden juntos" nota="Cuentas que llevaron los dos productos a la vez (solo las combinaciones que se repiten).">
-          <Tabla
-            cols={[{ t: "Combinación", v: (f) => `${f.a} + ${f.b}` }, { t: "Cuentas", d: true, w: "16%", v: (f) => f.cuentas }, { t: "% de cuentas", d: true, w: "20%", v: (f) => `${Math.round(f.pct)}%` }]}
-            filas={juntos.pares}
-          />
-        </Seccion>
-      )}
-
-      {propinasReparto && propinasReparto.datos && (propinasReparto.datos.totalPendiente + propinasReparto.datos.totalRepartido + propinasReparto.datos.totalEnCurso) > 0 && (
-        <Seccion titulo={`Propinas · ${propinasReparto.etiqueta}`} nota="Las propinas de cualquier método de pago se entregan en efectivo. Solo se reparten las de turnos cerrados.">
-          <Datos filas={[
-            ["YA REPARTIDAS", money(propinasReparto.datos.totalRepartido)],
-            ["PENDIENTES POR REPARTIR", money(propinasReparto.datos.totalPendiente)],
-            ...(propinasReparto.datos.totalEnCurso > 0 ? [["En turno abierto (aún no se reparte)", money(propinasReparto.datos.totalEnCurso)]] : []),
-          ]} />
-          {propinasReparto.repartos.length > 0 && (
-            <Tabla
-              cols={[{ t: "Entregada el", w: "24%", v: (r) => dateTimeLabel(r.ts) }, { t: "La entregó", w: "18%", v: (r) => r.nombre || "—" }, { t: "A quién", v: (r) => (r.lineas || []).map((l) => `${l.nombre} ${money(l.monto)}`).join(" · ") }, { t: "Total", d: true, w: "16%", v: (r) => money(r.total) }]}
-              filas={propinasReparto.repartos}
-            />
-          )}
-          <Tabla
-            cols={[{ t: "Día", w: "26%", v: (d) => dayLabel(new Date(`${d.dia}T12:00:00`).getTime()) }, { t: "Repartido", d: true, v: (d) => (d.repartido > 0 ? money(d.repartido) : "—") }, { t: "Pendiente por repartir", d: true, v: (d) => (d.pendiente > 0 ? money(d.pendiente) : "—") }, { t: "Turno abierto", d: true, v: (d) => (d.enCurso > 0 ? money(d.enCurso) : "—") }]}
-            filas={propinasReparto.datos.porDia}
-          />
-        </Seccion>
-      )}
-
       <Seccion titulo="Ventas por mesero">
         <Tabla
           cols={[{ t: "Mesero", v: (f) => f[0] }, { t: "Cuentas", d: true, v: (f) => f[1].cuentas }, { t: "Promedio", d: true, v: (f) => money(f[1].total / f[1].cuentas) }, { t: "Propinas", d: true, v: (f) => money(f[1].propinas) }, { t: "Total", d: true, v: (f) => money(f[1].total) }]}
@@ -255,6 +207,54 @@ export function HojaReporte({ etiqueta, rangoTxt, pagadas, orders, canceladas = 
           filas={METODOS} pie={["Total", Object.values(pagosCont).reduce((a, b) => a + b, 0), money(totalMetodos), totalMetodos > 0 ? "100%" : "—"]}
         />
       </Seccion>
+
+      {comparativa && (comparativa.total.anterior > 0 || comparativa.cuentas.anterior > 0) && (
+        <Seccion titulo={`Comparado con ${comparativa.etiquetaB}`}>
+          <Datos filas={[
+            ["Ventas", `${money(comparativa.total.actual)} contra ${money(comparativa.total.anterior)} · ${fmtDif(comparativa.total)}`],
+            ["Cuentas cobradas", `${Math.round(comparativa.cuentas.actual)} contra ${Math.round(comparativa.cuentas.anterior)} · ${fmtDif(comparativa.cuentas, false)}`],
+            ["Ticket promedio", `${money(comparativa.ticket.actual)} contra ${money(comparativa.ticket.anterior)} · ${fmtDif(comparativa.ticket)}`],
+          ]} />
+        </Seccion>
+      )}
+
+      {filasSemana.length > 1 && (
+        <Seccion titulo="Ventas por día de la semana" nota="La barra y el promedio son lo que se vende en un día así, en un día normal.">
+          <Tabla
+            cols={[{ t: "Día", w: "22%", v: (f) => f.nombre }, { t: "", v: (f) => <BarraImp valor={f.promedio} max={maxSemana} /> }, { t: "Promedio", d: true, w: "20%", v: (f) => money(f.promedio) }, { t: "Total", d: true, w: "20%", v: (f) => money(f.total) }]}
+            filas={filasSemana}
+          />
+        </Seccion>
+      )}
+
+      {juntos.pares.length > 0 && (
+        <Seccion titulo="Productos que se piden juntos" nota="Cuentas que llevaron los dos productos a la vez (solo las combinaciones que se repiten).">
+          <Tabla
+            cols={[{ t: "Combinación", v: (f) => `${f.a} + ${f.b}` }, { t: "Cuentas", d: true, w: "16%", v: (f) => f.cuentas }, { t: "% de cuentas", d: true, w: "20%", v: (f) => `${Math.round(f.pct)}%` }]}
+            filas={juntos.pares}
+          />
+        </Seccion>
+      )}
+
+      {propinasReparto && propinasReparto.datos && (propinasReparto.datos.totalPendiente + propinasReparto.datos.totalRepartido + propinasReparto.datos.totalEnCurso) > 0 && (
+        <Seccion titulo={`Propinas · ${propinasReparto.etiqueta}`} nota="Las propinas de cualquier método de pago se entregan en efectivo. Solo se reparten las de turnos cerrados.">
+          <Datos filas={[
+            ["YA REPARTIDAS", money(propinasReparto.datos.totalRepartido)],
+            ["PENDIENTES POR REPARTIR", money(propinasReparto.datos.totalPendiente)],
+            ...(propinasReparto.datos.totalEnCurso > 0 ? [["En turno abierto (aún no se reparte)", money(propinasReparto.datos.totalEnCurso)]] : []),
+          ]} />
+          {propinasReparto.repartos.length > 0 && (
+            <Tabla
+              cols={[{ t: "Entregada el", w: "24%", v: (r) => dateTimeLabel(r.ts) }, { t: "La entregó", w: "18%", v: (r) => r.nombre || "—" }, { t: "A quién", v: (r) => (r.lineas || []).map((l) => `${l.nombre} ${money(l.monto)}`).join(" · ") }, { t: "Total", d: true, w: "16%", v: (r) => money(r.total) }]}
+              filas={propinasReparto.repartos}
+            />
+          )}
+          <Tabla
+            cols={[{ t: "Día", w: "26%", v: (d) => dayLabel(new Date(`${d.dia}T12:00:00`).getTime()) }, { t: "Repartido", d: true, v: (d) => (d.repartido > 0 ? money(d.repartido) : "—") }, { t: "Pendiente por repartir", d: true, v: (d) => (d.pendiente > 0 ? money(d.pendiente) : "—") }, { t: "Turno abierto", d: true, v: (d) => (d.enCurso > 0 ? money(d.enCurso) : "—") }]}
+            filas={propinasReparto.datos.porDia}
+          />
+        </Seccion>
+      )}
 
       {listaDias.length > 1 && (
         <Seccion titulo="Ventas por día">

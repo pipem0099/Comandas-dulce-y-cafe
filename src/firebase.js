@@ -5,6 +5,7 @@ import { uid as nuevoId } from "./logica.js";
 import { almacenIndexedDB } from "./sinConexion/almacen.js";
 import { crearBandeja } from "./sinConexion/bandeja.js";
 import { crearEspejo } from "./sinConexion/espejo.js";
+import { fallo } from "./fallos.js";
 import { aplicarPendientes } from "./sinConexion/superposicion.js";
 import { fusionar } from "./sinConexion/fusion.js";
 import { crearClienteFacturacion, ErrorReintentable } from "./facturacion/cliente.js";
@@ -342,7 +343,7 @@ export async function sesionVerificada() {
   catch (e) { return false; }
 }
 export async function cerrarSesion() {
-  try { await espejo.vaciar(); } catch (e) { /* si no se pudo limpiar, igual se cierra la sesión */ }   // nada de datos del negocio queda en un equipo ajeno (los cambios pendientes por enviar SÍ se conservan)
+  try { await espejo.vaciar(); } catch (e) { fallo("sesion:vaciar-copia", e); /* si no se pudo limpiar, igual se cierra la sesión (pero quedó una copia local: conviene saberlo) */ }   // nada de datos del negocio queda en un equipo ajeno (los cambios pendientes por enviar SÍ se conservan)
   try { await signOut(auth); } catch (e) { console.error("Error al cerrar sesión:", e); }
 }
 export async function enviarCorreoCambioClave(correo) {
