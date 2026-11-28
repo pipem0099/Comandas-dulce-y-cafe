@@ -18,3 +18,12 @@ export const conflictosSinConexion = () => [];
 export const descartarConflictoSinConexion = async () => {};
 export const reintentarConflictoSinConexion = async () => {};
 export const sincronizarAhora = async () => {};
+// Facturación (la usa el detalle de un día en Análisis → Reportes, que muestra «Factura electrónica»): en las pruebas no hay nada en cola.
+export const facturasEnCola = () => new Set();
+export const solicitarFacturacion = async () => ({ ok: true });
+export const emitirFacturaCuenta = async () => ({ ok: true });
+// Bitácora de control y reparto de propinas (Análisis → Pérdidas y Reportes los importan): en las pruebas no hay registros ni se guarda nada.
+export const leerBitacora = async () => ({ ok: true, lista: [] });
+export const borrarBitacora = async () => ({ ok: true });
+export const guardarReparto = async () => ({ ok: true });
+export const anularRepartoPropinas = async () => ({ ok: true });

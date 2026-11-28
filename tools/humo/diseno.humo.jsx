@@ -24,6 +24,7 @@ await pintar(<MenuEditor menu={menu} persistMenu={() => {}} config={{}} persistC
 const txt = () => document.body.textContent;
 ok(txt().includes("2 productos sin costo registrado"), "Menú: un único aviso global agrupa los productos sin costo (2)");
 ok(!/Sin costo registrado/.test(txt()), "Menú: ya no se repite 'Sin costo registrado' fila por fila");
+await click(btn("Bebidas2 productos")); await act(async () => { await new Promise((r) => setTimeout(r, 450)); });   // las categorías entran plegadas: se abre «Bebidas» para ver sus filas
 ok(txt().includes("Margen 75%"), "Menú: la fila con costo conserva su margen como detalle atenuado");
 await click(btn("Ver cuáles"));
 ok(txt().includes("Té") && txt().includes("Torta") && !txt().includes("Café"), "Menú: el aviso filtra la lista a los productos sin costo");

@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
 import { Selector, CampoFecha, CampoHora } from "../../src/componentes/Campos.jsx";
+import { fechaCorta } from "../../src/fechas.js";
 import { PendientesView } from "../../src/pantallas/Pendientes.jsx";
 import { MesaCuentaCard } from "../../src/pantallas/CuentaMesa.jsx";
 import { Analisis } from "../../src/pantallas/Analisis.jsx";
@@ -30,7 +31,7 @@ ok(elegido === "nombre" && !document.querySelector("[role=listbox]"), "Selector:
 /* Fecha */
 let fecha = "2026-11-20";
 await pintar(<CampoFecha value={fecha} min="2026-11-10" opcional onChange={(k) => { fecha = k; }} titulo="Fecha de vencimiento" />);
-ok(txt().includes("vie 20 nov 2026"), "Fecha: muestra «vie 20 nov 2026»");
+ok(txt().includes(fechaCorta("2026-11-20")), "Fecha: muestra la fecha corta («vie 20 nov»; el año solo si no es el actual)");
 await click(document.querySelector("button[aria-haspopup=dialog]"));
 ok(txt().includes("noviembre 2026") && !!btn("Quitar fecha"), "Fecha: abre el calendario del mes de la fecha y deja quitarla");
 const dia = (n) => document.querySelector(`[role=gridcell][aria-label$='${n} nov 2026']`);
@@ -42,13 +43,27 @@ await click(document.querySelector("button[aria-haspopup=dialog]"));
 await click(btn("Quitar fecha")); await esperar(450);
 ok(fecha === "", "Fecha: «Quitar fecha» deja el campo vacío");
 
+/* Fecha con días marcados (Propinas: verde = todo repartido, rojo = por repartir) */
+await pintar(<CampoFecha value="2026-11-20" onChange={() => {}} marcas={{ "2026-11-23": "ok", "2026-11-24": "alerta" }} leyenda={[{ tono: "ok", texto: "Todo repartido" }, { tono: "alerta", texto: "Por repartir" }, { tono: "neutro", texto: "Sin propinas" }]} />);
+await click(document.querySelector("button[aria-haspopup=dialog]"));
+const diaM = (n) => document.querySelector(`[role=gridcell][aria-label*='${n} nov 2026']`);
+ok(diaM(23).getAttribute("aria-label").includes("Todo repartido") && diaM(24).getAttribute("aria-label").includes("Por repartir"), "Fecha con marcas: los días verde y rojo dicen su estado (no solo color)");
+ok(!diaM(25).getAttribute("aria-label").includes(","), "Fecha con marcas: un día sin propinas queda neutro");
+ok(txt().includes("Sin propinas") && txt().includes("Por repartir"), "Fecha con marcas: muestra la leyenda");
+await click(btn("Cerrar")); await esperar(450);
+
 /* Hora */
 let hora = "";
 await pintar(<CampoHora value="" onChange={(h) => { hora = h; }} titulo="Hora de la reserva" />);
 await click(document.querySelector("button[aria-haspopup=dialog]"));
-ok([...document.querySelectorAll("button")].filter((b) => b.textContent === "05").every((b) => b.disabled), "Hora: los minutos esperan a que se elija la hora");
-await click(btn("4 p. m.")); await click([...document.querySelectorAll("button")].find((b) => b.textContent === "30")); await esperar(450);
-ok(hora === "16:30", "Hora: 4 p. m. + 30 → «16:30»");
+/* La hora se elige con tres ruedas (hora · minutos · a. m./p. m.) y se confirma con «Listo». Una rueda se mueve con el desplazamiento; la prueba lo imita. */
+const girar = (etiqueta, i) => act(async () => { const el = document.querySelector(`[role=listbox][aria-label="${etiqueta}"]`); el.scrollTop = i * 44; el.dispatchEvent(new Event("scroll")); await new Promise((r) => setTimeout(r, 220)); });
+ok(!!document.querySelector("[role=listbox][aria-label=Hora]") && !!document.querySelector("[role=listbox][aria-label=Minutos]") && !!document.querySelector("[role=listbox][aria-label='a. m. o p. m.']"), "Hora: se abre con tres ruedas (hora, minutos y a. m./p. m.)");
+await girar("Hora", 3);          // 4
+await girar("Minutos", 6);       // 30
+ok(hora === "", "Hora: mientras se gira no cambia nada hasta pulsar «Listo»");
+await click(btn("Listo")); await esperar(450);
+ok(hora === "16:30", "Hora: 4 + 30 + p. m. → «16:30»");
 
 /* Pendientes */
 const AHORA = Date.now();
@@ -84,7 +99,7 @@ for (let w = 0; w < 9; w++) for (const hh of [17, 18, 19, 20, 21, 22, 23, 0, 1])
   cuentasA.push({ id, mesa: "1", ts, estado: "pagada", pagadaTs: ts, pagos: [{ id: `p${id}`, ts, metodoPago: "efectivo", monto: 40000 }], personas: 2 });
   ordersA.push({ id: `o${id}`, cuentaId: id, mesa: "1", estado: "servido", ts, items: [{ id: "x", name: "Plato", qty: 1, price: 40000, cost: 30000 }] });
 }
-const propsA = { onClose: () => {}, menu: [{ id: "x", name: "Plato", cat: "Comidas", price: 40000, cost: 30000 }], persistMenu: () => {}, insumos: [], config: { margenObjetivo: 65 }, persistConfig: (c) => { cfg = c; }, cuentasAnalisis: cuentasA, ordersAnalisis: ordersA, cargarHistorialReciente: () => {}, historialListo: true, errorHistorial: false, cargandoHistorial: false };
+const propsA = { onClose: () => {}, menu: [{ id: "x", name: "Plato", cat: "Comidas", price: 40000, cost: 30000 }], persistMenu: () => {}, insumos: [], config: { margenObjetivo: 65, margenActivo: true }, persistConfig: (c) => { cfg = c; }, cuentasAnalisis: cuentasA, ordersAnalisis: ordersA, cargarHistorialReciente: () => {}, historialListo: true, errorHistorial: false, cargandoHistorial: false };
 await pintar(<Analisis {...propsA} />); await esperar(30);
 await click([...document.querySelectorAll("button")].find((b) => b.textContent === "Costos")); await esperar(30);
 ok(txt().includes("Margen objetivo") && !!btn("70%") && !!document.querySelector("button[aria-label='Subir el objetivo 5 puntos']"), "Margen objetivo: opciones rápidas (40–80%) y botones − / + para ajustar");
