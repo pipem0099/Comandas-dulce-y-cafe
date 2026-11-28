@@ -1,4 +1,4 @@
-// Revisión automática de código SIN instalar nada (no hay ESLint en este proyecto): frena los errores que ya nos costaron caro.
+// Revisión automática de código SIN instalar nada nuevo (no hay ESLint en este proyecto): frena los errores que ya nos costaron caro.
 // Errores (frenan `npm run verificar`) y avisos (solo informan).   npm run revisar
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -40,6 +40,16 @@ for (const f of archivos) {
       }
     }
   });
+}
+// Variables que se usan sin existir (ver tools/revisar-indefinidos.mjs): son errores, porque la app compila bien y revienta recién al abrir esa pantalla.
+{
+  const { buscarIndefinidos } = await import("./revisar-indefinidos.mjs");
+  const r = await buscarIndefinidos(archivos.filter((f) => relative(raiz, f).startsWith("src/")), raiz);
+  if (!r.disponible) { avisos++; console.log(`⚠ No se revisaron variables sin definir (${r.motivo}). Corre «npm ci» para instalar las dependencias.`); }
+  else {
+    r.hallazgos.forEach((h) => { errores++; console.log(`✘ ${h.archivo}:${h.linea}  «${h.nombre}» se usa pero no está definido (¿falta un import, un parámetro o una prop?)`); });
+    r.ilegibles.forEach((i) => { avisos++; console.log(`⚠ ${i.archivo}: no se pudo leer para buscar variables sin definir (${i.motivo})`); });
+  }
 }
 console.log(`\n${archivos.length} archivos revisados · ${errores} error(es) · ${avisos} aviso(s)`);
 if (errores > 0) process.exit(1);
