@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { perezoso } from "../cargaDiferida.js";
+import { useAhora } from "../useAhora.js";
 import { CabeceraAdmin } from "../componentes/CabeceraAdmin.jsx";
 import { FilaTabs } from "../componentes/Comunes.jsx";
+import { LimiteErrores } from "../componentes/LimiteErrores.jsx";
 import { InfoTip } from "../componentes/InfoTip.jsx";
 import { Interruptor } from "../componentes/FilasIos.jsx";
 import { Plegable } from "../componentes/Comunes.jsx";
@@ -65,7 +67,10 @@ function Resumen({ ventas, ahora }) {
   const d = cmp.nivel === "sin-base" ? null : descomponerVenta(A, B);
   const marca = cmp.nivel === "sin-base" ? "Sin base todavía" : cmp.nivel === "igual" ? "≈ igual" : `${cmp.pct > 0 ? "▲" : "▼"} ${Math.round(Math.abs(cmp.pct))}%`;
   const colorMarca = cmp.nivel === "sube" ? "#7BD88F" : cmp.nivel === "baja" ? "#FF8A75" : "#9BA4B0";
-  const frase = cmp.pct === null
+  const nombreRango = { hoy: "hoy", semana: "en los últimos 7 días", mes: "este mes" }[rango];
+  const frase = A.cuentas === 0
+    ? (B.cuentas === 0 ? `Todavía no hay ventas ${nombreRango}.` : `Aún no hay ventas ${nombreRango}: aparecerán aquí apenas se cobre la primera cuenta.`)
+    : cmp.pct === null
     ? "Todavía no hay suficientes ventas del período anterior para comparar (se necesitan al menos 5 cuentas)."
     : cmp.nivel === "igual" ? `Vas casi igual ${r.etiqueta}.`
     : `Vendiste ${Math.round(Math.abs(cmp.pct))}% ${cmp.pct < 0 ? "menos" : "más"} ${r.etiqueta.replace("vs. ", "que ")}.`;
@@ -104,7 +109,7 @@ function Resumen({ ventas, ahora }) {
         <Linea a="Cuentas atendidas" b={String(A.cuentas)} sub={`antes ${B.cuentas}`} />
         {A.ticketPersona !== null
           ? <Linea a="Ticket por persona" b={<NumeroAnimado valor={A.ticketPersona} formato={money} />} />
-          : <Vacio>Anota cuántas personas había en cada mesa (en la cuenta) para ver el ticket por persona.</Vacio>}
+          : A.cuentas === 0 ? null : <Vacio>Anota cuántas personas había en cada mesa (en la cuenta) para ver el ticket por persona.</Vacio>}
         {A.ticketPersona !== null && A.cuentasConPersonas < A.cuentas && (
           <div style={{ ...nota, color: C.suave }}>Calculado con {A.cuentasConPersonas} de {A.cuentas} cuentas que tienen personas anotadas.</div>
         )}
@@ -149,7 +154,7 @@ function Productos({ ventas, menu, insumos, plantilla, ahora, onCostos }) {
       )}
       <Tabs valor={vista} onChange={setVista} opciones={[["mas", "Más ganancia"], ["menos", "Menos ganancia"], ["sin", "Sin ventas"]]} />
 
-      {vista !== "sin" && (lista.length === 0 ? <Vacio>Todavía no hay ventas con costo en este período.</Vacio> : lista.map((p) => {
+      {vista !== "sin" && (lista.length === 0 ? <Vacio>{rent.ventaTotal > 0 ? "Hay ventas en este período, pero ninguna tiene costo cargado todavía. Carga los costos en «Costos» para ver la ganancia." : `No hay ventas en los últimos ${dias} días.`}</Vacio> : lista.map((p) => {
         const c = p.clase ? CLASES[p.clase] : null;
         return (
           <div key={p.id} style={{ ...caja, padding: 12, marginBottom: 8 }}>
@@ -233,7 +238,7 @@ function Perdidas({ ventas, cuentas, ahora, usuarioActual }) {
         </div>
       ))}
 
-      <div style={caja}><BitacoraControl usuarioActual={usuarioActual} /></div>
+      <div style={{ ...caja, marginTop: 20 }}><BitacoraControl usuarioActual={usuarioActual} /></div>
     </>
   );
 }
@@ -326,7 +331,7 @@ function Semana({ ventas, menu, insumos, config, persistConfig, ahora }) {
 }
 
 /* ───────── 6 y 7 · Costos automáticos, margen objetivo y alertas ───────── */
-function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, ahora }) {
+function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, ahora, onEditarProducto }) {
   const categorias = useMemo(() => [...new Set((menu || []).map((m) => m.cat).filter(Boolean))], [menu]);
   const activo = !!(config && config.margenActivo);
   const guardada = (config && config.plantillaCostos) || {};
@@ -335,18 +340,20 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
   const objetivo = Number(config && config.margenObjetivo) || 65;
   const plantilla = useMemo(() => (activo ? Object.fromEntries(Object.entries(guardada).map(([k, v]) => [k, Number(v) || 0])) : {}), [guardada, activo]);
   const rent = useMemo(() => rentabilidad(ventas, menu, { rango: [ahora - 30 * DIA, ahora + 1], insumos, plantilla }), [ventas, menu, insumos, plantilla, ahora]);
-  const cambios = (config && config.preciosPrevios) || {};
+  // Solo entradas bien formadas: un dato viejo o a medias en `preciosPrevios` no debe tumbar la pantalla.
+  const cambios = useMemo(() => Object.fromEntries(Object.entries((config && config.preciosPrevios) || {}).filter(([, c]) => c && typeof c === "object")), [config]);
   const hayCambios = Object.keys(cambios).length > 0;
   const alternar = (v) => persistConfig({ ...config, margenActivo: !!v });
   const restaurar = async (id) => {
     const c = cambios[id]; if (!c) return;
     const { [id]: _quitar, ...resto } = cambios;
+    if (!persistMenu) return;
     await persistMenu((menu || []).map((m) => (m.id === id ? { ...m, price: c.anterior } : m)));
     await persistConfig({ ...config, preciosPrevios: resto });
     setAplicados((a) => { const n = { ...a }; delete n[id]; return n; });
   };
   const restaurarTodos = async () => {
-    const ids = Object.keys(cambios);
+    if (!persistMenu) return;
     await persistMenu((menu || []).map((m) => (cambios[m.id] ? { ...m, price: cambios[m.id].anterior } : m)));
     await persistConfig({ ...config, preciosPrevios: {} });
     setAplicados({});
@@ -398,6 +405,7 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
       )}
       {!activo ? <div style={nota}>Con esta opción apagada, los márgenes solo usan los costos que ya cargaste en Menú y precios o en las recetas. Nada se estima ni se cambia.</div> : (
       <>
+      {rent.ventaTotal <= 0 && <Vacio>Todavía no hay ventas en los últimos 30 días: cuando las haya, aquí verás qué parte de lo vendido tiene costo y qué productos quedan bajo el margen objetivo.</Vacio>}
       <div style={styles.cajaTotalCard}>
         <span style={styles.cajaTotalLabel}>Costos conocidos (últimos 30 días)</span>
         <span style={styles.cajaTotalValue}>{Math.round(rent.cobertura * 100)}%</span>
@@ -410,7 +418,7 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
           <div key={c} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "5px 0" }}>
             <span style={{ fontSize: 13.5, color: C.texto }}>{c}</span>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input type="number" min="0" max="95" inputMode="decimal" placeholder="—" style={entrada} value={borrador[c] === undefined ? "" : borrador[c]} onChange={(e) => setBorrador({ ...borrador, [c]: e.target.value })} />
+              <input type="number" min="0" max="95" inputMode="decimal" placeholder="—" style={entrada} value={borrador[c] === undefined ? (guardada[c] ? String(guardada[c]) : "") : borrador[c]} onChange={(e) => setBorrador({ ...borrador, [c]: e.target.value })} />
               <span style={{ color: C.suave }}>%</span>
             </span>
           </div>
@@ -512,9 +520,9 @@ function Costos({ ventas, menu, persistMenu, insumos, config, persistConfig, aho
 const ReportesView = perezoso(() => import("./Reportes.jsx"), "ReportesView");
 
 /* ───────── Pantalla ───────── */
-export function Analisis({ turnos, equipo, onDetalle, cuentasVivas, ordersVivos, cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargarHistorialCompleto, onIr, usuarioActual, onEditarProducto, onClose, menu, persistMenu, insumos, config, persistConfig, cuentasAnalisis, ordersAnalisis, cargarHistorialReciente, historialListo, errorHistorial, cargandoHistorial }) {
+export function Analisis({ turnos, equipo, mesas, onDetalle, cuentasVivas, ordersVivos, cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargarHistorialCompleto, onIr, usuarioActual, onEditarProducto, onClose, menu, persistMenu, insumos, config, persistConfig, cuentasAnalisis, ordersAnalisis, cargarHistorialReciente, historialListo, errorHistorial, cargandoHistorial }) {
   const [tab, setTab] = useState("reportes");
-  const [ahora] = useState(() => Date.now());
+  const ahora = useAhora();   // se renueva solo (cada 5 min y al volver a la app); antes quedaba fijo al abrir la pantalla
   // Se piden los últimos 120 días una sola vez: lo que ya está en vivo (~35 días) no alcanza para 8 semanas ni para el mes pasado,
   // y traer TODO el historial pesaría cada vez más con los años.
   useEffect(() => { if (cargarHistorialReciente) cargarHistorialReciente(120); }, [cargarHistorialReciente]);
@@ -528,9 +536,11 @@ export function Analisis({ turnos, equipo, onDetalle, cuentasVivas, ordersVivos,
         {cargandoHistorial && !historialListo && <div style={{ ...nota, color: C.suave, marginBottom: 10 }}>Cargando los últimos 120 días…</div>}
         {errorHistorial && <div style={{ ...nota, color: C.rojo, marginBottom: 10 }}>No se pudo cargar el historial: se muestran solo los últimos días. Revisa tu conexión y vuelve a entrar.</div>}
         <Transicion clave={tab} indice={["reportes", "resumen", "productos", "perdidas", "semana", "costos"].indexOf(tab)}>
+        {/* Si una pestaña falla al dibujarse, solo esa muestra el aviso; las pestañas y la cabecera siguen. key={tab}: al cambiar de pestaña se reinicia. */}
+        <LimiteErrores key={tab} compacto origen={`analisis:${tab}`} texto="esta pestaña">
         {tab === "reportes" && (
           <React.Suspense fallback={<div style={{ ...nota, padding: "14px 0" }}>Cargando reportes…</div>}>
-            <ReportesView incrustado turnos={turnos} equipo={equipo} onVerDia={onDetalle ? (dia) => onDetalle({ tipo: "dia", dia }) : undefined} onVerProducto={onDetalle ? (id) => onDetalle({ tipo: "producto", id }) : undefined} onVerCategoria={onDetalle ? (cat) => onDetalle({ tipo: "categoria", cat }) : undefined} cuentas={cuentasVivas || []} orders={ordersVivos || []} menu={menu || []} insumos={insumos || []} usuarioActual={usuarioActual} onIr={onIr} config={config}
+            <ReportesView incrustado turnos={turnos} equipo={equipo} mesas={mesas} onVerProducto={onDetalle ? (id) => onDetalle({ tipo: "producto", id }) : undefined} onVerCategoria={onDetalle ? (cat) => onDetalle({ tipo: "categoria", cat }) : undefined} cuentas={cuentasVivas || []} orders={ordersVivos || []} menu={menu || []} insumos={insumos || []} usuarioActual={usuarioActual} onIr={onIr} config={config}
               cuentasParaHistorial={cuentasParaHistorial} ordersParaHistorial={ordersParaHistorial} historialCompleto={historialCompleto} cargarHistorialCompleto={cargarHistorialCompleto} />
           </React.Suspense>
         )}
@@ -538,7 +548,8 @@ export function Analisis({ turnos, equipo, onDetalle, cuentasVivas, ordersVivos,
         {tab === "productos" && <Productos ventas={ventas} menu={menu || []} insumos={insumos || []} plantilla={plantilla} ahora={ahora} onCostos={() => setTab("costos")} />}
         {tab === "perdidas" && <Perdidas ventas={ventas} cuentas={cuentasAnalisis || []} ahora={ahora} usuarioActual={usuarioActual} />}
         {tab === "semana" && <Semana ventas={ventas} menu={menu || []} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
-        {tab === "costos" && <Costos ventas={ventas} menu={menu || []} persistMenu={persistMenu} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} />}
+        {tab === "costos" && <Costos ventas={ventas} menu={menu || []} persistMenu={persistMenu} insumos={insumos || []} config={config} persistConfig={persistConfig} ahora={ahora} onEditarProducto={onEditarProducto} />}
+        </LimiteErrores>
         </Transicion>
       </div>
     </>

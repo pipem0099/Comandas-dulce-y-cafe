@@ -36,6 +36,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
   const [movForm, setMovForm] = useState(null); // 'entrada' | 'salida' | null
   const [errorMov, setErrorMov] = useState("");
   const [detalleAbierto, setDetalleAbierto] = useState(null);
+  const [mesesCompletos, setMesesCompletos] = useState({});   // meses de «turnos anteriores» donde se pidió ver todos (por defecto solo los 3 más recientes)
   const [soloDif, setSoloDif] = useState(false);      // turnos anteriores: ver solo los que tuvieron diferencia
   const [filtroCaja, setFiltroCaja] = useState("todas");   // con varias cajas: ver los cierres de todas o de una sola
   const ancha = useDispositivo() !== "movil";
@@ -307,7 +308,7 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                 <button style={{ ...styles.exportLink, margin: "10px 0 4px" }} onClick={() => imprimir(<HojaMes mes={mes} cuentas={cuentasParaHistorial || cuentas} config={config} usuario={usuarioActual} />)}>
                   <Printer size={14} style={{ verticalAlign: -2, marginRight: 5 }} />Imprimir cierre de {mes.titulo.toLowerCase()}
                 </button>
-                {mes.items.map((tr) => {
+                {(mesesCompletos[mes.key] ? mes.items : mes.items.slice(0, 3)).map((tr) => {
                   const abierto = detalleAbierto === tr.id;
                   return (
                     <div key={tr.id} style={styles.turnoRowCol}>
@@ -334,6 +335,12 @@ export function TurnoView({ turnos, turnoAbierto, saveTurno, orders, cuentas, co
                     </div>
                   );
                 })}
+                {mes.items.length > 3 && (
+                  <button type="button" className="toque44" aria-expanded={!!mesesCompletos[mes.key]} onClick={() => setMesesCompletos((m) => ({ ...m, [mes.key]: !m[mes.key] }))}
+                    style={{ ...styles.exportLink, margin: "8px 0 2px", minHeight: 40 }}>
+                    {mesesCompletos[mes.key] ? "Ver solo los 3 más recientes" : `Ver los ${mes.items.length - 3} turnos restantes`}
+                  </button>
+                )}
               </Acordeon>
             );
           })}

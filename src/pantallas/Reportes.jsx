@@ -10,14 +10,14 @@ import { NumeroAnimado } from "../movimiento.jsx";
 import { horaCorta, horasDesdeApertura } from "../horas.js";
 import { styles } from "../estilos.js";
 import { cuentaGranTotal, cuentaOrders, dateTimeLabel, tieneRol } from "../utilidades.js";
-import { ReportesExtra } from "./ReportesExtra.jsx";
+import { ReportesExtra, SeccionR } from "./ReportesExtra.jsx";
 import { PanelPropinas } from "./PanelPropinas.jsx";
 import { comparativaPeriodo } from "../analiticaReportes.js";
 import { prepararVentas, rentabilidad, rangosComparables, resumenPeriodo, comparar } from "../analitica.js";
 
 /* ---------------- Reportes ---------------- */
 
-export function ReportesView({ turnos, equipo, onVerDia, onVerProducto, onVerCategoria, incrustado = false, cuentas: cuentasVivas, orders: ordersVivos, menu, insumos = [], usuarioActual, onIr, config, cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargarHistorialCompleto }) {
+export function ReportesView({ turnos, equipo, mesas, onVerDia, onVerProducto, onVerCategoria, incrustado = false, cuentas: cuentasVivas, orders: ordersVivos, menu, insumos = [], usuarioActual, onIr, config, cuentasParaHistorial, ordersParaHistorial, historialCompleto, cargarHistorialCompleto }) {
   const [rango, setRango] = useState("hoy");
   // Lo de "en vivo" solo trae los últimos ~35 días: para el mes pasado se pide el historial completo (una sola vez).
   const necesitaHistorial = rango === "mesPasado" || rango === "mesActual" || rango === "mes";   // también para comparar con el período anterior
@@ -215,27 +215,29 @@ export function ReportesView({ turnos, equipo, onVerDia, onVerProducto, onVerCat
         )}
       </div>
 
-      <div style={{ ...styles.catLabel, marginTop: 20 }}>TOP 5 PRODUCTOS</div>
-      {topProductos.length === 0 ? (
-        <div style={styles.cajaEmptyText}>Sin datos todavía.</div>
-      ) : (
-        topProductos.map(([name, p], i) => (
-          <FilaDato key={name} nombre={name} detalle={`${p.qty} ${p.qty === 1 ? "vendido" : "vendidos"}`} valor={`${money(p.subtotal)}${onVerProducto && productoPorNombre[name] ? " ›" : ""}`} ultima={i === topProductos.length - 1}
-            onClick={onVerProducto && productoPorNombre[name] ? () => onVerProducto(productoPorNombre[name].id) : undefined} />
-        ))
-      )}
+      <SeccionR inicialAbierto titulo="TOP 5 PRODUCTOS" resumen={topProductos.length ? `${topProductos[0][0]} · ${topProductos[0][1].qty} ${topProductos[0][1].qty === 1 ? "vendido" : "vendidos"}` : undefined}>
+        {topProductos.length === 0 ? (
+          <div style={styles.cajaEmptyText}>Sin datos todavía.</div>
+        ) : (
+          topProductos.map(([name, p], i) => (
+            <FilaDato key={name} nombre={name} detalle={`${p.qty} ${p.qty === 1 ? "vendido" : "vendidos"}`} valor={`${money(p.subtotal)}${onVerProducto && productoPorNombre[name] ? " ›" : ""}`} ultima={i === topProductos.length - 1}
+              onClick={onVerProducto && productoPorNombre[name] ? () => onVerProducto(productoPorNombre[name].id) : undefined} />
+          ))
+        )}
+      </SeccionR>
 
       <ReportesExtra rango={rango} pagadas={pagadasRango} orders={orders} menu={menu} cuentasBase={cuentas} ordersBase={orders}
-        historialListo={!necesitaHistorial || !!historialCompleto} onVerDia={onVerDia} onVerCategoria={onVerCategoria} />
+        historialListo={!necesitaHistorial || !!historialCompleto} onVerDia={onVerDia} onVerCategoria={onVerCategoria} mesas={mesas} config={config} usuarioActual={usuarioActual} />
 
-      <div style={{ ...styles.catLabel, marginTop: 20 }}>VENTAS POR MESERO</div>
-      {meserosOrdenados.length === 0 ? (
-        <div style={styles.cajaEmptyText}>Sin datos todavía.</div>
-      ) : (
-        meserosOrdenados.map(([nombre, d], i) => (
-          <FilaDato key={nombre} nombre={nombre} detalle={`${d.cuentas} ${d.cuentas === 1 ? "cuenta" : "cuentas"}${d.propinas > 0 ? ` · ${money(d.propinas)} propina` : ""}`} valor={money(d.total)} ultima={i === meserosOrdenados.length - 1} />
-        ))
-      )}
+      <SeccionR titulo="VENTAS POR MESERO" resumen={meserosOrdenados.length ? `${meserosOrdenados.length} ${meserosOrdenados.length === 1 ? "mesero" : "meseros"} · ${money(meserosOrdenados.reduce((t, [, d]) => t + d.total, 0))}` : undefined}>
+        {meserosOrdenados.length === 0 ? (
+          <div style={styles.cajaEmptyText}>Sin datos todavía.</div>
+        ) : (
+          meserosOrdenados.map(([nombre, d], i) => (
+            <FilaDato key={nombre} nombre={nombre} detalle={`${d.cuentas} ${d.cuentas === 1 ? "cuenta" : "cuentas"}${d.propinas > 0 ? ` · ${money(d.propinas)} propina` : ""}`} valor={money(d.total)} ultima={i === meserosOrdenados.length - 1} />
+          ))
+        )}
+      </SeccionR>
       </div>
     </div>
   );
