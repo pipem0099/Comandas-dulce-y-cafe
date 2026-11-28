@@ -8,6 +8,7 @@
  * Un evento se da por impreso únicamente cuando la impresora CONFIRMÓ: se anota en `pedido.impresiones[clave]` = { ts, por, equipo }.
  * Quien vea la marca (el otro equipo) no lo vuelve a imprimir.
  */
+import { fallo } from "../fallos.js";
 export const CLAVE_NUEVO = "n";
 export const claveAjuste = (ts) => `aj-${ts}`;
 
@@ -112,7 +113,7 @@ export function crearServicioComandas({ impresora, marcar, armar, equipo = "", a
       let r;
       try { r = await impresora.imprimir(bytesFn()); } catch (e) { r = { ok: false, motivo: `No se pudo imprimir: ${(e && e.message) || e}` }; }
       if (r && r.ok && marcarAlTerminar) {
-        try { await marcar(pedido, clave, marcaDeImpresion({ por, equipo: equipoCtx || equipo, ahora: ahora() })); } catch (_) { /* impreso, pero la marca no se pudo anotar: no es un fallo de impresión */ }
+        try { await marcar(pedido, clave, marcaDeImpresion({ por, equipo: equipoCtx || equipo, ahora: ahora() })); } catch (err) { fallo("impresion:marca", err); /* impreso, pero la marca no se pudo anotar (podría reimprimirse): no es un fallo de impresión para quien imprime */ }
       }
       return r && r.ok ? { ok: true } : { ok: false, motivo: (r && r.motivo) || "No se pudo imprimir." };
     } finally { enCurso.delete(llave); }
